@@ -18,12 +18,23 @@
 		{
 			"Name": "MZProto",
 			"Type": "Runtime",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "Default"
 		},
 		{
 			"Name": "MZClient",
 			"Type": "Runtime",
-			"LoadingPhase": "PostEngineInit"
+			"LoadingPhase": "Default"
+		},
+		{
+			"Name": "MZRemoteControl",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
 		}
-	]
+	],
+  "Plugins": [
+    {
+      "Name": "RemoteControl",
+      "Enabled": true
+    }
+  ]
 }

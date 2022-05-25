@@ -38,7 +38,7 @@ public class MZClient : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				// ... add private dependencies that you statically link with here ...	
+				"MZProto",// ... add private dependencies that you statically link with here ...	
 			}
 			);
 		

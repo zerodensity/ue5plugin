@@ -11,24 +11,24 @@
 class FMZProtoModule : public IModuleInterface {
  public:
   void StartupModule() override {
-    FString BaseDir = IPluginManager::Get().FindPlugin("mediaz")->GetBaseDir();
+    // FString BaseDir = IPluginManager::Get().FindPlugin("mediaz")->GetBaseDir();
 
-    FString DLLPath = FPaths::Combine(*BaseDir, TEXT("MediaZ"),
-                                      TEXT("Binaries"), TEXT("Win64"));
+    // FString DLLPath = FPaths::Combine(*BaseDir, TEXT("MediaZ"),
+    //                                   TEXT("Binaries"), TEXT("Win64"));
 
-    FPlatformProcess::PushDllDirectory(*DLLPath);
+    // FPlatformProcess::PushDllDirectory(*DLLPath);
 
-    TArray<FString> Files;
-    IFileManager::Get().FindFiles(Files, *DLLPath, TEXT("*.dll"));
+    // TArray<FString> Files;
+    // IFileManager::Get().FindFiles(Files, *DLLPath, TEXT("*.dll"));
 
-    for (FString const& DLL : Files) {
-     void* Lib = FPlatformProcess::GetDllHandle(*DLL);
-     if (Lib) {
-       LibHandles.Add(Lib);
-     }
-    }
+    // for (FString const& DLL : Files) {
+    //  void* Lib = FPlatformProcess::GetDllHandle(*DLL);
+    //  if (Lib) {
+    //    LibHandles.Add(Lib);
+    //  }
+    // }
 
-    FPlatformProcess::PopDllDirectory(*DLLPath);
+    // FPlatformProcess::PopDllDirectory(*DLLPath);
 
     FMessageDialog::Debugf(FText::FromString("Loaded MZProto module"), 0);
   }

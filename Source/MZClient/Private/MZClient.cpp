@@ -2,10 +2,6 @@
 #include "MZClient.h"
 #include "HAL/RunnableThread.h"
 
-#include "DispelUnrealMadnessPrelude.h"
-
-#include "TextureStream.grpc.pb.h"
-
 #define LOCTEXT_NAMESPACE "MediazClient"
 
 FMediaZClient::FMediaZClient() {}
@@ -18,12 +14,10 @@ void FMediaZClient::Start() {
 }
 
 void FMediaZClient::Stop() {
-
   if (Thread) {
     Thread->WaitForCompletion();
   }
 }
-
 
 bool FMediaZClient::Connect() {
 
@@ -60,4 +54,3 @@ uint32 FMediaZClient::Run() {
 
 #undef LOCTEXT_NAMESPACE
 
-#include "DispelUnrealMadnessPostlude.h"
