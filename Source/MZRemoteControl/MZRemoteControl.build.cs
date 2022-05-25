@@ -12,6 +12,7 @@ public class MZRemoteControl : ModuleRules
 			new string[] {
 				"Core",
 				"CoreUObject",
+				"UnrealEd",
 			}
 		);
 
