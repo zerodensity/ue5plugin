@@ -2,29 +2,61 @@
 #include "MZClient.h"
 #include "HAL/RunnableThread.h"
 
-#define LOCTEXT_NAMESPACE "MediazClient"
+#include "Misc/MessageDialog.h"
+#include "Runtime/Launch/Resources/Version.h"
 
-FMediaZClient::FMediaZClient() {}
+#pragma warning (disable : 4800)
+#pragma warning (disable : 4668)
 
-void FMediaZClient::Start() {
-  if (Thread == nullptr) {
-    Thread =
-        FRunnableThread::Create(this, TEXT("MediaZClient"), 0, TPri_Lowest);
-  }
+#include "AppClient.h"
+
+#define LOCTEXT_NAMESPACE "FMZClient"
+
+
+struct ClientImpl : mz::app::AppClient
+{
+    using mz::app::AppClient::AppClient;
+
+    virtual void OnAppConnected(mz::app::AppConnectedEvent event) override
+    {
+        FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
+    }
+
+    virtual void OnNodeUpdate(mz::proto::Node archive) override
+    {
+    }
+
+    virtual void OnMenuFired(mz::app::ContextMenuRequest request) override
+    {
+    }
+
+    virtual void Done(grpc::Status Status) override
+    {
+        FMessageDialog::Debugf(FText::FromString("App Client shutdown"), 0);
+    }
+};
+
+
+FMZClient::FMZClient() {}
+
+
+void FMZClient::StartupModule() {
+
+    FModuleManager::Get().LoadModuleChecked("MZProto");
+
+    FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
+    Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", "");
 }
 
-void FMediaZClient::Stop() {
-  if (Thread) {
-    Thread->WaitForCompletion();
-  }
+void FMZClient::ShutdownModule() {
 }
 
-bool FMediaZClient::Connect() {
+
+bool FMZClient::Connect() {
 
   uint32_t iWidth = 1;
   uint32_t iHeight = 1;
-  IConsoleVariable* MediaZOutputConsoleVar =
-      IConsoleManager::Get().FindConsoleVariable(TEXT("r.MediaZOutput"));
+  IConsoleVariable* MediaZOutputConsoleVar = IConsoleManager::Get().FindConsoleVariable(TEXT("r.MediaZOutput"));
   switch (MediaZOutputConsoleVar->GetInt()) {
     case 1: {
       iWidth = 1280;
@@ -48,9 +80,14 @@ bool FMediaZClient::Connect() {
   return true;
 }
 
-uint32 FMediaZClient::Run() {
+uint32 FMZClient::Run() {
   return 0;
 }
 
 #undef LOCTEXT_NAMESPACE
+
+IMPLEMENT_MODULE(FMZClient, MZClient)
+
+//
+//#include "DispelUnrealMadnessPostlude.h"
 

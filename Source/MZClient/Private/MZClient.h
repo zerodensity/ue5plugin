@@ -1,23 +1,23 @@
 #pragma once
+
+#include "IMZClient.h"
 #include "CoreMinimal.h"
-#include "HAL/Runnable.h"
 
 /**
  * Implements communication with the MediaZ server
  */
-class FMediaZClient : public FRunnable {
+class MZCLIENT_API FMZClient : public IMZClient {
  public:
-  FMediaZClient();
+	 FMZClient();
 
-  void Start();
-
-  void Stop();
-
- private:
-  bool Connect();
-
-  uint32 Run();
+	 virtual void StartupModule() override;
+	 virtual void ShutdownModule() override;
 
  private:
-  class FRunnableThread* Thread;
+	 bool Connect();
+
+	 uint32 Run();
+
+ private:
+  struct ClientImpl* Client;
 };

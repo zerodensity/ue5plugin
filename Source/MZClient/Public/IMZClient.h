@@ -14,5 +14,4 @@ class IMZClient : public IModuleInterface {
       return FModuleManager::GetModulePtr<IMZClient>(ModuleName);
     }
   }
- 
 };

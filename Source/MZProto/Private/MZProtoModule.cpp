@@ -1,14 +1,15 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+#include "IMZProto.h"
+#include "MZType.h"
 #include "Core.h"
-#include "Interfaces/IPluginManager.h"
-#include "Modules/ModuleManager.h"
 
 #include "Misc/MessageDialog.h"
 
+
 #define LOCTEXT_NAMESPACE "FMZProtoModule"
 
-class FMZProtoModule : public IModuleInterface {
+class MZPROTO_API FMZProtoModule : public IMZProto {
  public:
   void StartupModule() override {
     // FString BaseDir = IPluginManager::Get().FindPlugin("mediaz")->GetBaseDir();

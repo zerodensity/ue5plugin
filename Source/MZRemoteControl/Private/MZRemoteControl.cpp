@@ -1,6 +1,8 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "IMZRemoteControl.h"
+#include "IMZProto.h"
+#include "MZType.h"
 
 #include "AssetRegistryModule.h"
 #include "IRemoteControlModule.h"
@@ -23,55 +25,6 @@
 
 #define LOCTEXT_NAMESPACE "FMZRemoteControl"
 
-std::map<uint64_t, MZType*> GTypeMap;
-
-void MZType::Init(FField* Field_)
-{
-    Field = Field_;
-    if (auto sprop = CastField<FStructProperty>(Field))
-    {
-        TArray<FField*> fields;
-        sprop->GetInnerFields(fields);
-        Tag = STRUCT;
-        for (auto field : fields)
-        {
-            StructFields.Add(field->GetName(), GetType(field));
-        }
-    }
-    else if (auto aprop = CastField<FArrayProperty>(Field))
-    {
-        Tag = ARRAY;
-        ElementCount = aprop->ArrayDim;
-        ElementType = GetType(aprop->Inner);
-    }
-    else if (auto nprop = CastField<FNumericProperty>(Field))
-    {
-        Tag = (nprop->IsFloatingPoint() ? FLOAT : INT);
-        Width = nprop->ElementSize * 8;
-    }
-    else if (CastField<FBoolProperty>(Field))
-    {
-        Tag = BOOL;
-        Width = 1;
-    }
-    else if (CastField<FStrProperty>(Field))
-    {
-        Tag = STRING;
-    }
-}
-
-MZType* MZType::GetType(FField* Field)
-{
-    MZType*& ty = GTypeMap[Field->GetClass()->GetId()];
-    
-    if (!ty)
-    {
-        ty = new MZType();
-        ty->Init(Field);
-    }
-
-    return ty;
-}
 
 struct FMZRemoteControl : IMZRemoteControl {
 
@@ -101,7 +54,8 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       FRemoteControlProperty prop = entity->GetOwner()->GetProperty(entity->GetId()).GetValue();
-      EntityCache.Add(entity->GetId(), MZEntity{ MZType::GetType(prop.GetProperty()), entity });
+      ;
+      EntityCache.Add(entity->GetId(), MZEntity{ MZType::GetType(prop.GetProperty()), entity, prop.GetPropertyHandle() });
       PresetEntities[preset->GetFName()].Add(guid);
   }
 

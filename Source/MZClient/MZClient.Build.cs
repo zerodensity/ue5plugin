@@ -9,7 +9,9 @@ public class MZClient : ModuleRules
 	public MZClient(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
-		
+
+		CppStandard = CppStandardVersion.Cpp20;
+
 		PublicIncludePaths.AddRange(
 			new string[] {
 				// ... add public include paths required here ...
@@ -38,7 +40,7 @@ public class MZClient : ModuleRules
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"MZProto",// ... add private dependencies that you statically link with here ...	
+				
 			}
 			);
 		

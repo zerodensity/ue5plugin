@@ -28,8 +28,8 @@ public class MZProto : ModuleRules
             new string[]
             {
                 "Core",
-                "Projects"
-                // ... add other public dependencies that you statically link with here ...
+                "CoreUObject",
+                "RemoteControl",
             }
         );
 
@@ -77,7 +77,12 @@ public class MZProto : ModuleRules
                 PublicAdditionalLibraries.Add(lib);
             }
 
-            PublicIncludePaths.Add(ModuleDirectory);
+            PublicDefinitions.Add("GOOGLE_PROTOBUF_NO_RTTI");
+            PublicDefinitions.Add("GPR_FORBID_UNREACHABLE_CODE");
+            PublicDefinitions.Add("GRPC_ALLOW_EXCEPTIONS=0");
+            //PublicDefinitions.Add("GOOGLE_PROTOBUF_INTERNAL_DONATE_STEAL_INLINE");
+
+            PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
             PublicIncludePaths.Add(Path.Combine(SDKdir, "include"));
             PublicIncludePaths.Add(Path.Combine(SDKdeps, "include"));
             
