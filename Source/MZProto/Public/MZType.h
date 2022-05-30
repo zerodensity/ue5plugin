@@ -9,6 +9,12 @@
 #include <memory>
 #include <string>
 
+namespace mz::app
+{
+	class AddPinRequest;
+	class NodeUpdateRequest;
+}
+
 struct MZPROTO_API MZType
 {
 	enum
@@ -32,6 +38,9 @@ struct MZPROTO_API MZType
 	TMap<FString, MZType*> StructFields;
 
 	static MZType* GetType(FField*);
+
+	std::string Name;
+
 private:
 	MZType() = default;
 	void Init(FField*);
@@ -44,4 +53,5 @@ struct MZPROTO_API MZEntity
 	TSharedPtr<class IRemoteControlPropertyHandle> Property;
 	//void SerializeToProto(google::protobuf::Any* value);
 	//void SerializeToProto(mz::proto::DynamicField* field);
+	void SerializeToProto(mz::app::AddPinRequest* req);
 };

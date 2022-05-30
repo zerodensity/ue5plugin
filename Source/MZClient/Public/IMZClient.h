@@ -1,5 +1,7 @@
 #pragma once
 
+#include "MZType.h"
+
 #include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
@@ -14,4 +16,6 @@ class IMZClient : public IModuleInterface {
       return FModuleManager::GetModulePtr<IMZClient>(ModuleName);
     }
   }
+
+  virtual void SendNodeUpdate(TArray<MZEntity> const&) = 0 ;
 };

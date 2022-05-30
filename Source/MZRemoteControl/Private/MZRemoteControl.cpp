@@ -2,6 +2,7 @@
 
 #include "IMZRemoteControl.h"
 #include "IMZProto.h"
+#include "IMZClient.h"
 #include "MZType.h"
 
 #include "AssetRegistryModule.h"
@@ -54,9 +55,10 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       FRemoteControlProperty prop = entity->GetOwner()->GetProperty(entity->GetId()).GetValue();
-      ;
       EntityCache.Add(entity->GetId(), MZEntity{ MZType::GetType(prop.GetProperty()), entity, prop.GetPropertyHandle() });
       PresetEntities[preset->GetFName()].Add(guid);
+
+      // IMZClient::Get().SendNodeUpdate();
   }
 
   void OnEntityUnexposed(URemoteControlPreset* preset, FGuid const& guid)
@@ -70,22 +72,10 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Preset loaded " + preset->GetName()), 0);
       PresetEntities.Add(preset->GetFName(), {});
 
-      preset->OnEntitiesUpdated().AddStatic([](URemoteControlPreset* preset, const TSet<FGuid>& entities, FMZRemoteControl* mzrc) {
-          mzrc->OnEntitiesUpdated(preset, entities);
-          }, this);
-
-      preset->OnEntityExposed().AddStatic([](URemoteControlPreset* preset, FGuid const& entity, FMZRemoteControl* mzrc) {
-          mzrc->OnEntityExposed(preset, entity);
-          }, this);
-
-      preset->OnEntityUnexposed().AddStatic([](URemoteControlPreset* preset, FGuid const& entity, FMZRemoteControl* mzrc) {
-          mzrc->OnEntityUnexposed(preset, entity);
-          }, this);
-
-      preset->OnExposedPropertiesModified().AddStatic([](URemoteControlPreset* preset, const TSet<FGuid>& entities, FMZRemoteControl* mzrc) {
-          mzrc->OnExposedPropertiesModified(preset, entities);
-          }, this);
-
+      preset->OnEntitiesUpdated().AddRaw(this, &FMZRemoteControl::OnEntitiesUpdated);
+      preset->OnEntityExposed().AddRaw(this, &FMZRemoteControl::OnEntityExposed);
+      preset->OnEntityUnexposed().AddRaw(this, &FMZRemoteControl::OnEntityUnexposed);
+      preset->OnExposedPropertiesModified().AddRaw(this, &FMZRemoteControl::OnExposedPropertiesModified);
   }
 
   void OnPresetRemoved(URemoteControlPreset* preset)

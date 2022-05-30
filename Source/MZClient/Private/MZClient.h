@@ -17,7 +17,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 bool Connect();
 
 	 uint32 Run();
-
+	 virtual void SendNodeUpdate(TArray<MZEntity> const&) override {}
  private:
   struct ClientImpl* Client;
 };

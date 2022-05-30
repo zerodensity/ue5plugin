@@ -7,7 +7,8 @@
 
 #include "DispelUnrealMadnessPrelude.h"
 #include "google/protobuf/message.h"
-#include "Builtins.pb.h"
+
+#include "AppService.pb.h"
 
 #undef INT
 #undef FLOAT
@@ -20,6 +21,14 @@ auto GetValue(IRemoteControlPropertyHandle* p)
 	p->GetValue(val);
 	return val;
 }
+
+
+void MZEntity::SerializeToProto(mz::app::AddPinRequest* req)
+{
+	
+}
+
+
 //
 //void MZEntity::SerializeToProto(mz::proto::DynamicField* field)
 //{
@@ -67,4 +76,3 @@ auto GetValue(IRemoteControlPropertyHandle* p)
 //	//field->set_name(Entity->GetLabel().ToString());
 //}
 
-#include "DispelUnrealMadnessPostlude.h"

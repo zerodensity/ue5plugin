@@ -17,16 +17,16 @@ struct ClientImpl : mz::app::AppClient
 {
     using mz::app::AppClient::AppClient;
 
-    virtual void OnAppConnected(mz::app::AppConnectedEvent event) override
+    virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
     {
         FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
     }
 
-    virtual void OnNodeUpdate(mz::proto::Node archive) override
+    virtual void OnNodeUpdate(mz::proto::Node const& archive) override
     {
     }
 
-    virtual void OnMenuFired(mz::app::ContextMenuRequest request) override
+    virtual void OnMenuFired(mz::app::ContextMenuRequest const& request) override
     {
     }
 
@@ -45,6 +45,7 @@ void FMZClient::StartupModule() {
     FModuleManager::Get().LoadModuleChecked("MZProto");
 
     FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
+
     Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", "");
 }
 
