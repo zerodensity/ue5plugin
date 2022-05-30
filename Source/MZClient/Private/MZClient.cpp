@@ -1,6 +1,8 @@
 
 #include "MZClient.h"
 #include "HAL/RunnableThread.h"
+#include "RemoteControlPreset.h"
+#include "IRemoteControlPropertyHandle.h"
 
 #include "Misc/MessageDialog.h"
 #include "Runtime/Launch/Resources/Version.h"
@@ -52,6 +54,23 @@ void FMZClient::StartupModule() {
 void FMZClient::ShutdownModule() {
 }
 
+
+void FMZClient::SendNodeUpdate(MZEntity entity) 
+{
+    mz::proto::LocalArena arena;
+    mz::app::AppEvent* event = arena;
+    mz::app::NodeUpdateRequest* req = event->mutable_node_update();
+
+    req->set_clear(false);
+    req->set_node_id("UNREAL_ENGINE_NODE_ID");
+
+    auto pin = req->add_pins_to_add();
+    pin->set_class_name(entity.Type->Name);
+    pin->set_display_name(std::string(TCHAR_TO_UTF8(*entity.Entity->GetLabel().ToString())));
+    pin->set_name(std::string(TCHAR_TO_UTF8(*entity.Entity->GetLabel().ToString())));
+
+    Client->Write(*event);
+}
 
 bool FMZClient::Connect() {
 

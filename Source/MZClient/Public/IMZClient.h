@@ -17,5 +17,5 @@ class IMZClient : public IModuleInterface {
     }
   }
 
-  virtual void SendNodeUpdate(TArray<MZEntity> const&) = 0 ;
+  virtual void SendNodeUpdate(MZEntity) = 0 ;
 };

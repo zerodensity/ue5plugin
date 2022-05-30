@@ -30,10 +30,12 @@ public class MZClient : ModuleRules
 			new string[]
 			{
 				"Core",
+				"CoreUObject",
 				"Projects",
 				"RHI",
 				"VulkanRHI",
 				"MZProto",
+				"RemoteControl",
 			}
 			);
 

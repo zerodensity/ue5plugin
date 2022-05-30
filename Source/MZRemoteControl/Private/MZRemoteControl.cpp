@@ -55,10 +55,11 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       FRemoteControlProperty prop = entity->GetOwner()->GetProperty(entity->GetId()).GetValue();
-      EntityCache.Add(entity->GetId(), MZEntity{ MZType::GetType(prop.GetProperty()), entity, prop.GetPropertyHandle() });
+      MZEntity mze = { MZType::GetType(prop.GetProperty()), entity, prop.GetPropertyHandle() };
+      EntityCache.Add(entity->GetId(), mze);
       PresetEntities[preset->GetFName()].Add(guid);
 
-      // IMZClient::Get().SendNodeUpdate();
+      IMZClient::Get()->SendNodeUpdate(mze);
   }
 
   void OnEntityUnexposed(URemoteControlPreset* preset, FGuid const& guid)
@@ -102,7 +103,6 @@ struct FMZRemoteControl : IMZRemoteControl {
   {
       FMessageDialog::Debugf(FText::FromString("Preset imported " + preset->GetName()), 0);
   }
-
 
   void OnAssetAdded(const FAssetData& asset)
   {
