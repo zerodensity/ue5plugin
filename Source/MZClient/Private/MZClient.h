@@ -19,5 +19,5 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 uint32 Run();
 	 virtual void SendNodeUpdate(MZEntity) override;
  private:
-  struct ClientImpl* Client;
+  class ClientImpl* Client;
 };

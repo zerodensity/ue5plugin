@@ -12,11 +12,6 @@ static std::map<uint64_t, MZType*> GTypeMap;
 
 void MZType::Init(FField* Field)
 {
-    //switch (*Field->GetClass()->GetFName().ToEName())
-    //{
-
-    //}
-
     if (auto sprop = CastField<FStructProperty>(Field))
     {
         TArray<FField*> fields;
@@ -26,8 +21,6 @@ void MZType::Init(FField* Field)
         {
             StructFields.Add(field->GetName(), GetType(field));
         }
-
-        sprop->GetClass()->GetFName().ToEName();
     }
     else if (auto aprop = CastField<FArrayProperty>(Field))
     {

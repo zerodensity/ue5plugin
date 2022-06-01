@@ -15,8 +15,9 @@
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 
-struct ClientImpl : mz::app::AppClient
+class ClientImpl : public mz::app::AppClient
 {
+public:
     using mz::app::AppClient::AppClient;
 
     virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
@@ -48,7 +49,7 @@ void FMZClient::StartupModule() {
 
     FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
 
-    Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", "");
+    Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", "", true);
 }
 
 void FMZClient::ShutdownModule() {
@@ -62,12 +63,18 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
     mz::app::NodeUpdateRequest* req = event->mutable_node_update();
 
     req->set_clear(false);
-    req->set_node_id("UNREAL_ENGINE_NODE_ID");
 
-    auto pin = req->add_pins_to_add();
-    pin->set_class_name(entity.Type->Name);
-    pin->set_display_name(std::string(TCHAR_TO_UTF8(*entity.Entity->GetLabel().ToString())));
-    pin->set_name(std::string(TCHAR_TO_UTF8(*entity.Entity->GetLabel().ToString())));
+    mz::proto::Pin* pin = req->add_pins_to_add();
+
+    FString id = entity.Entity->GetId().ToString();
+    FString label = entity.Entity->GetLabel().ToString();
+
+    pin->set_id(TCHAR_TO_UTF8(*id));
+    pin->set_display_name(TCHAR_TO_UTF8(*label));
+    pin->set_name(TCHAR_TO_UTF8(*label));
+
+    mz::proto::Dynamic* dyn = pin->mutable_dynamic();
+    dyn->set_type(entity.Type->Name);
 
     Client->Write(*event);
 }
