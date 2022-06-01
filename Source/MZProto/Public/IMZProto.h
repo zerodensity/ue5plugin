@@ -15,4 +15,5 @@ namespace mz::proto
 }
 
 
+DECLARE_LOG_CATEGORY_EXTERN(LogMZProto, Log, All);
 class IMZProto : public IModuleInterface {};

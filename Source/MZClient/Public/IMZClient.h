@@ -18,4 +18,5 @@ class IMZClient : public IModuleInterface {
   }
 
   virtual void SendNodeUpdate(MZEntity) = 0 ;
+  virtual void Disconnect() = 0 ;
 };

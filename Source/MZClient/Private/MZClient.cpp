@@ -25,8 +25,9 @@ public:
         FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
     }
 
-    virtual void OnNodeUpdate(mz::proto::Node const& archive) override
-    {
+    virtual void OnNodeUpdate(mz::proto::Node const& archive) override 
+    {        
+        id = archive.id();
     }
 
     virtual void OnMenuFired(mz::app::ContextMenuRequest const& request) override
@@ -36,20 +37,25 @@ public:
     virtual void Done(grpc::Status Status) override
     {
         FMessageDialog::Debugf(FText::FromString("App Client shutdown"), 0);
+        FMZClient::Get()->Disconnect();
     }
+
+    std::string id;
 };
 
 
 FMZClient::FMZClient() {}
 
+void FMZClient::Disconnect() {
+    Client = 0;
+}
 
 void FMZClient::StartupModule() {
 
-    FModuleManager::Get().LoadModuleChecked("MZProto");
-
     FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
-
-    Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", "", true);
+    
+    std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "UEAppConfig").string();
+    Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", protoPath.c_str(), true);
 }
 
 void FMZClient::ShutdownModule() {
@@ -58,25 +64,35 @@ void FMZClient::ShutdownModule() {
 
 void FMZClient::SendNodeUpdate(MZEntity entity) 
 {
-    mz::proto::LocalArena arena;
-    mz::app::AppEvent* event = arena;
-    mz::app::NodeUpdateRequest* req = event->mutable_node_update();
+    if (!Client)
+    {
+        StartupModule();
+    }
 
-    req->set_clear(false);
+    if (Client->id.empty())
+    {
+        return;
+    }
 
+    mz::proto::msg<mz::app::AppEvent> event;
+    mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
+    req->mutable_pins_to_delete()->Clear();
+    mz::proto::Dynamic* dyn = pin->mutable_dynamic();
+
 
     FString id = entity.Entity->GetId().ToString();
     FString label = entity.Entity->GetLabel().ToString();
 
+    req->set_node_id(Client->id);
+    req->set_clear(false);
     pin->set_id(TCHAR_TO_UTF8(*id));
     pin->set_display_name(TCHAR_TO_UTF8(*label));
     pin->set_name(TCHAR_TO_UTF8(*label));
-
-    mz::proto::Dynamic* dyn = pin->mutable_dynamic();
-    dyn->set_type(entity.Type->Name);
-
-    Client->Write(*event);
+    
+    entity.SerializeToProto(dyn);
+    
+    Client->Write(event);
 }
 
 bool FMZClient::Connect() {

@@ -8,24 +8,81 @@
 #include "DispelUnrealMadnessPrelude.h"
 #include "google/protobuf/message.h"
 
+#include <Arena.h>
 #include "AppService.pb.h"
 
 #undef INT
 #undef FLOAT
 
+DEFINE_LOG_CATEGORY(LogMZProto);
 
 template<class T>
-auto GetValue(IRemoteControlPropertyHandle* p)
+static void SetValue(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
 {
-	T val;
+	using ValueType = decltype(T{}.val());
+
+	mz::proto::msg<T> m;
+	ValueType val;
+
 	p->GetValue(val);
-	return val;
+	m->set_val(val);
+
+	dyn->set_data(m->SerializeAsString());
+	dyn->set_type(m->GetTypeName());
 }
 
 
-void MZEntity::SerializeToProto(mz::app::AddPinRequest* req)
+void MZType::SerializeToProto(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
 {
 	
+	switch (Tag)
+	{
+	case BOOL:	 
+		SetValue<mz::proto::Bool>(dyn, p);
+		break;
+
+	case INT:	 
+		switch (Width)
+		{
+		case 32: SetValue<mz::proto::i32>(dyn, p); break;
+		case 64: SetValue<mz::proto::i64>(dyn, p); break;
+		}
+		break;
+	case FLOAT:
+		switch (Width)
+		{
+		case 32: SetValue<mz::proto::f32>(dyn, p); break;
+		case 64: SetValue<mz::proto::f64>(dyn, p); break;
+		}
+		break;
+	
+	case STRING: {
+		FString val;
+		mz::proto::msg<mz::proto::String> m;
+
+		p->GetValue(val);
+		m->set_val(TCHAR_TO_UTF8(*val));
+		dyn->set_data(m->SerializeAsString());
+		dyn->set_type(m->GetTypeName());
+	}
+	case STRUCT:
+	{
+		break;
+	}
+
+	}
+}
+
+void MZEntity::SerializeToProto(mz::proto::Dynamic* req)
+{
+	if (Type)
+	{
+		Type->SerializeToProto(req, Property.Get());
+	}
+	else
+	{
+		UE_LOG(LogMZProto, Error, TEXT("Unknown Type"));
+	}
 }
 
 

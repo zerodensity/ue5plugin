@@ -55,6 +55,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       FRemoteControlProperty prop = entity->GetOwner()->GetProperty(entity->GetId()).GetValue();
+
       MZEntity mze = { MZType::GetType(prop.GetProperty()), entity, prop.GetPropertyHandle() };
       EntityCache.Add(entity->GetId(), mze);
       PresetEntities[preset->GetFName()].Add(guid);

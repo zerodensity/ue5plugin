@@ -9,17 +9,42 @@
 
 static std::map<uint64_t, MZType*> GTypeMap;
 
+static TMap<FName, std::string> UE_2_MZ_TYPE =
+{
+    {NAME_Vector4,  "mz.proto.vec4d"},
+    {NAME_Vector,   "mz.proto.vec3d"},
+    {NAME_Vector2D, "mz.proto.vec2d"},
+};
 
-void MZType::Init(FField* Field)
+bool MZType::Init(FField* Field)
 {
     if (auto sprop = CastField<FStructProperty>(Field))
     {
         TArray<FField*> fields;
         sprop->GetInnerFields(fields);
         Tag = STRUCT;
+
+        FName name = sprop->Struct->GetFName();
+
+        if (std::string* pMzName = UE_2_MZ_TYPE.Find(name))
+        {
+            TypeName = *pMzName;
+        }
+        else
+        {
+            return false;
+        }
+
         for (auto field : fields)
         {
-            StructFields.Add(field->GetName(), GetType(field));
+            if (auto fTy = GetType(field))
+            {
+                StructFields.Add(field->GetName(), fTy);
+            } 
+            else
+            {
+                return false;
+            }
         }
     }
     else if (auto aprop = CastField<FArrayProperty>(Field))
@@ -32,35 +57,17 @@ void MZType::Init(FField* Field)
     {
         Tag = (nprop->IsFloatingPoint() ? FLOAT : INT);
         Width = nprop->ElementSize * 8;
-        switch (Tag)
-        {
-            case FLOAT:
-                switch (Width)
-                {
-                case 32: Name = "float";
-                case 64: Name = "double";
-                }break;
-            case INT:
-                switch (Width)
-                {
-                case 8:  Name = "int8";
-                case 16: Name = "int16";
-                case 32: Name = "int32";
-                case 64: Name = "int64";
-                }break;
-        }
     }
     else if (CastField<FBoolProperty>(Field))
     {
         Tag = BOOL;
         Width = 1;
-        Name = "bool";
     }
     else if (CastField<FStrProperty>(Field))
     {
         Tag = STRING;
-        Name = "string";
     }
+    return true;
 }
 
 MZType* MZType::GetType(FField* Field)
@@ -70,7 +77,11 @@ MZType* MZType::GetType(FField* Field)
     if (!ty)
     {
         ty = new MZType();
-        ty->Init(Field);
+        if (!ty->Init(Field))
+        {
+            delete ty;
+        }
+        ty = nullptr;
     }
 
     return ty;
