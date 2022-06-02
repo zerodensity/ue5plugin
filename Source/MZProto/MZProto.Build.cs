@@ -36,14 +36,23 @@ public class MZProto : ModuleRules
         if (Target.Platform == UnrealTargetPlatform.Win64)
         {
             string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
-            string SDKdeps = Path.Combine(SDKdir, "installed", "x64-windows");
+            string SDKIncdeps = Path.Combine(SDKdir, "installed", "x64-windows");
+            string SDKLibdeps = Path.Combine(SDKdir, "installed", "x64-windows");
 
             // Add the import library
             var Libs =  new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "lib"),"*.lib"));
-            Libs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdeps, "lib"),"*.lib")));
+            Libs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "lib"),"*.lib")));
 
             var Dlls =  new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "bin"),"*.dll"));
-            Dlls.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdeps, "bin"),"*.dll")));
+            Dlls.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"),"*.dll")));
+
+            var Pdbs = new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "bin"), "*.pdb"));
+            Pdbs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), "*.pdb")));
+
+            foreach (string pdb in Pdbs)
+            {
+                CopyToBinaries(pdb);
+            }
 
             foreach (string dll in Dlls)
             {
@@ -64,8 +73,8 @@ public class MZProto : ModuleRules
             {
                 foreach (string lib in ShippingBlackList)
                 {
-                    Libs.Remove(Path.Combine(SDKdeps, "lib", lib + ".lib"));
-                    foreach(string dll in Directory.GetFiles(Path.Combine(SDKdeps, "bin"), lib + "*.dll")) 
+                    Libs.Remove(Path.Combine(SDKLibdeps, "lib", lib + ".lib"));
+                    foreach(string dll in Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), lib + "*.dll")) 
                     {
                       Dlls.Remove(dll);
                     }
@@ -80,11 +89,15 @@ public class MZProto : ModuleRules
             PublicDefinitions.Add("GOOGLE_PROTOBUF_NO_RTTI");
             PublicDefinitions.Add("GPR_FORBID_UNREACHABLE_CODE");
             PublicDefinitions.Add("GRPC_ALLOW_EXCEPTIONS=0");
-            //PublicDefinitions.Add("GOOGLE_PROTOBUF_INTERNAL_DONATE_STEAL_INLINE");
+            // PublicDefinitions.Add("GOOGLE_PROTOBUF_INTERNAL_DONATE_STEAL_INLINE");
+            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_DEFAULT_STRING");
+            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_RELEASE");
+            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_SWAP");
+            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_MOVE");
 
             PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
             PublicIncludePaths.Add(Path.Combine(SDKdir, "include"));
-            PublicIncludePaths.Add(Path.Combine(SDKdeps, "include"));
+            PublicIncludePaths.Add(Path.Combine(SDKIncdeps, "include"));
             
             // PublicDependencyModuleNames.AddRange(new string[] { "WebSockets" });
             // AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL", "zlib");

@@ -12,7 +12,7 @@
 
 #include "Async/Async.h"
 #include "Modules/ModuleManager.h"
-#include "UObject/UObjectIterator.h"
+#include "UObject/UObjectGlobals.h"
 
 #include "GenericPlatform/GenericPlatformProcess.h"
 #include "Misc/MessageDialog.h"
@@ -27,12 +27,17 @@
 #define LOCTEXT_NAMESPACE "FMZRemoteControl"
 
 
+
+void GetAssetSafe(const FAssetData& asset)
+{
+    
+}
+
 struct FMZRemoteControl : IMZRemoteControl {
 
   TMap<FGuid, MZEntity> EntityCache;
 
   TMap<FName, TArray<FGuid>> PresetEntities;
-
 
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
   {
@@ -105,13 +110,13 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Preset imported " + preset->GetName()), 0);
   }
 
-  void OnAssetAdded(const FAssetData& asset)
+
+  void OnAssetLoaded(UObject* asset)
   {
-      if (asset.GetClass() != URemoteControlPreset::StaticClass())
+      if (auto preset = Cast<URemoteControlPreset>(asset))
       {
-          return;
+          OnPresetLoaded(preset);
       }
-      OnPresetLoaded(Cast<URemoteControlPreset>(asset.GetAsset()));
   }
   
   void OnAssetRemoved(const FAssetData& asset)
@@ -134,10 +139,9 @@ struct FMZRemoteControl : IMZRemoteControl {
   void StartupModule() override {
 
     IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName).Get();
-
-    AssetRegistry.OnAssetAdded().AddRaw(this,  &FMZRemoteControl::OnAssetAdded);
     AssetRegistry.OnAssetRemoved().AddRaw(this, &FMZRemoteControl::OnAssetRemoved);
     AssetRegistry.OnAssetRenamed().AddRaw(this, &FMZRemoteControl::OnAssetRenamed);
+    FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
 
     FMessageDialog::Debugf(FText::FromString("Loaded MZRemoteControl module"), 0);
   }

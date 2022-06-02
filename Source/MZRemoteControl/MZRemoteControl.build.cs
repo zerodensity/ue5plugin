@@ -21,7 +21,6 @@ public class MZRemoteControl : ModuleRules
 			new string[] {
 				"RemoteControl",
 				"MZClient",
-				
 			}
 		);
 

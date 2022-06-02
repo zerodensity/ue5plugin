@@ -15,7 +15,7 @@
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 
-class ClientImpl : public mz::app::AppClient
+class MZCLIENT_API ClientImpl : public mz::app::AppClient
 {
 public:
     using mz::app::AppClient::AppClient;
@@ -26,7 +26,7 @@ public:
     }
 
     virtual void OnNodeUpdate(mz::proto::Node const& archive) override 
-    {        
+    {     
         id = archive.id();
     }
 
@@ -43,7 +43,6 @@ public:
     std::string id;
 };
 
-
 FMZClient::FMZClient() {}
 
 void FMZClient::Disconnect() {
@@ -56,12 +55,14 @@ void FMZClient::StartupModule() {
     
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "UEAppConfig").string();
     Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", protoPath.c_str(), true);
+
 }
 
-void FMZClient::ShutdownModule() {
+void FMZClient::ShutdownModule() 
+{
 }
 
-
+#pragma optimize( "", off )
 void FMZClient::SendNodeUpdate(MZEntity entity) 
 {
     if (!Client)
@@ -69,31 +70,83 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
         StartupModule();
     }
 
-    if (Client->id.empty())
+    if (!Client->id[0])
     {
         return;
     }
+    
+    //gArena.m_Arena.Reset();
 
     mz::proto::msg<mz::app::AppEvent> event;
     mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
-    req->mutable_pins_to_delete()->Clear();
     mz::proto::Dynamic* dyn = pin->mutable_dynamic();
-
 
     FString id = entity.Entity->GetId().ToString();
     FString label = entity.Entity->GetLabel().ToString();
+    
+    req->mutable_pins_to_delete()->Clear();
 
-    req->set_node_id(Client->id);
-    req->set_clear(false);
-    pin->set_id(TCHAR_TO_UTF8(*id));
-    pin->set_display_name(TCHAR_TO_UTF8(*label));
-    pin->set_name(TCHAR_TO_UTF8(*label));
+    mz::app::SetFieldByName(req, "node_id", Client->id.c_str());
+
     
-    entity.SerializeToProto(dyn);
-    
+    {
+        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
+        const std::string& node_id = req->node_id();
+        const std::string& pin_id = pin->id();
+        const std::string& pin_name = pin->name();
+        const std::string& pin_dname = pin->display_name();
+    }
+
+    mz::app::SetFieldByName(pin, "id", TCHAR_TO_UTF8(*id));
+
+
+    {
+        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
+        const std::string& node_id = req->node_id();
+        const std::string& pin_id = pin->id();
+        const std::string& pin_name = pin->name();
+        const std::string& pin_dname = pin->display_name();
+    }
+
+    mz::app::SetFieldByName(pin, "display_name", TCHAR_TO_UTF8(*label));
+
+    {
+        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
+        const std::string& node_id = req->node_id();
+        const std::string& pin_id = pin->id();
+        const std::string& pin_name = pin->name();
+        const std::string& pin_dname = pin->display_name();
+    }
+
+    mz::app::SetFieldByName(pin, "name", TCHAR_TO_UTF8(*label));
+    {
+        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
+        const std::string& node_id = req->node_id();
+        const std::string& pin_id = pin->id();
+        const std::string& pin_name = pin->name();
+        const std::string& pin_dname = pin->display_name();
+    }
+ 
+    //*req->mutable_node_id() = Client->id.c_str();
+    //*pin->mutable_id() = (TCHAR_TO_UTF8(*id));
+    //*pin->mutable_display_name() = (TCHAR_TO_UTF8(*label));
+    //*pin->mutable_name() = ( TCHAR_TO_UTF8(*label));
+
+    //{
+    //    std::string node_id = req->node_id();
+    //    std::string pin_id = pin->id();
+    //    std::string pin_name = pin->name();
+    //    std::string pin_dname = pin->display_name();
+    //}
+
+
+    // entity.SerializeToProto(dyn);
+ 
     Client->Write(event);
 }
+
+#pragma optimize( "", on )
 
 bool FMZClient::Connect() {
 

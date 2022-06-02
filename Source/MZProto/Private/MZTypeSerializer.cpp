@@ -27,8 +27,8 @@ static void SetValue(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
 	p->GetValue(val);
 	m->set_val(val);
 
-	dyn->set_data(m->SerializeAsString());
-	dyn->set_type(m->GetTypeName());
+	m->SerializeToString(dyn->mutable_data());
+	*dyn->mutable_type() = m->GetTypeName();
 }
 
 
@@ -59,11 +59,11 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, IRemoteControlPropertyHan
 	case STRING: {
 		FString val;
 		mz::proto::msg<mz::proto::String> m;
-
 		p->GetValue(val);
-		m->set_val(TCHAR_TO_UTF8(*val));
-		dyn->set_data(m->SerializeAsString());
-		dyn->set_type(m->GetTypeName());
+
+		*m->mutable_val() = TCHAR_TO_UTF8(*val);
+		m->SerializeToString(dyn->mutable_data());
+		*dyn->mutable_type() = m->GetTypeName();
 	}
 	case STRUCT:
 	{
