@@ -57,7 +57,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   void OnEntityExposed(URemoteControlPreset* preset, FGuid const& guid)
   {
-      FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
+      // FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       FRemoteControlProperty prop = entity->GetOwner()->GetProperty(entity->GetId()).GetValue();
 
@@ -76,7 +76,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   void OnPresetLoaded(URemoteControlPreset* preset)
   {
-      FMessageDialog::Debugf(FText::FromString("Preset loaded " + preset->GetName()), 0);
+      // FMessageDialog::Debugf(FText::FromString("Preset loaded " + preset->GetName()), 0);
       PresetEntities.Add(preset->GetFName(), {});
 
       preset->OnEntitiesUpdated().AddRaw(this, &FMZRemoteControl::OnEntitiesUpdated);
@@ -143,7 +143,7 @@ struct FMZRemoteControl : IMZRemoteControl {
     AssetRegistry.OnAssetRenamed().AddRaw(this, &FMZRemoteControl::OnAssetRenamed);
     FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
 
-    FMessageDialog::Debugf(FText::FromString("Loaded MZRemoteControl module"), 0);
+    // FMessageDialog::Debugf(FText::FromString("Loaded MZRemoteControl module"), 0);
   }
 
   void ShutdownModule() override {

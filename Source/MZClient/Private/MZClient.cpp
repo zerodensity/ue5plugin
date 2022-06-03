@@ -51,7 +51,7 @@ void FMZClient::Disconnect() {
 
 void FMZClient::StartupModule() {
 
-    FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
+    // FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
     
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "UEAppConfig").string();
     Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", protoPath.c_str(), true);
@@ -80,69 +80,23 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
     mz::proto::msg<mz::app::AppEvent> event;
     mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
-    mz::proto::Dynamic* dyn = pin->mutable_dynamic();
+    mz::proto::DynamicField* dyn = pin->mutable_dynamic();
 
     FString id = entity.Entity->GetId().ToString();
     FString label = entity.Entity->GetLabel().ToString();
     
-    req->mutable_pins_to_delete()->Clear();
+    
+    dyn->mutable_options()->set_pin_show_as(mz::proto::ShowAs::INPUT_PIN);
+    dyn->mutable_options()->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_PIN_ONLY);
 
     mz::app::SetFieldByName(req, "node_id", Client->id.c_str());
-
-    
-    {
-        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
-        const std::string& node_id = req->node_id();
-        const std::string& pin_id = pin->id();
-        const std::string& pin_name = pin->name();
-        const std::string& pin_dname = pin->display_name();
-    }
-
     mz::app::SetFieldByName(pin, "id", TCHAR_TO_UTF8(*id));
-
-
-    {
-        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
-        const std::string& node_id = req->node_id();
-        const std::string& pin_id = pin->id();
-        const std::string& pin_name = pin->name();
-        const std::string& pin_dname = pin->display_name();
-    }
-
     mz::app::SetFieldByName(pin, "display_name", TCHAR_TO_UTF8(*label));
-
-    {
-        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
-        const std::string& node_id = req->node_id();
-        const std::string& pin_id = pin->id();
-        const std::string& pin_name = pin->name();
-        const std::string& pin_dname = pin->display_name();
-    }
-
     mz::app::SetFieldByName(pin, "name", TCHAR_TO_UTF8(*label));
-    {
-        const std::string& empty = google::protobuf::internal::GetEmptyStringAlreadyInited();
-        const std::string& node_id = req->node_id();
-        const std::string& pin_id = pin->id();
-        const std::string& pin_name = pin->name();
-        const std::string& pin_dname = pin->display_name();
-    }
- 
-    //*req->mutable_node_id() = Client->id.c_str();
-    //*pin->mutable_id() = (TCHAR_TO_UTF8(*id));
-    //*pin->mutable_display_name() = (TCHAR_TO_UTF8(*label));
-    //*pin->mutable_name() = ( TCHAR_TO_UTF8(*label));
-
-    //{
-    //    std::string node_id = req->node_id();
-    //    std::string pin_id = pin->id();
-    //    std::string pin_name = pin->name();
-    //    std::string pin_dname = pin->display_name();
-    //}
+    entity.SerializeToProto(dyn->mutable_value());
 
 
-    // entity.SerializeToProto(dyn);
- 
+    std::string type_name = dyn->value().type();
     Client->Write(event);
 }
 

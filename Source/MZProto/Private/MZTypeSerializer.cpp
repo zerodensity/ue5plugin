@@ -9,7 +9,7 @@
 #include "google/protobuf/message.h"
 
 #include <Arena.h>
-#include "AppService.pb.h"
+#include "AppClient.h"
 
 #undef INT
 #undef FLOAT
@@ -27,8 +27,8 @@ static void SetValue(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
 	p->GetValue(val);
 	m->set_val(val);
 
-	m->SerializeToString(dyn->mutable_data());
-	*dyn->mutable_type() = m->GetTypeName();
+	mz::app::SetFieldByName(m.m_Ptr,  "data", m->SerializeAsString().c_str());
+	mz::app::SetFieldByName(dyn, "type", m->GetTypeName().c_str());
 }
 
 
@@ -61,10 +61,11 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, IRemoteControlPropertyHan
 		mz::proto::msg<mz::proto::String> m;
 		p->GetValue(val);
 
-		*m->mutable_val() = TCHAR_TO_UTF8(*val);
-		m->SerializeToString(dyn->mutable_data());
-		*dyn->mutable_type() = m->GetTypeName();
+		mz::app::SetFieldByName(m.m_Ptr,  "val", TCHAR_TO_UTF8(*val));
+		mz::app::SetFieldByName(dyn, "data", m->SerializeAsString().c_str());
+		mz::app::SetFieldByName(dyn, "type", m->GetTypeName().c_str());
 	}
+	break;
 	case STRUCT:
 	{
 		break;

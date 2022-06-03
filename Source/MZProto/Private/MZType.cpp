@@ -80,8 +80,8 @@ MZType* MZType::GetType(FField* Field)
         if (!ty->Init(Field))
         {
             delete ty;
+            ty = nullptr;
         }
-        ty = nullptr;
     }
 
     return ty;

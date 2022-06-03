@@ -31,7 +31,7 @@ class MZPROTO_API FMZProtoModule : public IMZProto {
 
     // FPlatformProcess::PopDllDirectory(*DLLPath);
 
-    FMessageDialog::Debugf(FText::FromString("Loaded MZProto module"), 0);
+    // FMessageDialog::Debugf(FText::FromString("Loaded MZProto module"), 0);
   }
 
   void ShutdownModule() override {
