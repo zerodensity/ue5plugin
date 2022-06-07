@@ -41,6 +41,14 @@ public class MZProto : ModuleRules
         {
             AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
             string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
+
+            if (String.IsNullOrEmpty(SDKdir))
+            {
+                string errorMessage = "Please update MZ_SDK_DIR environment variable";
+                System.Console.WriteLine(errorMessage);
+                throw new BuildException(errorMessage);
+            }
+
             string SDKIncdeps = Path.Combine(SDKdir, "installed", "x64-windows");
             string SDKLibdeps = Path.Combine(SDKdir, "installed", "x64-windows");
 
