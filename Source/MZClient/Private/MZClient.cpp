@@ -7,6 +7,8 @@
 #include "Misc/MessageDialog.h"
 #include "Runtime/Launch/Resources/Version.h"
 
+#include "queue"
+
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
@@ -33,6 +35,11 @@ public:
     virtual void OnMenuFired(mz::app::ContextMenuRequest const& request) override
     {
     }
+    
+    virtual void OnTextureCreated(mz::proto::Texture const& texture)
+    {
+        FMZClient::Get()->OnTextureReceived(texture);
+    }
 
     virtual void Done(grpc::Status Status) override
     {
@@ -45,6 +52,14 @@ public:
 
 FMZClient::FMZClient() {}
 
+size_t FMZClient::HashTextureParams(uint32_t width, uint32_t height, uint32_t format, uint32_t usage)
+{
+    return
+        (0xd24908d710a ^ ((size_t)width << 40ull)) |
+        (0X6a6826a9abd ^ ((size_t)height << 18ull)) |
+        ((size_t)usage << (6ull)) | (size_t)(format);
+}
+
 void FMZClient::Disconnect() {
     Client = 0;
 }
@@ -55,7 +70,6 @@ void FMZClient::StartupModule() {
     
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "UEAppConfig").string();
     Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", protoPath.c_str(), true);
-
 }
 
 void FMZClient::ShutdownModule() 
@@ -80,23 +94,21 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
     mz::proto::msg<mz::app::AppEvent> event;
     mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
-    mz::proto::DynamicField* dyn = pin->mutable_dynamic();
+    mz::proto::Dynamic* dyn = pin->mutable_dynamic();
 
     FString id = entity.Entity->GetId().ToString();
     FString label = entity.Entity->GetLabel().ToString();
     
-    
-    dyn->mutable_options()->set_pin_show_as(mz::proto::ShowAs::INPUT_PIN);
-    dyn->mutable_options()->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_PIN_ONLY);
+    pin->set_pin_show_as(mz::proto::ShowAs::INPUT_PIN);
+    pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_PIN_ONLY);
 
-    mz::app::SetFieldByName(req, "node_id", Client->id.c_str());
-    mz::app::SetFieldByName(pin, "id", TCHAR_TO_UTF8(*id));
-    mz::app::SetFieldByName(pin, "display_name", TCHAR_TO_UTF8(*label));
-    mz::app::SetFieldByName(pin, "name", TCHAR_TO_UTF8(*label));
-    entity.SerializeToProto(dyn->mutable_value());
+    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->id.c_str());
+    mz::app::SetField(pin, mz::proto::Pin::kIdFieldNumber, TCHAR_TO_UTF8(*id));
+    mz::app::SetField(pin, mz::proto::Pin::kDisplayNameFieldNumber, TCHAR_TO_UTF8(*label));
+    mz::app::SetField(pin, mz::proto::Pin::kNameFieldNumber, TCHAR_TO_UTF8(*label));
+    entity.SerializeToProto(dyn);
 
-
-    std::string type_name = dyn->value().type();
+    std::string type_name = dyn->type();
     Client->Write(event);
 }
 

@@ -2,6 +2,7 @@
 
 #include "MZType.h"
 #include "Core.h"
+#include "Engine/TextureRenderTarget2D.h"
 
 #include "Misc/MessageDialog.h"
 
@@ -16,9 +17,18 @@ static TMap<FName, std::string> UE_2_MZ_TYPE =
     {NAME_Vector2D, "mz.proto.vec2d"},
 };
 
+#pragma optimize( "", off )
 bool MZType::Init(FField* Field)
 {
-    if (auto sprop = CastField<FStructProperty>(Field))
+    if (auto oprop = CastField<FObjectProperty>(Field))
+    {
+        if (oprop->PropertyClass == UTextureRenderTarget2D::StaticClass())
+        {
+            Tag = TRT2D;
+            TypeName = "mz.proto.Texture";
+        }
+    }
+    else if (auto sprop = CastField<FStructProperty>(Field))
     {
         TArray<FField*> fields;
         sprop->GetInnerFields(fields);
@@ -87,3 +97,4 @@ MZType* MZType::GetType(FField* Field)
     return ty;
 }
 
+#pragma optimize( "", on )

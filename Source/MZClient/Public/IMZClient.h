@@ -6,6 +6,7 @@
 #include "Modules/ModuleInterface.h"
 #include "Modules/ModuleManager.h"
 
+
 class IMZClient : public IModuleInterface {
  public:
   static inline IMZClient* Get() {
@@ -19,4 +20,6 @@ class IMZClient : public IModuleInterface {
 
   virtual void SendNodeUpdate(MZEntity) = 0 ;
   virtual void Disconnect() = 0 ;
+  virtual void QueueTextureCopy(struct ID3D12Resource* res) = 0;
+  virtual void OnTextureReceived(mz::proto::Texture const& texture) = 0;
 };

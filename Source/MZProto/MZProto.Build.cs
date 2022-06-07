@@ -31,12 +31,15 @@ public class MZProto : ModuleRules
             {
                 "Core",
                 "CoreUObject",
+                "Engine",
                 "RemoteControl",
             }
         );
 
+
         if (Target.Platform == UnrealTargetPlatform.Win64)
         {
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
             string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
             string SDKIncdeps = Path.Combine(SDKdir, "installed", "x64-windows");
             string SDKLibdeps = Path.Combine(SDKdir, "installed", "x64-windows");

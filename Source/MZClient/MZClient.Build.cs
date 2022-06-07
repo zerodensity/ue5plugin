@@ -11,6 +11,8 @@ public class MZClient : ModuleRules
 		PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
 
 		CppStandard = CppStandardVersion.Cpp20;
+		
+		AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
 
 		PublicIncludePaths.AddRange(
 			new string[] {
@@ -31,11 +33,15 @@ public class MZClient : ModuleRules
 			{
 				"Core",
 				"CoreUObject",
+				"Engine",
 				"Projects",
-				"RHI",
-				"VulkanRHI",
 				"MZProto",
 				"RemoteControl",
+				"RHI",
+				"RHICore",
+				"D3D11RHI",
+				"D3D12RHI",
+				"VulkanRHI",
 			}
 			);
 
@@ -46,7 +52,13 @@ public class MZClient : ModuleRules
 			}
 			);
 		
-		
+		PrivateIncludePaths.AddRange(
+            new string[]{
+					//required for "D3D12RHIPrivate.h"
+					Path.Combine(EngineDirectory, "Source/Runtime/D3D12RHI/Private"),
+                    Path.Combine(EngineDirectory, "Source/Runtime/D3D12RHI/Private/Windows")
+            });
+
 		DynamicallyLoadedModuleNames.AddRange(
 			new string[]
 			{

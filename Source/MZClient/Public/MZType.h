@@ -19,9 +19,10 @@ namespace mz::app
 namespace mz::proto
 {
 	class Dynamic;
+	class Texture;
 }
 
-struct MZPROTO_API MZType
+struct MZCLIENT_API MZType
 {
 	enum
 	{
@@ -31,6 +32,7 @@ struct MZPROTO_API MZType
 		FLOAT,
 		ARRAY,
 		STRUCT,
+		TRT2D,
 	} Tag;
 
 	std::string TypeName;
@@ -46,13 +48,13 @@ struct MZPROTO_API MZType
 	TMap<FString, MZType*> StructFields;
 
 	static MZType* GetType(FField*);
-	void SerializeToProto(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p);
+	void SerializeToProto(mz::proto::Dynamic* dyn, struct MZEntity* p);
 private:
 	MZType() = default;
 	bool Init(FField*);
 };
 
-struct MZPROTO_API MZEntity
+struct MZCLIENT_API MZEntity
 {
 	MZType* Type;
 	FRemoteControlEntity* Entity;

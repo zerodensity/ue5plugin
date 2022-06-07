@@ -1,7 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
 #include "IMZProto.h"
-#include "MZType.h"
 #include "Core.h"
 
 #include "Misc/MessageDialog.h"
