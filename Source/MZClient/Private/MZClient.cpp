@@ -4,53 +4,19 @@
 #include "RemoteControlPreset.h"
 #include "IRemoteControlPropertyHandle.h"
 
-#include "Misc/MessageDialog.h"
 #include "Runtime/Launch/Resources/Version.h"
 
-#include "queue"
-
-#pragma warning (disable : 4800)
-#pragma warning (disable : 4668)
-
-#include "AppClient.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 
-class MZCLIENT_API ClientImpl : public mz::app::AppClient
-{
-public:
-    using mz::app::AppClient::AppClient;
-
-    virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
-    {
-        FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
-    }
-
-    virtual void OnNodeUpdate(mz::proto::Node const& archive) override 
-    {     
-        id = archive.id();
-    }
-
-    virtual void OnMenuFired(mz::app::ContextMenuRequest const& request) override
-    {
-    }
-    
-    virtual void OnTextureCreated(mz::proto::Texture const& texture)
-    {
-        FMZClient::Get()->OnTextureReceived(texture);
-    }
-
-    virtual void Done(grpc::Status Status) override
-    {
-        FMessageDialog::Debugf(FText::FromString("App Client shutdown"), 0);
-        FMZClient::Get()->Disconnect();
-    }
-
-    std::string id;
-};
 
 FMZClient::FMZClient() {}
+
+void ClientImpl::OnTextureCreated(mz::proto::Texture const& texture)
+{
+    IMZClient::Get()->OnTextureReceived(texture);
+}
 
 size_t FMZClient::HashTextureParams(uint32_t width, uint32_t height, uint32_t format, uint32_t usage)
 {
@@ -70,6 +36,7 @@ void FMZClient::StartupModule() {
     
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "UEAppConfig").string();
     Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", protoPath.c_str(), true);
+    InitRHI();
 }
 
 void FMZClient::ShutdownModule() 
@@ -81,7 +48,8 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
 {
     if (!Client)
     {
-        StartupModule();
+        std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "UEAppConfig").string();
+        Client = new ClientImpl("830121a2-fd7a-4eca-8636-60c895976a71", "Unreal Engine", protoPath.c_str(), true);
     }
 
     if (!Client->id[0])

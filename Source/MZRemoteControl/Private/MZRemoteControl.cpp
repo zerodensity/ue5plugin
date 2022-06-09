@@ -36,7 +36,6 @@ void GetAssetSafe(const FAssetData& asset)
 struct FMZRemoteControl : IMZRemoteControl {
 
   TMap<FGuid, MZEntity> EntityCache;
-
   TMap<FName, TArray<FGuid>> PresetEntities;
 
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
@@ -63,7 +62,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       MZEntity mze = { MZType::GetType(prop.GetProperty()), entity, prop.GetPropertyHandle() };
       EntityCache.Add(entity->GetId(), mze);
       PresetEntities[preset->GetFName()].Add(guid);
-
+      
       IMZClient::Get()->SendNodeUpdate(mze);
   }
 
@@ -71,6 +70,11 @@ struct FMZRemoteControl : IMZRemoteControl {
   {
       EntityCache.Remove(guid);
       PresetEntities[preset->GetFName()].Remove(guid);
+  }
+
+  void OnActorPropertyModified(URemoteControlPreset* Preset, FRemoteControlActor& /*Actor*/, UObject* ModifiedObject, FProperty* /*MemberProperty*/)
+  {
+      FMessageDialog::Debugf(FText::FromString("Preset registered " + ModifiedObject->GetFName().ToString()), 0);
   }
 
   void OnPresetLoaded(URemoteControlPreset* preset)
@@ -82,6 +86,8 @@ struct FMZRemoteControl : IMZRemoteControl {
       preset->OnEntityExposed().AddRaw(this, &FMZRemoteControl::OnEntityExposed);
       preset->OnEntityUnexposed().AddRaw(this, &FMZRemoteControl::OnEntityUnexposed);
       preset->OnExposedPropertiesModified().AddRaw(this, &FMZRemoteControl::OnExposedPropertiesModified);
+      preset->OnActorPropertyModified().AddRaw(this, &FMZRemoteControl::OnActorPropertyModified);
+
   }
 
   void OnPresetRemoved(URemoteControlPreset* preset)
