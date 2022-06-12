@@ -35,10 +35,46 @@ bool FMZClient::Tick(float dt)
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this](FRHICommandListImmediate& RHICmdList)
 		{
+			//HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
+			CmdList->Reset(CmdAlloc, 0);
+			std::vector<D3D12_RESOURCE_BARRIER> barriers;
 			for (auto& [res, texture] : CopyOnTick)
 			{
-				CmdList->Reset(CmdAlloc, 0);
-				mzCopyD3D12Resource(res, CmdList, CmdQueue, texture.pid, texture.memory, texture.sync);
+				if (texture.Fence->GetCompletedValue() < texture.FenceValue)
+				{
+					texture.Fence->SetEventOnCompletion(texture.FenceValue, texture.Event);
+					WaitForSingleObject(texture.Event, INFINITE);
+				}
+
+				auto barrier = D3D12_RESOURCE_BARRIER{
+						.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+						.Transition =
+						D3D12_RESOURCE_TRANSITION_BARRIER{
+							.pResource = res,
+							.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
+							.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+						}
+				};
+
+				CmdList->ResourceBarrier(1, &barrier);
+				CmdList->CopyResource(texture.Resource, res);
+				barriers.push_back(D3D12_RESOURCE_BARRIER{
+						.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+						.Transition = 
+						D3D12_RESOURCE_TRANSITION_BARRIER{
+							.pResource = res,
+							.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE,
+							.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+						}
+					});
+			}
+
+			CmdList->ResourceBarrier(barriers.size(), barriers.data());
+			CmdList->Close();
+			CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
+			for (auto& [res, texture] : CopyOnTick)
+			{
+				CmdQueue->Signal(texture.Fence, ++texture.FenceValue);
 			}
 		});
 	return true;
@@ -60,18 +96,25 @@ void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
 				{
 					ID3D12Resource* res = *ppRes;
 					fmz->PendingCopyQueue.Remove(out);
-					fmz->CopyOnTick.Add(res, MzTextureShareInfo { 
-						.textureInfo = { 
-							.width  = tex->width(),
+
+					MzTextureShareInfo info = {
+						.textureInfo = {
+							.width = tex->width(),
 							.height = tex->height(),
 							.format = (MzFormat)tex->format(),
-							.usage  = (MzImageUsage)tex->usage(),
+							.usage = (MzImageUsage)tex->usage(),
 						},
 						.pid = tex->pid(),
 						.memory = tex->memory(),
 						.sync = tex->sync(),
 						.offset = tex->offset(),
-					});
+					};
+					
+					FMZClient::ResourceInfo copyInfo = {
+						.Event = CreateEventA(0,0,0,0)
+					};
+					mzGetD3D12Resources(&info, fmz->Dev, &copyInfo.Resource, &copyInfo.Fence);
+					fmz->CopyOnTick.Add(res, copyInfo);
 				}
 			}
 		}
@@ -82,14 +125,8 @@ void FMZClient::InitRHI()
 {
 	Dev = (ID3D12Device*)GDynamicRHI->RHIGetNativeDevice();
 	HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAlloc));
-
-	D3D12_COMMAND_QUEUE_DESC queueDesc = {
-		.Type = D3D12_COMMAND_LIST_TYPE_DIRECT,
-		.Priority = D3D12_COMMAND_QUEUE_PRIORITY_NORMAL,
-		.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE,
-	};
-
-	re = Dev->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CmdQueue));
+	FD3D12DynamicRHI* D3D12RHI = static_cast<FD3D12DynamicRHI*>(GDynamicRHI);
+	CmdQueue = D3D12RHI->RHIGetD3DCommandQueue();
 	Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
 	CmdList->Close();
 }

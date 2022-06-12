@@ -53,6 +53,8 @@ size_t FMZClient::HashTextureParams(uint32_t width, uint32_t height, uint32_t fo
 
 void FMZClient::Disconnect() {
     Client = 0;
+    PendingCopyQueue.Empty();
+    CopyOnTick.Empty();
 }
 
 void FMZClient::StartupModule() {

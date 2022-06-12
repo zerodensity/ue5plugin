@@ -47,8 +47,14 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 class ClientImpl* Client;
 	 TMap<FGuid, ID3D12Resource*> PendingCopyQueue;
 	 
-	 TMap<ID3D12Resource*, MzTextureShareInfo> CopyOnTick;
+	 struct ResourceInfo
+	 {
+		 ID3D12Resource* Resource;
+		 ID3D12Fence* Fence;
+		 void* Event;
+		 uint64_t FenceValue;
+	 };
 
-	 std::mutex ClientLock;
+	 TMap<ID3D12Resource*, ResourceInfo> CopyOnTick;
 };
 
