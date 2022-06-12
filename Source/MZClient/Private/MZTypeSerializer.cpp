@@ -6,6 +6,7 @@
 #include "IRemoteControlPropertyHandle.h"
 #include "RemoteControlPreset.h"
 
+
 #include "Engine/TextureRenderTarget2D.h"
 
 #include "D3D12RHIPrivate.h"
@@ -29,6 +30,31 @@
 
 DEFINE_LOG_CATEGORY(LogMZProto);
 
+
+void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
+{
+	id = archive.id();
+	mz::proto::msg<mz::proto::Texture> tex;
+	FMZClient* fmz = (FMZClient*)IMZClient::Get();
+	for (auto& pin : archive.pins())
+	{
+		FGuid out;
+		if (FGuid::Parse(pin.id().c_str(), out))
+		{
+			if (auto ppRes = fmz->CopyQueue.Find(out))
+			{
+				if (mz::app::ParseFromString(tex.m_Ptr, pin.dynamic().data().c_str()))
+				{
+					ID3D12Resource* res = *ppRes;
+					fmz->CopyQueue.Remove(out);
+					fmz->CmdList->Reset(fmz->CmdAlloc, 0);
+					mzCopyD3D12Resource(res, fmz->CmdList, fmz->CmdQueue, tex->pid(), tex->memory(), tex->sync());
+				}
+			}
+		}
+	}
+}
+
 void FMZClient::InitRHI()
 {
 	Dev = (ID3D12Device*)GDynamicRHI->RHIGetNativeDevice();
@@ -41,39 +67,35 @@ void FMZClient::InitRHI()
 	};
 
 	re = Dev->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&CmdQueue));
-	re = Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
+	Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
 	CmdList->Close();
 }
 
-void FMZClient::OnTextureReceived(mz::proto::Texture const& texture)
+void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
 {
-	size_t hash = HashTextureParams(texture.width(), texture.height(), texture.format(), texture.usage());
-	auto& q = CopyQueue[hash];
-
-	if (!q.empty())
+	if (auto ppRes = CopyQueue.Find(id))
 	{
-		ID3D12Resource* res = q.front();
-		q.pop();
+		ID3D12Resource* res = *ppRes;
+		CopyQueue.Remove(id);
 		CmdList->Reset(CmdAlloc, 0);
 		mzCopyD3D12Resource(res, CmdList, CmdQueue, texture.pid(), texture.memory(), texture.sync());
 	}
 }
 
-void FMZClient::QueueTextureCopy(ID3D12Resource* res)
+void FMZClient::QueueTextureCopy(FGuid id, ID3D12Resource* res, mz::proto::Dynamic* dyn)
 {
 	MzTextureInfo info = {};
 	if (MZ_RESULT_SUCCESS == mzD3D12GetTextureInfo(res, &info))
 	{
-		size_t hash = HashTextureParams(info.width, info.height, info.format, info.usage);
-		CopyQueue[hash].push(res);
+		CopyQueue.Add(id, res);
+
+		mz::proto::msg<mz::proto::Texture> tex;
+		tex->set_width(info.width);
+		tex->set_height(info.height);
+		tex->set_format(info.format);
+		tex->set_usage(info.usage | MZ_IMAGE_USAGE_SAMPLED);
 		
-		mz::proto::msg<mz::app::AppEvent> event;
-		mz::app::CreateTexture* req = event->mutable_create_texture();
-		req->set_width(info.width);
-		req->set_height(info.height);
-		req->set_format(info.format);
-		req->set_usage(info.usage);
-		Client->Write(event);
+		mz::app::SetDyn(dyn, tex.m_Ptr);
 	}
 }
 
@@ -88,8 +110,7 @@ static void SetValue(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
 	p->GetValue(val);
 	m->set_val(val);
 
-	mz::app::SetField(dyn, mz::proto::Dynamic::kDataFieldNumber, m->SerializeAsString().c_str());
-	mz::app::SetField(dyn, mz::proto::Dynamic::kTypeFieldNumber, m->GetTypeName().c_str());
+	mz::app::SetDyn(dyn, m.m_Ptr);
 }
 
 #pragma optimize( "", off )
@@ -122,8 +143,7 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, MZEntity* e)
 		e->Property.Get()->GetValue(val);
 
 		mz::app::SetField(m.m_Ptr,  m->kValFieldNumber, TCHAR_TO_UTF8(*val));
-		mz::app::SetField(dyn, mz::proto::Dynamic::kDataFieldNumber, m->SerializeAsString().c_str());
-		mz::app::SetField(dyn, mz::proto::Dynamic::kTypeFieldNumber, m->GetTypeName().c_str());
+		mz::app::SetDyn(dyn, m.m_Ptr);
 	}
 	break;
 	case STRUCT:
@@ -137,7 +157,7 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, MZEntity* e)
 		UTextureRenderTarget2D* val = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 
 		ENQUEUE_RENDER_COMMAND(TRT2D_GetRenderTargetResource)(
-			[val](FRHICommandListImmediate& RHICmdList)
+			[val, dyn, e](FRHICommandListImmediate& RHICmdList)
 			{
 				auto res = val->GetRenderTargetResource()->GetTextureRenderTarget2DResource();
 				FRHITexture2D* rhi = res->GetTexture2DRHI();
@@ -149,7 +169,7 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, MZEntity* e)
 					ID3D12Device* dev = 0;
 					HRESULT re = handle->GetDevice(__uuidof(ID3D12Device), (void**)&dev);
 					D3D12_RESOURCE_DESC desc = handle->GetDesc();
-					FMZClient::Get()->QueueTextureCopy(handle);
+					FMZClient::Get()->QueueTextureCopy(e->Entity->GetId(), handle, dyn);
 				}
 			});
 

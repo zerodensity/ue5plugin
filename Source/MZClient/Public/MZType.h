@@ -59,6 +59,7 @@ struct MZCLIENT_API MZEntity
 	MZType* Type;
 	FRemoteControlEntity* Entity;
 	TSharedPtr<IRemoteControlPropertyHandle> Property;
+	// FProperty* fProperty;
 	//void SerializeToProto(google::protobuf::Any* value);
 	//void SerializeToProto(mz::proto::DynamicField* field);
 	void SerializeToProto(mz::proto::Dynamic* req);

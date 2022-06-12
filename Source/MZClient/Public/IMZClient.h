@@ -19,7 +19,9 @@ class IMZClient : public IModuleInterface {
   }
 
   virtual void SendNodeUpdate(MZEntity) = 0 ;
+  virtual void SendPinValueChanged(MZEntity) = 0;
+
   virtual void Disconnect() = 0 ;
-  virtual void QueueTextureCopy(struct ID3D12Resource* res) = 0;
-  virtual void OnTextureReceived(mz::proto::Texture const& texture) = 0;
+  virtual void QueueTextureCopy(FGuid id, struct ID3D12Resource* res, mz::proto::Dynamic* dyn) = 0;
+  virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) = 0;
 };
