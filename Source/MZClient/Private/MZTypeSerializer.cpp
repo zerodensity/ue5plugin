@@ -30,6 +30,19 @@
 
 DEFINE_LOG_CATEGORY(LogMZProto);
 
+bool FMZClient::Tick(float dt)
+{
+	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+		[this](FRHICommandListImmediate& RHICmdList)
+		{
+			for (auto& [res, texture] : CopyOnTick)
+			{
+				CmdList->Reset(CmdAlloc, 0);
+				mzCopyD3D12Resource(res, CmdList, CmdQueue, texture.pid, texture.memory, texture.sync);
+			}
+		});
+	return true;
+}
 
 void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
 {
@@ -41,14 +54,24 @@ void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
 		FGuid out;
 		if (FGuid::Parse(pin.id().c_str(), out))
 		{
-			if (auto ppRes = fmz->CopyQueue.Find(out))
+			if (auto ppRes = fmz->PendingCopyQueue.Find(out))
 			{
 				if (mz::app::ParseFromString(tex.m_Ptr, pin.dynamic().data().c_str()))
 				{
 					ID3D12Resource* res = *ppRes;
-					fmz->CopyQueue.Remove(out);
-					fmz->CmdList->Reset(fmz->CmdAlloc, 0);
-					mzCopyD3D12Resource(res, fmz->CmdList, fmz->CmdQueue, tex->pid(), tex->memory(), tex->sync());
+					fmz->PendingCopyQueue.Remove(out);
+					fmz->CopyOnTick.Add(res, MzTextureShareInfo { 
+						.textureInfo = { 
+							.width  = tex->width(),
+							.height = tex->height(),
+							.format = (MzFormat)tex->format(),
+							.usage  = (MzImageUsage)tex->usage(),
+						},
+						.pid = tex->pid(),
+						.memory = tex->memory(),
+						.sync = tex->sync(),
+						.offset = tex->offset(),
+					});
 				}
 			}
 		}
@@ -73,13 +96,7 @@ void FMZClient::InitRHI()
 
 void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
 {
-	if (auto ppRes = CopyQueue.Find(id))
-	{
-		ID3D12Resource* res = *ppRes;
-		CopyQueue.Remove(id);
-		CmdList->Reset(CmdAlloc, 0);
-		mzCopyD3D12Resource(res, CmdList, CmdQueue, texture.pid(), texture.memory(), texture.sync());
-	}
+	
 }
 
 void FMZClient::QueueTextureCopy(FGuid id, ID3D12Resource* res, mz::proto::Dynamic* dyn)
@@ -87,7 +104,7 @@ void FMZClient::QueueTextureCopy(FGuid id, ID3D12Resource* res, mz::proto::Dynam
 	MzTextureInfo info = {};
 	if (MZ_RESULT_SUCCESS == mzD3D12GetTextureInfo(res, &info))
 	{
-		CopyQueue.Add(id, res);
+		PendingCopyQueue.Add(id, res);
 
 		mz::proto::msg<mz::proto::Texture> tex;
 		tex->set_width(info.width);

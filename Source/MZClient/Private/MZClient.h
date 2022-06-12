@@ -18,6 +18,7 @@
  */
 class MZCLIENT_API FMZClient : public IMZClient {
  public:
+
 	 FMZClient();
 
 	 virtual void StartupModule() override;
@@ -36,6 +37,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
 
      void InitRHI();
+	 bool Tick(float dt);
 
      struct ID3D12Device* Dev;
      struct ID3D12CommandAllocator* CmdAlloc;
@@ -43,6 +45,10 @@ class MZCLIENT_API FMZClient : public IMZClient {
      struct ID3D12GraphicsCommandList* CmdList;
 
 	 class ClientImpl* Client;
-	 TMap<FGuid, ID3D12Resource*> CopyQueue;
+	 TMap<FGuid, ID3D12Resource*> PendingCopyQueue;
+	 
+	 TMap<ID3D12Resource*, MzTextureShareInfo> CopyOnTick;
+
+	 std::mutex ClientLock;
 };
 
