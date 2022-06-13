@@ -1,6 +1,6 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
-#include "MZType.h"
+#include "MZClient.h"
 #include "Core.h"
 #include "Engine/TextureRenderTarget2D.h"
 
@@ -95,6 +95,13 @@ MZType* MZType::GetType(FField* Field)
     }
 
     return ty;
+}
+
+ID3D12Resource* MZEntity::GetResource() const
+{
+    UObject* obj = Entity->GetBoundObject();
+    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty());
+    return (ID3D12Resource*)Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)))->GetRenderTargetResource()->GetTextureRenderTarget2DResource()->GetTexture2DRHI()->GetNativeResource();
 }
 
 #pragma optimize( "", on )

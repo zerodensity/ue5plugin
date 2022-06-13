@@ -63,4 +63,6 @@ struct MZCLIENT_API MZEntity
 	//void SerializeToProto(google::protobuf::Any* value);
 	//void SerializeToProto(mz::proto::DynamicField* field);
 	void SerializeToProto(mz::proto::Dynamic* req);
+
+	struct ID3D12Resource* GetResource() const;
 };

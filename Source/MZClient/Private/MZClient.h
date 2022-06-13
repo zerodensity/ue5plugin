@@ -45,7 +45,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 static size_t HashTextureParams(uint32_t width, uint32_t height, uint32_t format, uint32_t usage);
 	
-	 virtual void QueueTextureCopy(FGuid id, struct ID3D12Resource* res, mz::proto::Dynamic* dyn) override;
+	 virtual void QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Dynamic* dyn) override;
 	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
 
      void InitRHI();
@@ -55,6 +55,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 struct ResourceInfo
 	 {
+		 MZEntity SrcEntity;
 		 ID3D12Resource* SrcResource;
 		 ID3D12Resource* DstResource;
 		 ID3D12Fence* Fence;
@@ -70,7 +71,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 class ClientImpl* Client = 0;
 
 	 std::mutex Mutex;
-	 TMap<FGuid, ID3D12Resource*> PendingCopyQueue;
+	 TMap<FGuid, ResourceInfo> PendingCopyQueue;
 	 TMap<FGuid, ResourceInfo> CopyOnTick;
 };
 
