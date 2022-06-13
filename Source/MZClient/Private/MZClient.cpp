@@ -142,8 +142,14 @@ void FMZClient::SendPinRemoved(FGuid guid)
 
     {
         std::unique_lock lock(Mutex);
-        PendingCopyQueue.Remove(guid);
-        CopyOnTick.Remove(guid);
+        if (PendingCopyQueue.Remove(guid) || CopyOnTick.Remove(guid))
+        {
+            mz::proto::msg<mz::app::AppEvent> event;
+
+            mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*guid.ToString()));
+   
+            Client->Write(event);
+        }
     }
 
     if (!Client || Client->id.IsEmpty())
