@@ -2,67 +2,55 @@
 
 
 #include "MZClient.h"
-#include "MZType.h"
-#include "IRemoteControlPropertyHandle.h"
-#include "RemoteControlPreset.h"
-
-
-#include "Engine/TextureRenderTarget2D.h"
-
-#include "D3D12RHIPrivate.h"
-#include "D3D12RHI.h"
-#include "D3D12Resources.h"
-
-#include "DispelUnrealMadnessPrelude.h"
-#include <d3d12.h>
-
-#include "google/protobuf/message.h"
-
-#include <Arena.h>
-#include "AppClient.h"
-
-#include "DispelUnrealMadnessPostlude.h"
-
-#include "mediaz.h"
-
-#undef INT
-#undef FLOAT
 
 DEFINE_LOG_CATEGORY(LogMZProto);
 
+TMap<FGuid, FMZClient::ResourceInfo> GetCopyList(FMZClient* fmz)
+{
+	std::unique_lock lock(fmz->Mutex);
+	return fmz->CopyOnTick;
+}
+
 bool FMZClient::Tick(float dt)
 {
+	InitConnection();
+
+	if (!CopyOnTick.Num())
+	{
+		return true;
+	}
+
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
-		[this](FRHICommandListImmediate& RHICmdList)
+		[this, CopyList=GetCopyList(this)](FRHICommandListImmediate& RHICmdList)
 		{
 			//HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
 			CmdList->Reset(CmdAlloc, 0);
 			std::vector<D3D12_RESOURCE_BARRIER> barriers;
-			for (auto& [res, texture] : CopyOnTick)
+			for (auto& [_, pin] : CopyList)
 			{
-				if (texture.Fence->GetCompletedValue() < texture.FenceValue)
+				if (pin.Fence->GetCompletedValue() < pin.FenceValue)
 				{
-					texture.Fence->SetEventOnCompletion(texture.FenceValue, texture.Event);
-					WaitForSingleObject(texture.Event, INFINITE);
+					pin.Fence->SetEventOnCompletion(pin.FenceValue, pin.Event);
+					WaitForSingleObject(pin.Event, INFINITE);
 				}
 
 				auto barrier = D3D12_RESOURCE_BARRIER{
 						.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
 						.Transition =
 						D3D12_RESOURCE_TRANSITION_BARRIER{
-							.pResource = res,
+							.pResource = pin.SrcResource,
 							.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
 							.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
 						}
 				};
 
 				CmdList->ResourceBarrier(1, &barrier);
-				CmdList->CopyResource(texture.Resource, res);
+				CmdList->CopyResource(pin.DstResource, pin.SrcResource);
 				barriers.push_back(D3D12_RESOURCE_BARRIER{
 						.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
 						.Transition = 
 						D3D12_RESOURCE_TRANSITION_BARRIER{
-							.pResource = res,
+							.pResource = pin.SrcResource,
 							.StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE,
 							.StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
 						}
@@ -72,9 +60,9 @@ bool FMZClient::Tick(float dt)
 			CmdList->ResourceBarrier(barriers.size(), barriers.data());
 			CmdList->Close();
 			CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
-			for (auto& [res, texture] : CopyOnTick)
+			for (auto& [_, pin] : CopyOnTick)
 			{
-				CmdQueue->Signal(texture.Fence, ++texture.FenceValue);
+				CmdQueue->Signal(pin.Fence, ++pin.FenceValue);
 			}
 		});
 	return true;
@@ -82,21 +70,27 @@ bool FMZClient::Tick(float dt)
 
 void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
 {
-	id = archive.id();
+
 	mz::proto::msg<mz::proto::Texture> tex;
 	FMZClient* fmz = (FMZClient*)IMZClient::Get();
+	std::unique_lock lock(fmz->Mutex);
+	FString newId = archive.id().c_str();
+	if (id != newId)
+	{
+		fmz->ClearResources();
+		id = newId;
+	}
+
 	for (auto& pin : archive.pins())
 	{
 		FGuid out;
 		if (FGuid::Parse(pin.id().c_str(), out))
-		{
+		{	
 			if (auto ppRes = fmz->PendingCopyQueue.Find(out))
 			{
 				if (mz::app::ParseFromString(tex.m_Ptr, pin.dynamic().data().c_str()))
 				{
 					ID3D12Resource* res = *ppRes;
-					fmz->PendingCopyQueue.Remove(out);
-
 					MzTextureShareInfo info = {
 						.textureInfo = {
 							.width = tex->width(),
@@ -111,10 +105,12 @@ void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
 					};
 					
 					FMZClient::ResourceInfo copyInfo = {
+						.SrcResource = res,
 						.Event = CreateEventA(0,0,0,0)
 					};
-					mzGetD3D12Resources(&info, fmz->Dev, &copyInfo.Resource, &copyInfo.Fence);
-					fmz->CopyOnTick.Add(res, copyInfo);
+					mzGetD3D12Resources(&info, fmz->Dev, &copyInfo.DstResource, &copyInfo.Fence);
+					fmz->PendingCopyQueue.Remove(out);
+					fmz->CopyOnTick.Add(out, copyInfo);
 				}
 			}
 		}
@@ -141,7 +137,10 @@ void FMZClient::QueueTextureCopy(FGuid id, ID3D12Resource* res, mz::proto::Dynam
 	MzTextureInfo info = {};
 	if (MZ_RESULT_SUCCESS == mzD3D12GetTextureInfo(res, &info))
 	{
-		PendingCopyQueue.Add(id, res);
+		{
+			std::unique_lock lock(Mutex);
+			PendingCopyQueue.Add(id, res);
+		}
 
 		mz::proto::msg<mz::proto::Texture> tex;
 		tex->set_width(info.width);

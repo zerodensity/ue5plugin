@@ -20,6 +20,7 @@ class IMZClient : public IModuleInterface {
 
   virtual void SendNodeUpdate(MZEntity) = 0 ;
   virtual void SendPinValueChanged(MZEntity) = 0;
+  virtual void SendPinRemoved(FGuid) = 0;
 
   virtual void Disconnect() = 0 ;
   virtual void QueueTextureCopy(FGuid id, struct ID3D12Resource* res, mz::proto::Dynamic* dyn) = 0;

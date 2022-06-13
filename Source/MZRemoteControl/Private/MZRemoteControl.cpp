@@ -74,6 +74,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       //TrackedProperties.Remove(EntityCache[guid].fProperty);
       EntityCache.Remove(guid);
       PresetEntities[preset->GetFName()].Remove(guid);
+      IMZClient::Get()->SendPinRemoved(guid);
   }
 
   void OnActorPropertyModified(URemoteControlPreset* Preset, FRemoteControlActor& /*Actor*/, UObject* ModifiedObject, FProperty* /*MemberProperty*/)
