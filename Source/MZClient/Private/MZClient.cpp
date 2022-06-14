@@ -168,6 +168,76 @@ void FMZClient::SendPinRemoved(FGuid guid)
 
 #pragma optimize( "", on )
 
+bool FMZClient::Tick(float dt)
+{
+    InitConnection();
+
+    if (!CopyOnTick.Num())
+    {
+        return true;
+    }
+
+    ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+        [this](FRHICommandListImmediate& RHICmdList)
+        {
+            std::unique_lock lock(Mutex);
+            auto CopyList = CopyOnTick;
+            //HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
+            CmdList->Reset(CmdAlloc, 0);
+            std::vector<D3D12_RESOURCE_BARRIER> barriers;
+            for (auto& [id, pin] : CopyList)
+            {
+                if (pin.SrcEntity.GetResource() != pin.SrcResource)
+                {
+                    CopyOnTick.Remove(id);
+                    mz::proto::msg<mz::app::AppEvent> event;
+                    mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*id.ToString()));
+                    Client->Write(event);
+                    SendNodeUpdate(pin.SrcEntity);
+                    continue;
+                }
+
+                if (pin.Fence->GetCompletedValue() < pin.FenceValue)
+                {
+                    pin.Fence->SetEventOnCompletion(pin.FenceValue, pin.Event);
+                    WaitForSingleObject(pin.Event, INFINITE);
+                }
+
+                auto barrier = D3D12_RESOURCE_BARRIER{
+                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                        .Transition =
+                        D3D12_RESOURCE_TRANSITION_BARRIER{
+                            .pResource = pin.SrcResource,
+                            .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
+                            .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+                        }
+                };
+
+                CmdList->ResourceBarrier(1, &barrier);
+                CmdList->CopyResource(pin.DstResource, pin.SrcResource);
+                barriers.push_back(D3D12_RESOURCE_BARRIER{
+                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                        .Transition =
+                        D3D12_RESOURCE_TRANSITION_BARRIER{
+                            .pResource = pin.SrcResource,
+                            .StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE,
+                            .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+                        }
+                    });
+            }
+
+            CmdList->ResourceBarrier(barriers.size(), barriers.data());
+            CmdList->Close();
+            CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
+            for (auto& [_, pin] : CopyOnTick)
+            {
+                CmdQueue->Signal(pin.Fence, ++pin.FenceValue);
+            }
+        });
+    return true;
+}
+
+
 bool FMZClient::Connect() {
     return true;
 }
