@@ -1,5 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
-
+#include "MZType.h"
 #include "MZClient.h"
 #include "Core.h"
 #include "Engine/TextureRenderTarget2D.h"

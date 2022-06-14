@@ -87,7 +87,7 @@ void FMZClient::InitConnection()
     }
 
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
-    Client = new ClientImpl("A45A5459-997E-4F63-988C-4B2DDD8E9BC0", "Unreal Engine", protoPath.c_str(), true);
+    Client = new ClientImpl("UE5", "Unreal Engine", protoPath.c_str(), true);
 }
 
 void FMZClient::StartupModule() {
