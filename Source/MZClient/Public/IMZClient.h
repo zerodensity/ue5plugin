@@ -23,6 +23,6 @@ class IMZClient : public IModuleInterface {
   virtual void SendPinRemoved(FGuid) = 0;
 
   virtual void Disconnect() = 0 ;
-  virtual void QueueTextureCopy(FGuid id, struct MZEntity* entity, mz::proto::Dynamic* dyn) = 0;
+  virtual void QueueTextureCopy(FGuid id, struct MZEntity* entity, mz::proto::Pin* dyn) = 0;
   virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) = 0;
 };

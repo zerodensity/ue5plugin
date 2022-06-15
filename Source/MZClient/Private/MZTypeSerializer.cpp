@@ -31,7 +31,7 @@ void ClientImpl::OnNodeUpdate(mz::proto::Node const& archive)
 		{	
 			if (auto copyInfo = fmz->PendingCopyQueue.Find(out))
 			{
-				if (mz::app::ParseFromString(tex.m_Ptr, pin.dynamic().data().c_str()))
+				if (mz::app::ParseFromString(tex.m_Ptr, pin.data().c_str()))
 				{
 					MzTextureShareInfo info = {
 						.textureInfo = {
@@ -72,7 +72,7 @@ void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
 	
 }
 
-void FMZClient::QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Dynamic* dyn)
+void FMZClient::QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Pin* dyn)
 {
 	MzTextureInfo info = {};
 	ID3D12Resource* res = entity->GetResource();
@@ -92,12 +92,12 @@ void FMZClient::QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Dynamic*
 		tex->set_format(info.format);
 		tex->set_usage(info.usage | MZ_IMAGE_USAGE_SAMPLED);
 		
-		mz::app::SetDyn(dyn, tex.m_Ptr);
+		mz::app::SetPin(dyn, tex.m_Ptr);
 	}
 }
 
 template<class T>
-static void SetValue(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
+static void SetValue(mz::proto::Pin* dyn, IRemoteControlPropertyHandle* p)
 {
 	using ValueType = decltype(T{}.val());
 
@@ -107,11 +107,11 @@ static void SetValue(mz::proto::Dynamic* dyn, IRemoteControlPropertyHandle* p)
 	p->GetValue(val);
 	m->set_val(val);
 
-	mz::app::SetDyn(dyn, m.m_Ptr);
+	mz::app::SetPin(dyn, m.m_Ptr);
 }
 
 #pragma optimize( "", off )
-void MZType::SerializeToProto(mz::proto::Dynamic* dyn, MZEntity* e)
+void MZType::SerializeToProto(mz::proto::Pin* dyn, MZEntity* e)
 {
 	switch (Tag)
 	{
@@ -140,7 +140,7 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, MZEntity* e)
 		e->Property.Get()->GetValue(val);
 
 		mz::app::SetField(m.m_Ptr,  m->kValFieldNumber, TCHAR_TO_UTF8(*val));
-		mz::app::SetDyn(dyn, m.m_Ptr);
+		mz::app::SetPin(dyn, m.m_Ptr);
 	}
 	break;
 	case STRUCT:
@@ -170,7 +170,7 @@ void MZType::SerializeToProto(mz::proto::Dynamic* dyn, MZEntity* e)
 	}
 }
 #pragma optimize( "", on )
-void MZEntity::SerializeToProto(mz::proto::Dynamic* req)
+void MZEntity::SerializeToProto(mz::proto::Pin* req)
 {
 	if (Type)
 	{

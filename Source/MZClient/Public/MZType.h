@@ -18,7 +18,7 @@ namespace mz::app
 
 namespace mz::proto
 {
-	class Dynamic;
+	class Pin;
 	class Texture;
 }
 
@@ -48,7 +48,7 @@ struct MZCLIENT_API MZType
 	TMap<FString, MZType*> StructFields;
 
 	static MZType* GetType(FField*);
-	void SerializeToProto(mz::proto::Dynamic* dyn, struct MZEntity* p);
+	void SerializeToProto(mz::proto::Pin* dyn, struct MZEntity* p);
 private:
 	MZType() = default;
 	bool Init(FField*);
@@ -59,10 +59,8 @@ struct MZCLIENT_API MZEntity
 	MZType* Type;
 	FRemoteControlEntity* Entity;
 	TSharedPtr<IRemoteControlPropertyHandle> Property;
-	// FProperty* fProperty;
-	//void SerializeToProto(google::protobuf::Any* value);
-	//void SerializeToProto(mz::proto::DynamicField* field);
-	void SerializeToProto(mz::proto::Dynamic* req);
+	
+	void SerializeToProto(mz::proto::Pin* req);
 
 	struct ID3D12Resource* GetResource() const;
 };
