@@ -143,7 +143,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       {
           return;
       }
-      OnPresetRemoved(Cast<URemoteControlPreset>(asset.GetAsset()));
+      // OnPresetRemoved(Cast<URemoteControlPreset>(asset.GetAsset()));
   }
 
   void OnAssetRenamed(const FAssetData& asset, const FString& name)

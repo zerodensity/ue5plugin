@@ -20,6 +20,7 @@ namespace mz::proto
 {
 	class Pin;
 	class Texture;
+	class Pin;
 }
 
 struct MZCLIENT_API MZType

@@ -72,7 +72,7 @@ void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
 	
 }
 
-void FMZClient::QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Pin* dyn)
+void FMZClient::QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Pin* pin)
 {
 	MzTextureInfo info = {};
 	ID3D12Resource* res = entity->GetResource();
@@ -92,12 +92,12 @@ void FMZClient::QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Pin* dyn
 		tex->set_format(info.format);
 		tex->set_usage(info.usage | MZ_IMAGE_USAGE_SAMPLED);
 		
-		mz::app::SetPin(dyn, tex.m_Ptr);
+		mz::app::SetPin(pin, tex.m_Ptr);
 	}
 }
 
 template<class T>
-static void SetValue(mz::proto::Pin* dyn, IRemoteControlPropertyHandle* p)
+static void SetValue(mz::proto::Pin* pin, IRemoteControlPropertyHandle* p)
 {
 	using ValueType = decltype(T{}.val());
 
@@ -107,30 +107,30 @@ static void SetValue(mz::proto::Pin* dyn, IRemoteControlPropertyHandle* p)
 	p->GetValue(val);
 	m->set_val(val);
 
-	mz::app::SetPin(dyn, m.m_Ptr);
+	mz::app::SetPin(pin, m.m_Ptr);
 }
 
 #pragma optimize( "", off )
-void MZType::SerializeToProto(mz::proto::Pin* dyn, MZEntity* e)
+void MZType::SerializeToProto(mz::proto::Pin* pin, MZEntity* e)
 {
 	switch (Tag)
 	{
 	case BOOL:	 
-		SetValue<mz::proto::Bool>(dyn, e->Property.Get());
+		SetValue<mz::proto::Bool>(pin, e->Property.Get());
 		break;
 
 	case INT:	 
 		switch (Width)
 		{
-		case 32: SetValue<mz::proto::i32>(dyn, e->Property.Get()); break;
-		case 64: SetValue<mz::proto::i64>(dyn, e->Property.Get()); break;
+		case 32: SetValue<mz::proto::i32>(pin, e->Property.Get()); break;
+		case 64: SetValue<mz::proto::i64>(pin, e->Property.Get()); break;
 		}
 		break;
 	case FLOAT:
 		switch (Width)
 		{
-		case 32: SetValue<mz::proto::f32>(dyn, e->Property.Get()); break;
-		case 64: SetValue<mz::proto::f64>(dyn, e->Property.Get()); break;
+		case 32: SetValue<mz::proto::f32>(pin, e->Property.Get()); break;
+		case 64: SetValue<mz::proto::f64>(pin, e->Property.Get()); break;
 		}
 		break;
 	
@@ -140,7 +140,7 @@ void MZType::SerializeToProto(mz::proto::Pin* dyn, MZEntity* e)
 		e->Property.Get()->GetValue(val);
 
 		mz::app::SetField(m.m_Ptr,  m->kValFieldNumber, TCHAR_TO_UTF8(*val));
-		mz::app::SetPin(dyn, m.m_Ptr);
+		mz::app::SetPin(pin, m.m_Ptr);
 	}
 	break;
 	case STRUCT:
@@ -152,16 +152,16 @@ void MZType::SerializeToProto(mz::proto::Pin* dyn, MZEntity* e)
 		if (IsInGameThread())
 		{
 			ENQUEUE_RENDER_COMMAND(TRT2D_GetRenderTargetResource)(
-				[dyn, e](FRHICommandListImmediate& RHICmdList)
+				[pin, e](FRHICommandListImmediate& RHICmdList)
 				{
-					FMZClient::Get()->QueueTextureCopy(e->Entity->GetId(), e, dyn);
+					FMZClient::Get()->QueueTextureCopy(e->Entity->GetId(), e, pin);
 				});
 
 			FlushRenderingCommands();
 		}
 		else
 		{
-			FMZClient::Get()->QueueTextureCopy(e->Entity->GetId(), e, dyn);
+			FMZClient::Get()->QueueTextureCopy(e->Entity->GetId(), e, pin);
 		}
 
 
@@ -170,11 +170,16 @@ void MZType::SerializeToProto(mz::proto::Pin* dyn, MZEntity* e)
 	}
 }
 #pragma optimize( "", on )
-void MZEntity::SerializeToProto(mz::proto::Pin* req)
+void MZEntity::SerializeToProto(mz::proto::Pin* pin)
 {
 	if (Type)
 	{
-		Type->SerializeToProto(req, this);
+		FString id = Entity->GetId().ToString();
+		FString label = Entity->GetLabel().ToString();
+		mz::app::SetField(pin, mz::proto::Pin::kIdFieldNumber, TCHAR_TO_UTF8(*id));
+		mz::app::SetField(pin, mz::proto::Pin::kDisplayNameFieldNumber, TCHAR_TO_UTF8(*label));
+		mz::app::SetField(pin, mz::proto::Pin::kNameFieldNumber, TCHAR_TO_UTF8(*label));
+		Type->SerializeToProto(pin, this);
 	}
 	else
 	{

@@ -87,7 +87,7 @@ void FMZClient::InitConnection()
     }
 
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
-    Client = new ClientImpl("UE5", "Unreal Engine", protoPath.c_str(), true);
+    Client = new ClientImpl("UE5", "UE5", protoPath.c_str(), true);
 }
 
 void FMZClient::StartupModule() {
@@ -119,7 +119,7 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
     mz::proto::msg<mz::app::AppEvent> event;
     mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
-    
+
     FString id = entity.Entity->GetId().ToString();
     FString label = entity.Entity->GetLabel().ToString();
     
@@ -127,9 +127,6 @@ void FMZClient::SendNodeUpdate(MZEntity entity)
     pin->set_pin_can_show_as(mz::proto::CanShowAs::OUTPUT_PIN_ONLY);
 
     mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, TCHAR_TO_UTF8(*Client->id));
-    mz::app::SetField(pin, mz::proto::Pin::kIdFieldNumber, TCHAR_TO_UTF8(*id));
-    mz::app::SetField(pin, mz::proto::Pin::kDisplayNameFieldNumber, TCHAR_TO_UTF8(*label));
-    mz::app::SetField(pin, mz::proto::Pin::kNameFieldNumber, TCHAR_TO_UTF8(*label));
     entity.SerializeToProto(pin);
 
     Client->Write(event);
