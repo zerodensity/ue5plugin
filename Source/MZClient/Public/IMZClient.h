@@ -18,11 +18,14 @@ class IMZClient : public IModuleInterface {
     }
   }
 
-  virtual void SendNodeUpdate(MZEntity) = 0 ;
+  virtual void SendNodeUpdate(TMap<FGuid, MZEntity> const& entities) = 0;
   virtual void SendPinValueChanged(MZEntity) = 0;
   virtual void SendPinRemoved(FGuid) = 0;
+  virtual void SendPinAdded(MZEntity entity) = 0;
+  virtual void OnNodeUpdateReceived(mz::proto::Node const&) = 0;
 
-  virtual void Disconnect() = 0 ;
-  virtual void QueueTextureCopy(FGuid id, struct MZEntity* entity, mz::proto::Pin* dyn) = 0;
+  virtual void Disconnect() = 0;
+  virtual void NodeRemoved() = 0;
+  virtual void QueueTextureCopy(FGuid id, const struct MZEntity* entity, mz::proto::Pin* dyn) = 0;
   virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) = 0;
 };

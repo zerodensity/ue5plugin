@@ -10,6 +10,8 @@
 #include <memory>
 #include <string>
 
+#include "mediaz.h"
+
 namespace mz::app
 {
 	class AddPinRequest;
@@ -21,6 +23,7 @@ namespace mz::proto
 	class Pin;
 	class Texture;
 	class Pin;
+	class Node;
 }
 
 struct MZCLIENT_API MZType
@@ -49,7 +52,7 @@ struct MZCLIENT_API MZType
 	TMap<FString, MZType*> StructFields;
 
 	static MZType* GetType(FField*);
-	void SerializeToProto(mz::proto::Pin* dyn, struct MZEntity* p);
+	void SerializeToProto(mz::proto::Pin* dyn, const struct MZEntity* p);
 private:
 	MZType() = default;
 	bool Init(FField*);
@@ -57,11 +60,12 @@ private:
 
 struct MZCLIENT_API MZEntity
 {
-	MZType* Type;
-	FRemoteControlEntity* Entity;
-	TSharedPtr<IRemoteControlPropertyHandle> Property;
+	MZType* Type = 0;
+	FRemoteControlEntity* Entity = 0;
+	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
 	
-	void SerializeToProto(mz::proto::Pin* req);
+	void SerializeToProto(mz::proto::Pin* req) const;
 
+	MzTextureInfo GetResourceInfo() const;
 	struct ID3D12Resource* GetResource() const;
 };

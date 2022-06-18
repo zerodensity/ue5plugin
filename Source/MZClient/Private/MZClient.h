@@ -27,6 +27,7 @@
  * Implements communication with the MediaZ server
  */
 class MZCLIENT_API FMZClient : public IMZClient {
+
  public:
 
 	 FMZClient();
@@ -37,30 +38,48 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 bool Connect();
 
 	 uint32 Run();
-	 virtual void SendNodeUpdate(MZEntity) override;
+
+	 virtual void OnNodeUpdateReceived(mz::proto::Node const&) override;
+
+	 virtual void SendNodeUpdate(TMap<FGuid, MZEntity> const& entities) override;
 	 virtual void SendPinRemoved(FGuid) override;
+	 virtual void SendPinAdded(MZEntity) override;
 	 virtual void SendPinValueChanged(MZEntity) override;
 	 virtual void Disconnect() override;
+	 virtual void NodeRemoved() override;
 	 void ClearResources();
 
-	 static size_t HashTextureParams(uint32_t width, uint32_t height, uint32_t format, uint32_t usage);
-	
-	 virtual void QueueTextureCopy(FGuid id, MZEntity* entity, mz::proto::Pin* dyn) override;
+	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* dyn) override;
 	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
 
      void InitRHI();
-     void InitConnection();
+     
+	 void InitConnection();
+
 	 bool Tick(float dt);
 
+	 std::atomic_bool bClientShouldDisconnect = false;
 
 	 struct ResourceInfo
 	 {
-		 MZEntity SrcEntity;
-		 ID3D12Resource* SrcResource;
-		 ID3D12Resource* DstResource;
-		 ID3D12Fence* Fence;
-		 void* Event;
-		 uint64_t FenceValue;
+		 MZEntity SrcEntity = {};
+		 ID3D12Resource* SrcResource = 0;
+		 ID3D12Resource* DstResource = 0;
+		 ID3D12Fence* Fence = 0;
+		 void* Event = 0;
+		 uint64_t FenceValue = 0;
+		 void Release()
+		 {
+			 if (Fence && Event && (Fence->GetCompletedValue() < FenceValue))
+			 {
+				 WaitForSingleObject(Event, INFINITE);
+			 }
+			 if(SrcResource) SrcResource->Release();
+			 if(DstResource) DstResource->Release();
+			 if(Fence) Fence->Release();
+			 if(Event) CloseHandle(Event);
+			 memset(this, 0, sizeof(*this));
+		 }
 	 };
 
 	 struct ID3D12Device* Dev;
@@ -70,8 +89,13 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 class ClientImpl* Client = 0;
 
-	 std::mutex Mutex;
-	 TMap<FGuid, ResourceInfo> PendingCopyQueue;
+	 std::mutex PendingCopyQueueMutex;
+	 TMap<FGuid, MZEntity> PendingCopyQueue;
+
+	 std::mutex CopyOnTickMutex;
 	 TMap<FGuid, ResourceInfo> CopyOnTick;
+
+	 std::mutex ResourceChangedMutex;
+	 TMap<FGuid, MZEntity> ResourceChanged;
 };
 

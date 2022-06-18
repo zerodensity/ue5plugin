@@ -28,17 +28,16 @@
 #define LOCTEXT_NAMESPACE "FMZRemoteControl"
 
 
-
-void GetAssetSafe(const FAssetData& asset)
-{
-    
-}
-
 struct FMZRemoteControl : IMZRemoteControl {
 
   TMap<FGuid, MZEntity> EntityCache;
-  TMap<FName, TArray<FGuid>> PresetEntities;
+  TMap<URemoteControlPreset*, TArray<FGuid>> PresetEntities;
   //TMap<FProperty*, FGuid> TrackedProperties;
+
+  virtual TMap<FGuid, MZEntity> const& GetExposedEntities() override
+  {
+      return EntityCache;
+  }
 
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
   {
@@ -56,24 +55,27 @@ struct FMZRemoteControl : IMZRemoteControl {
       }
   }
 
+  MZEntity RegisterExposedEntity(URemoteControlPreset* preset, FRemoteControlEntity* entity)
+  {
+      FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
+      FProperty* prop = rprop.GetProperty();
+      MZEntity mze = { MZType::GetType(prop), entity, rprop.GetPropertyHandle()};
+      EntityCache.Add(entity->GetId(), mze);
+      PresetEntities[preset].Add(entity->GetId());
+      return mze;
+  }
+
   void OnEntityExposed(URemoteControlPreset* preset, FGuid const& guid)
   {
-      // FMessageDialog::Debugf(FText::FromString("Entity exposed in " + preset->GetName()), 0);
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
-      FRemoteControlProperty rprop = entity->GetOwner()->GetProperty(entity->GetId()).GetValue();
-      FProperty* prop = rprop.GetProperty();
-      MZEntity mze = { MZType::GetType(prop), entity, rprop.GetPropertyHandle() };
-      EntityCache.Add(entity->GetId(), mze);
-      PresetEntities[preset->GetFName()].Add(guid);
-      //TrackedProperties.Add(prop, entity->GetId());
-      IMZClient::Get()->SendNodeUpdate(mze);
+      IMZClient::Get()->SendPinAdded(RegisterExposedEntity(preset, entity));
   }
 
   void OnEntityUnexposed(URemoteControlPreset* preset, FGuid const& guid)
   {
       //TrackedProperties.Remove(EntityCache[guid].fProperty);
       EntityCache.Remove(guid);
-      PresetEntities[preset->GetFName()].Remove(guid);
+      PresetEntities[preset].Remove(guid);
       IMZClient::Get()->SendPinRemoved(guid);
   }
 
@@ -93,7 +95,17 @@ struct FMZRemoteControl : IMZRemoteControl {
   void OnPresetLoaded(URemoteControlPreset* preset)
   {
       // FMessageDialog::Debugf(FText::FromString("Preset loaded " + preset->GetName()), 0);
-      PresetEntities.Add(preset->GetFName(), {});
+      if (PresetEntities.Contains(preset))
+      {
+          return;
+      }
+
+      PresetEntities.Add(preset, {});
+
+      for (auto& entity : preset->GetExposedEntities())
+      {
+          RegisterExposedEntity(preset, entity.Pin().Get());
+      }
 
       preset->OnEntitiesUpdated().AddRaw(this, &FMZRemoteControl::OnEntitiesUpdated);
       preset->OnEntityExposed().AddRaw(this, &FMZRemoteControl::OnEntityExposed);
@@ -116,11 +128,12 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   void OnPresetUnregistered(FName name)
   {
-      for (auto& id : PresetEntities[name])
+      URemoteControlPreset* preset = IRemoteControlModule::Get().ResolvePreset(name);
+      for (auto& id : PresetEntities[preset])
       {
           EntityCache.Remove(id);
       }
-      PresetEntities.Remove(name);
+      PresetEntities.Remove(preset);
   }
 
   void OnPresetImported(UFactory* factory, UObject* preset)
@@ -137,6 +150,21 @@ struct FMZRemoteControl : IMZRemoteControl {
       }
   }
   
+  void OnAssetAdded(const FAssetData& asset)
+  {
+      static FName ClassName = "RemoteControlPreset";
+
+      if (ClassName == asset.AssetClass)
+      {
+          // Only force load assets that are RemoteControlPresets
+          // otherwise it slows down the startup like hell
+          if (auto preset = Cast<URemoteControlPreset>(asset.GetAsset()))
+          {
+              OnPresetLoaded(preset);
+          }
+      }
+  }
+
   void OnAssetRemoved(const FAssetData& asset)
   {
       if (asset.GetClass() != URemoteControlPreset::StaticClass())
@@ -159,13 +187,22 @@ struct FMZRemoteControl : IMZRemoteControl {
     IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName).Get();
     AssetRegistry.OnAssetRemoved().AddRaw(this, &FMZRemoteControl::OnAssetRemoved);
     AssetRegistry.OnAssetRenamed().AddRaw(this, &FMZRemoteControl::OnAssetRenamed);
+    AssetRegistry.OnAssetAdded().AddRaw(this, &FMZRemoteControl::OnAssetAdded);
     FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
+    
+    TArray<TSoftObjectPtr<URemoteControlPreset>> presets;
+    IRemoteControlModule::Get().GetPresets(presets);
+    for (auto& preset : presets)
+    {
+        OnPresetLoaded(preset.Get());
+    }
    // FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMZRemoteControl::OnObjectPropertyChanged);
 
     // FMessageDialog::Debugf(FText::FromString("Loaded MZRemoteControl module"), 0);
   }
 
-  void ShutdownModule() override {
+  void ShutdownModule() override 
+  {
 
   }
 };

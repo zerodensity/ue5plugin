@@ -16,7 +16,7 @@ static TMap<FName, std::string> UE_2_MZ_TYPE =
     {NAME_Vector2D, "mz.proto.vec2d"},
 };
 
-#pragma optimize( "", off )
+
 bool MZType::Init(FField* Field)
 {
     if (auto oprop = CastField<FObjectProperty>(Field))
@@ -96,6 +96,63 @@ MZType* MZType::GetType(FField* Field)
     return ty;
 }
 
+MzTextureInfo MZEntity::GetResourceInfo() const
+{
+    UObject* obj = Entity->GetBoundObject();
+    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty());
+    
+    UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+ 
+    MzTextureInfo info = {
+        .width  = (uint32_t)trt2d->GetSurfaceWidth(),
+        .height = (uint32_t)trt2d->GetSurfaceHeight(),
+        .usage = (MzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST),
+    };
+
+    switch (trt2d->RenderTargetFormat)
+    {
+    case ETextureRenderTargetFormat::RTF_R8:
+        info.format = MZ_FORMAT_R8_UNORM;
+        break;
+    case ETextureRenderTargetFormat::RTF_RG8:
+        info.format = MZ_FORMAT_R8G8_UNORM;
+        break;
+    case ETextureRenderTargetFormat::RTF_RGBA8:
+        info.format = MZ_FORMAT_R8G8B8A8_UNORM;
+        break;
+    case ETextureRenderTargetFormat::RTF_RGBA8_SRGB:
+        info.format = MZ_FORMAT_R8G8B8A8_SRGB;
+        break;
+
+    case ETextureRenderTargetFormat::RTF_R16f:
+        info.format = MZ_FORMAT_R16_SFLOAT;
+        break;
+    case ETextureRenderTargetFormat::RTF_RG16f:
+        info.format = MZ_FORMAT_R16G16_SFLOAT;
+        break;
+    case ETextureRenderTargetFormat::RTF_RGBA16f:
+        info.format = MZ_FORMAT_R16G16B16A16_SFLOAT;
+        break;
+
+    case ETextureRenderTargetFormat::RTF_R32f:
+        info.format = MZ_FORMAT_R32_SFLOAT;
+        break;
+    case ETextureRenderTargetFormat::RTF_RG32f:
+        info.format = MZ_FORMAT_R32G32_SFLOAT;
+        break;
+    case ETextureRenderTargetFormat::RTF_RGBA32f:
+        info.format = MZ_FORMAT_R32G32B32A32_SFLOAT;
+        break;
+
+    case ETextureRenderTargetFormat::RTF_RGB10A2:
+        info.format = MZ_FORMAT_A2R10G10B10_UNORM_PACK32;
+        break;
+    }
+
+    return info;
+}
+
+
 ID3D12Resource* MZEntity::GetResource() const
 {
     UObject* obj = Entity->GetBoundObject();
@@ -103,4 +160,3 @@ ID3D12Resource* MZEntity::GetResource() const
     return (ID3D12Resource*)Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)))->GetRenderTargetResource()->GetTextureRenderTarget2DResource()->GetTexture2DRHI()->GetNativeResource();
 }
 
-#pragma optimize( "", on )

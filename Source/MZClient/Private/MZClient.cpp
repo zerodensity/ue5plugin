@@ -1,27 +1,30 @@
 
 #include "MZClient.h"
-
+//
+#include "../../MZRemoteControl/Public/IMZRemoteControl.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
-
-
-FMZClient::FMZClient() {}
 
 class MZCLIENT_API ClientImpl : public mz::app::AppClient
 {
 public:
     using mz::app::AppClient::AppClient;
-
+    
     virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
     {
         FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
         if (event.has_node())
         {
-            id = event.node().id().c_str();
+            nodeId = event.node().id().c_str();
+            IMZClient::Get()->SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities());
         }
     }
 
-    virtual void OnNodeUpdate(mz::proto::Node const& archive) override;
+    virtual void OnNodeUpdate(mz::proto::Node const& archive) override
+    {
+        IMZClient::Get()->OnNodeUpdateReceived(archive);
+    }
+
     virtual void OnMenuFired(mz::app::ContextMenuRequest const& request) override
     {
     }
@@ -33,62 +36,172 @@ public:
 
     virtual void Done(grpc::Status const& Status) override
     {
-        //FMessageDialog::Debugf(FText::FromString("App Client shutdown"), 0);
-        FMZClient* fmz = (FMZClient*)IMZClient::Get();
-        fmz->ClearResources();
+        lastState = GRPC_CHANNEL_SHUTDOWN;
+        IMZClient::Get()->Disconnect();
     }
 
     virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
     {
-        id.Empty();
-        FMZClient* fmz = (FMZClient*)IMZClient::Get();
-        fmz->ClearResources();
+        IMZClient::Get()->NodeRemoved();
     }
 
-    FString id;
+    FString nodeId;
+
+    grpc_connectivity_state lastState = GRPC_CHANNEL_CONNECTING;
 };
 
-size_t FMZClient::HashTextureParams(uint32_t width, uint32_t height, uint32_t format, uint32_t usage)
-{
-    return
-        (0xd24908d710a ^ ((size_t)width << 40ull)) |
-        (0X6a6826a9abd ^ ((size_t)height << 18ull)) |
-        ((size_t)usage << (6ull)) | (size_t)(format);
-}
+FMZClient::FMZClient() {}
 
 void FMZClient::ClearResources()
 {
+    std::unique_lock lock(CopyOnTickMutex);
     for (auto& [_, pin] : CopyOnTick)
     {
-        pin.DstResource->Release();
-        pin.Fence->Release();
-        CloseHandle(pin.Event);
+        pin.Release();
+    }
+    PendingCopyQueue.Empty();
+    CopyOnTick.Empty();
+    ResourceChanged.Empty();
+}
+
+void FMZClient::NodeRemoved() 
+{
+    Client->nodeId.Empty();
+    ClearResources();
+}
+
+void FMZClient::Disconnect() {
+    Client->nodeId.Empty();
+
+    std::unique_lock lock(CopyOnTickMutex);
+    for (auto& [_, pin] : CopyOnTick)
+    {
+       if (pin.SrcResource) 
+           pin.SrcResource->Release();
     }
 
     PendingCopyQueue.Empty();
     CopyOnTick.Empty();
-}
-
-void FMZClient::Disconnect() {
-    delete Client;
-    Client = 0;
-    ClearResources();
+    ResourceChanged.Empty();
 }
 
 void FMZClient::InitConnection()
 {
     if (Client)
     {
-        if (!Client->m_Cancelled)
+        switch (Client->lastState)
         {
-            return;
+        case GRPC_CHANNEL_READY:
+            break;
+        case GRPC_CHANNEL_IDLE:
+        case GRPC_CHANNEL_TRANSIENT_FAILURE:
+        case GRPC_CHANNEL_CONNECTING:
+        case GRPC_CHANNEL_SHUTDOWN:
+            Client->lastState = Client->Connect();
         }
-        delete Client;
+        return;
     }
 
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
-    Client = new ClientImpl("UE5", "UE5", protoPath.c_str(), true);
+    Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
 }
+
+void FMZClient::InitRHI()
+{
+    Dev = (ID3D12Device*)GDynamicRHI->RHIGetNativeDevice();
+    HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAlloc));
+    FD3D12DynamicRHI* D3D12RHI = static_cast<FD3D12DynamicRHI*>(GDynamicRHI);
+    CmdQueue = D3D12RHI->RHIGetD3DCommandQueue();
+    CmdQueue->AddRef();
+    Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
+    CmdList->Close();
+}
+
+
+TMap<FGuid, const mz::proto::Pin*> ParsePins(mz::proto::Node const& archive)
+{
+    TMap<FGuid, const mz::proto::Pin*> re;
+    for (auto& pin : archive.pins())
+    {
+        FGuid out;
+        if (FGuid::Parse(pin.id().c_str(), out))
+        {
+            re.Add(out, &pin);
+        }
+    }
+    return re;
+}
+
+void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
+{
+    if (Client->nodeId.IsEmpty())
+    {
+        Client->nodeId = archive.id().c_str();
+        SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities());
+        return;
+    }
+
+    if (Client->nodeId != archive.id().c_str())
+    {   
+        // SHOULDNT BE HERE
+        abort();
+    }
+
+    std::unique_lock lock1(PendingCopyQueueMutex);
+
+    for (auto [id, pin] : ParsePins(archive))
+    {
+        if (auto entity = PendingCopyQueue.Find(id))
+        {
+            mz::proto::msg<mz::proto::Texture> tex;
+            if (mz::app::ParseFromString(tex.m_Ptr, pin->data().c_str()))
+            {
+                MzTextureShareInfo info = {
+                    .textureInfo = {
+                        .width = tex->width(),
+                        .height = tex->height(),
+                        .format = (MzFormat)tex->format(),
+                        .usage = (MzImageUsage)tex->usage(),
+                    },
+                    .pid = tex->pid(),
+                    .memory = tex->memory(),
+                    .sync = tex->sync(),
+                    .offset = tex->offset(),
+                };
+                ResourceInfo copyInfo = {
+                    .SrcEntity = *entity,
+                };
+                copyInfo.Event = CreateEventA(0, 0, 0, 0);
+                mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource, &copyInfo.Fence);
+                PendingCopyQueue.Remove(id);
+                std::unique_lock lock2(CopyOnTickMutex);
+                CopyOnTick.Add(id, copyInfo);
+            }
+        }
+    }
+}
+
+void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
+{
+
+}
+
+void FMZClient::QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* pin)
+{
+    MzTextureInfo info = entity->GetResourceInfo();
+    {
+        std::unique_lock lock(PendingCopyQueueMutex);
+        PendingCopyQueue.Add(id, *entity);
+    }
+
+    mz::proto::msg<mz::proto::Texture> tex;
+    tex->set_width(info.width);
+    tex->set_height(info.height);
+    tex->set_format(info.format);
+    tex->set_usage(info.usage | MZ_IMAGE_USAGE_SAMPLED);
+    mz::app::SetPin(pin, tex.m_Ptr);
+}
+
 
 void FMZClient::StartupModule() {
 
@@ -102,31 +215,49 @@ void FMZClient::ShutdownModule()
 {
 }
 
-#pragma optimize( "", off )
-
 void FMZClient::SendPinValueChanged(MZEntity entity)
 {
     // SendNodeUpdate(entity);
 }
 
-void FMZClient::SendNodeUpdate(MZEntity entity) 
+void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
 {
-    if (!Client || Client->id.IsEmpty())
+    if (!Client || Client->nodeId.IsEmpty())
     {
         return;
     }
 
     mz::proto::msg<mz::app::AppEvent> event;
     mz::app::NodeUpdate* req = event->mutable_node_update();
-    mz::proto::Pin* pin = req->add_pins_to_add();
+    req->set_clear(false);
+    for (auto& [id, entity] : entities)
+    {
+        mz::proto::Pin* pin = req->add_pins_to_add();
 
-    FString id = entity.Entity->GetId().ToString();
+        FString label = entity.Entity->GetLabel().ToString();
+
+        pin->set_pin_show_as(mz::proto::ShowAs::OUTPUT_PIN);
+        pin->set_pin_can_show_as(mz::proto::CanShowAs::OUTPUT_PIN_ONLY);
+
+        mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, TCHAR_TO_UTF8(*Client->nodeId));
+        entity.SerializeToProto(pin);
+    }
+
+    Client->Write(event);
+}
+
+void FMZClient::SendPinAdded(MZEntity entity)
+{
+    mz::proto::msg<mz::app::AppEvent> event;
+    mz::app::NodeUpdate* req = event->mutable_node_update();
+    mz::proto::Pin* pin = req->add_pins_to_add();
+    req->set_clear(false);
+
     FString label = entity.Entity->GetLabel().ToString();
-    
     pin->set_pin_show_as(mz::proto::ShowAs::OUTPUT_PIN);
     pin->set_pin_can_show_as(mz::proto::CanShowAs::OUTPUT_PIN_ONLY);
 
-    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, TCHAR_TO_UTF8(*Client->id));
+    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, TCHAR_TO_UTF8(*Client->nodeId));
     entity.SerializeToProto(pin);
 
     Client->Write(event);
@@ -137,38 +268,62 @@ void FMZClient::SendPinRemoved(FGuid guid)
     FString id = guid.ToString();
 
     {
-        std::unique_lock lock(Mutex);
-        if (PendingCopyQueue.Remove(guid) || CopyOnTick.Remove(guid))
+        std::unique_lock lock(CopyOnTickMutex);
+        bool removed = false;
+        ResourceInfo res = {};
+        if (CopyOnTick.RemoveAndCopyValue(guid, res))
         {
-            mz::proto::msg<mz::app::AppEvent> event;
+            res.Release();
+            removed = true;
+        }
+        else
+        {
+            removed = PendingCopyQueue.Remove(guid);
+        }
 
+        if (removed)
+        {
+            res.Release();
+            mz::proto::msg<mz::app::AppEvent> event;
             mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*guid.ToString()));
-   
             Client->Write(event);
         }
     }
 
-    if (!Client || Client->id.IsEmpty())
+    if (!Client || Client->nodeId.IsEmpty())
     {
         return;
     }
+
     mz::proto::msg<mz::app::AppEvent> event;
     mz::app::NodeUpdate* req = event->mutable_node_update();
 
-    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, TCHAR_TO_UTF8(*Client->id));
+    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, TCHAR_TO_UTF8(*Client->nodeId));
     mz::app::AddRepeatedField(req, mz::app::NodeUpdate::kPinsToDeleteFieldNumber, TCHAR_TO_UTF8(*id));
     
     Client->Write(event);
 }
 
 
-#pragma optimize( "", on )
-
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
 
-    if (!CopyOnTick.Num())
+    if (!ResourceChanged.IsEmpty())
+    {
+        std::lock_guard lock(ResourceChangedMutex);
+
+        for (auto& [id, entity] : ResourceChanged)
+        {
+            mz::proto::msg<mz::app::AppEvent> event;
+            mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*id.ToString()));
+            Client->Write(event);
+        }
+        SendNodeUpdate(ResourceChanged);
+        ResourceChanged.Empty();
+    }
+
+    if (CopyOnTick.IsEmpty())
     {
         return true;
     }
@@ -176,20 +331,23 @@ bool FMZClient::Tick(float dt)
     ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
         [this](FRHICommandListImmediate& RHICmdList)
         {
-            std::unique_lock lock(Mutex);
-            auto CopyList = CopyOnTick;
-            //HANDLE eventHandle = CreateEventEx(nullptr, 0, 0, EVENT_ALL_ACCESS);
+            std::unique_lock lock(CopyOnTickMutex);
+            CmdAlloc->Reset();
             CmdList->Reset(CmdAlloc, 0);
-            std::vector<D3D12_RESOURCE_BARRIER> barriers;
-            for (auto& [id, pin] : CopyList)
+            TArray<D3D12_RESOURCE_BARRIER> barriers;
+            for (auto& [id, pin] : CopyOnTick)
             {
-                if (pin.SrcEntity.GetResource() != pin.SrcResource)
+                ID3D12Resource* SrcResource = pin.SrcEntity.GetResource();
+                if (!pin.SrcResource)
                 {
+                    pin.SrcResource = SrcResource;
+                    pin.SrcResource->AddRef();
+                }
+                else if (pin.SrcResource != SrcResource)
+                {
+                    std::lock_guard changedLock(ResourceChangedMutex);
                     CopyOnTick.Remove(id);
-                    mz::proto::msg<mz::app::AppEvent> event;
-                    mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*id.ToString()));
-                    Client->Write(event);
-                    SendNodeUpdate(pin.SrcEntity);
+                    ResourceChanged.Add(id, pin.SrcEntity);
                     continue;
                 }
 
@@ -199,30 +357,28 @@ bool FMZClient::Tick(float dt)
                     WaitForSingleObject(pin.Event, INFINITE);
                 }
 
-                auto barrier = D3D12_RESOURCE_BARRIER{
+                D3D12_RESOURCE_BARRIER barrier = {
                         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                        .Transition =
-                        D3D12_RESOURCE_TRANSITION_BARRIER{
-                            .pResource = pin.SrcResource,
+                        .Transition = {
+                            .pResource   = pin.SrcResource,
                             .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
-                            .StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+                            .StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE,
                         }
                 };
 
                 CmdList->ResourceBarrier(1, &barrier);
                 CmdList->CopyResource(pin.DstResource, pin.SrcResource);
-                barriers.push_back(D3D12_RESOURCE_BARRIER{
+                barriers.Add({
                         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                        .Transition =
-                        D3D12_RESOURCE_TRANSITION_BARRIER{
-                            .pResource = pin.SrcResource,
+                        .Transition = {
+                            .pResource   = pin.SrcResource,
                             .StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE,
-                            .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+                            .StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET,
                         }
                     });
             }
 
-            CmdList->ResourceBarrier(barriers.size(), barriers.data());
+            CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
             CmdList->Close();
             CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
             for (auto& [_, pin] : CopyOnTick)
@@ -230,6 +386,8 @@ bool FMZClient::Tick(float dt)
                 CmdQueue->Signal(pin.Fence, ++pin.FenceValue);
             }
         });
+
+
     return true;
 }
 

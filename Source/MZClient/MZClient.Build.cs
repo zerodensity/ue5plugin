@@ -74,6 +74,7 @@ public class MZClient : ModuleRules
 				"D3D11RHI",
 				"D3D12RHI",
 				"VulkanRHI",
+				"MZRemoteControl"
 			}
 			);
 	}
