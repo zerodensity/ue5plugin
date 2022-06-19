@@ -26,7 +26,7 @@
 #include <map>
 
 #define LOCTEXT_NAMESPACE "FMZRemoteControl"
-
+#pragma optimize("", off)
 
 struct FMZRemoteControl : IMZRemoteControl {
 
@@ -59,7 +59,7 @@ struct FMZRemoteControl : IMZRemoteControl {
   {
       FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
       FProperty* prop = rprop.GetProperty();
-      MZEntity mze = { MZType::GetType(prop), entity, rprop.GetPropertyHandle()};
+      MZEntity mze = { MZEntity::GetType(prop), entity, rprop.GetPropertyHandle()};
       EntityCache.Add(entity->GetId(), mze);
       PresetEntities[preset].Add(entity->GetId());
       return mze;
@@ -81,7 +81,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   void OnActorPropertyModified(URemoteControlPreset* Preset, FRemoteControlActor& /*Actor*/, UObject* ModifiedObject, FProperty* /*MemberProperty*/)
   {
-      FMessageDialog::Debugf(FText::FromString("Preset registered " + ModifiedObject->GetFName().ToString()), 0);
+      FMessageDialog::Debugf(FText::FromString("Actor property modified" + ModifiedObject->GetFName().ToString()), 0);
   }
 
   void OnObjectPropertyChanged(UObject* obj, struct FPropertyChangedEvent& event)
@@ -97,6 +97,17 @@ struct FMZRemoteControl : IMZRemoteControl {
       // FMessageDialog::Debugf(FText::FromString("Preset loaded " + preset->GetName()), 0);
       if (PresetEntities.Contains(preset))
       {
+          for (auto& guid : PresetEntities[preset])
+          {
+              EntityCache.Remove(guid);
+              IMZClient::Get()->SendPinRemoved(guid);
+          }
+
+          for (auto& entity : preset->GetExposedEntities())
+          {
+              RegisterExposedEntity(preset, entity.Pin().Get());
+          }
+
           return;
       }
 
@@ -106,13 +117,12 @@ struct FMZRemoteControl : IMZRemoteControl {
       {
           RegisterExposedEntity(preset, entity.Pin().Get());
       }
-
+  
       preset->OnEntitiesUpdated().AddRaw(this, &FMZRemoteControl::OnEntitiesUpdated);
       preset->OnEntityExposed().AddRaw(this, &FMZRemoteControl::OnEntityExposed);
       preset->OnEntityUnexposed().AddRaw(this, &FMZRemoteControl::OnEntityUnexposed);
       preset->OnExposedPropertiesModified().AddRaw(this, &FMZRemoteControl::OnExposedPropertiesModified);
       preset->OnActorPropertyModified().AddRaw(this, &FMZRemoteControl::OnActorPropertyModified);
-
   }
 
   void OnPresetRemoved(URemoteControlPreset* preset)
@@ -188,7 +198,7 @@ struct FMZRemoteControl : IMZRemoteControl {
     AssetRegistry.OnAssetRemoved().AddRaw(this, &FMZRemoteControl::OnAssetRemoved);
     AssetRegistry.OnAssetRenamed().AddRaw(this, &FMZRemoteControl::OnAssetRenamed);
     AssetRegistry.OnAssetAdded().AddRaw(this, &FMZRemoteControl::OnAssetAdded);
-    FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
+    // FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
     
     TArray<TSoftObjectPtr<URemoteControlPreset>> presets;
     IRemoteControlModule::Get().GetPresets(presets);
@@ -206,7 +216,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   }
 };
-
+#pragma optimize("", on)
 #undef LOCTEXT_NAMESPACE
 
 IMPLEMENT_MODULE(FMZRemoteControl, MZRemoteControl);

@@ -7,9 +7,7 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include "IRemoteControlPropertyHandle.h"
 #include "RemoteControlPreset.h"
-#include "D3D12RHIPrivate.h"
-#include "D3D12RHI.h"
-#include "D3D12Resources.h"
+
 
 #include <queue>
 
@@ -22,6 +20,10 @@
 #include <d3d12.h>
 #include "AppClient.h"
 #include "DispelUnrealMadnessPostlude.h"
+
+#include "D3D12RHIPrivate.h"
+#include "D3D12RHI.h"
+#include "D3D12Resources.h"
 
 /**
  * Implements communication with the MediaZ server

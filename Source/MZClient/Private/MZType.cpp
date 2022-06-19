@@ -2,23 +2,26 @@
 #include "MZClient.h"
 #include "Core.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Engine/Texture2D.h"
 
 #include "Misc/MessageDialog.h"
 
 #include <map>
 
-static std::map<uint64_t, MZType*> GTypeMap;
+static TMap<FName, MZType*> GTypeMap;
 
-static TMap<FName, std::string> UE_2_MZ_TYPE =
+static TMap<EName, std::string> UE_2_MZ_TYPE =
 {
     {NAME_Vector4,  "mz.proto.vec4d"},
     {NAME_Vector,   "mz.proto.vec3d"},
     {NAME_Vector2D, "mz.proto.vec2d"},
 };
 
-
+#pragma optimize("", off)
 bool MZType::Init(FField* Field)
 {
+    FieldClass = Field->GetClass();
+    
     if (auto oprop = CastField<FObjectProperty>(Field))
     {
         if (oprop->PropertyClass == UTextureRenderTarget2D::StaticClass())
@@ -26,14 +29,16 @@ bool MZType::Init(FField* Field)
             Tag = TRT2D;
             TypeName = "mz.proto.Texture";
         }
+        else
+        {
+            abort();
+        }
     }
     else if (auto sprop = CastField<FStructProperty>(Field))
     {
-        TArray<FField*> fields;
-        sprop->GetInnerFields(fields);
         Tag = STRUCT;
 
-        FName name = sprop->Struct->GetFName();
+        EName name = *sprop->Struct->GetFName().ToEName();
 
         if (std::string* pMzName = UE_2_MZ_TYPE.Find(name))
         {
@@ -44,16 +49,12 @@ bool MZType::Init(FField* Field)
             return false;
         }
 
-        for (auto field : fields)
+        FField* member = sprop->Struct->ChildProperties;
+
+        while (member)
         {
-            if (auto fTy = GetType(field))
-            {
-                StructFields.Add(field->GetName(), fTy);
-            } 
-            else
-            {
-                return false;
-            }
+            StructFields.Add(Member{ member, GetType(member) });
+            member = member->Next;
         }
     }
     else if (auto aprop = CastField<FArrayProperty>(Field))
@@ -74,14 +75,36 @@ bool MZType::Init(FField* Field)
     }
     else if (CastField<FStrProperty>(Field))
     {
+        FStrProperty::StaticClassCastFlags();
         Tag = STRING;
     }
     return true;
 }
 
+
+FName GetHash(FField* Field)
+{
+    if (Field->HasAnyCastFlags(CASTCLASS_FObjectProperty))
+    {
+        return ((FObjectProperty*)Field)->PropertyClass->GetFName();
+    }
+    if (Field->HasAnyCastFlags(CASTCLASS_FStructProperty))
+    {
+        return ((FStructProperty*)Field)->Struct->GetFName();
+    }
+    if (Field->HasAnyCastFlags(CASTCLASS_FArrayProperty))
+    {
+        FArrayProperty* Arr = ((FArrayProperty*)Field);
+        return Arr->GetFName();
+    }
+
+    return Field->GetClass()->GetFName();
+}
+
+
 MZType* MZType::GetType(FField* Field)
 {
-    MZType*& ty = GTypeMap[Field->GetClass()->GetId()];
+    MZType*& ty = GTypeMap.FindOrAdd(GetHash(Field));
 
     if (!ty)
     {
@@ -96,13 +119,29 @@ MZType* MZType::GetType(FField* Field)
     return ty;
 }
 
+#pragma optimize("", on)
+
+
+EName MZEntity::GetType(FProperty* Field)
+{
+    FString name = Field->GetNameCPP();
+    FString ty = Field->GetCPPType();
+
+    if (Field->HasAnyCastFlags(CASTCLASS_FStructProperty))
+    {
+        return *((FStructProperty*)Field)->Struct->GetFName().ToEName();
+    }
+
+    return *Field->GetClass()->GetFName().ToEName();
+}
+
 MzTextureInfo MZEntity::GetResourceInfo() const
 {
     UObject* obj = Entity->GetBoundObject();
     FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty());
     
     UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
- 
+
     MzTextureInfo info = {
         .width  = (uint32_t)trt2d->GetSurfaceWidth(),
         .height = (uint32_t)trt2d->GetSurfaceHeight(),
@@ -152,11 +191,18 @@ MzTextureInfo MZEntity::GetResourceInfo() const
     return info;
 }
 
+FRHITexture2D* MZEntity::GetRHIResource() const
+{
+    UObject* obj = Entity->GetBoundObject();
+    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty()); 
+    UTextureRenderTarget2D* trt2d =  prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj);
+    trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(trt2d));
+    FTextureRenderTargetResource* res = trt2d->GetRenderTargetResource();
+    return res->GetTexture2DRHI();
+}
 
 ID3D12Resource* MZEntity::GetResource() const
 {
-    UObject* obj = Entity->GetBoundObject();
-    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty());
-    return (ID3D12Resource*)Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)))->GetRenderTargetResource()->GetTextureRenderTarget2DResource()->GetTexture2DRHI()->GetNativeResource();
+    return (ID3D12Resource*)GetRHIResource()->GetNativeResource();
 }
 

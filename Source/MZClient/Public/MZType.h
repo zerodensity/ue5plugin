@@ -39,6 +39,8 @@ struct MZCLIENT_API MZType
 		TRT2D,
 	} Tag;
 
+	FFieldClass* FieldClass = 0;
+
 	std::string TypeName;
 
 	//Scalar
@@ -48,8 +50,13 @@ struct MZCLIENT_API MZType
 	MZType* ElementType = 0;
 	uint32_t ElementCount = 0;
 
+	struct Member
+	{
+		FField* Field;
+		MZType* Type;
+	};
 	//Struct
-	TMap<FString, MZType*> StructFields;
+	TArray<Member> StructFields;
 
 	static MZType* GetType(FField*);
 	void SerializeToProto(mz::proto::Pin* dyn, const struct MZEntity* p);
@@ -60,7 +67,7 @@ private:
 
 struct MZCLIENT_API MZEntity
 {
-	MZType* Type = 0;
+	EName Type = EName::None;
 	FRemoteControlEntity* Entity = 0;
 	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
 	
@@ -68,4 +75,7 @@ struct MZCLIENT_API MZEntity
 
 	MzTextureInfo GetResourceInfo() const;
 	struct ID3D12Resource* GetResource() const;
+	FRHITexture2D* GetRHIResource() const;
+	void Barrier();
+	static EName GetType(FProperty* Field);
 };

@@ -8,21 +8,23 @@ public class MZRemoteControl : ModuleRules
 {
 	public MZRemoteControl(ReadOnlyTargetRules Target) : base(Target)
 	{
-		PublicDependencyModuleNames.AddRange(
-			new string[] {
-				"Core",
-				"CoreUObject",
-				"UnrealEd",
-				"MZProto",
-			}
-		);
+		if (Target.Platform == UnrealTargetPlatform.Win64)
+		{
+			PublicDependencyModuleNames.AddRange(
+				new string[] {
+					"Core",
+					"CoreUObject",
+					"UnrealEd",
+					"MZProto",
+				}
+			);
 
-		PrivateDependencyModuleNames.AddRange(
-			new string[] {
+			PrivateDependencyModuleNames.AddRange(
+				new string[] {
 				"RemoteControl",
 				"MZClient",
-			}
-		);
-
+				}
+			);
+		}
 	}
 }
