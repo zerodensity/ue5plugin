@@ -49,6 +49,15 @@ public:
         IMZClient::Get()->NodeRemoved();
     }
 
+    virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
+    {
+        FGuid out;
+        if (FGuid::Parse(action.pin_id().c_str(), out))
+        {
+            IMZClient::Get()->OnPinShowAsChanged(out, action.show_as());
+        }
+    }
+
     std::string nodeId;
 
     std::atomic_bool shutdown = true;
@@ -144,7 +153,7 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
 
     std::unique_lock lock1(PendingCopyQueueMutex);
     std::unique_lock lock2(CopyOnTickMutex);
-    for (auto [id, pin] : ParsePins(archive))
+    for (auto& [id, pin] : ParsePins(archive))
     {
         if (auto entity = PendingCopyQueue.Find(id))
         {
@@ -163,9 +172,12 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
                     .sync = tex->sync(),
                     .offset = tex->offset(),
                 };
+
                 ResourceInfo copyInfo = {
                     .SrcEntity = *entity,
+                    .ReadOnly  = pin->pin_show_as() == mz::proto::ShowAs::OUTPUT_PIN,
                 };
+
                 ID3D12Fence* fence = 0;
                 mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource, &fence);
                 fence->Release();
@@ -173,6 +185,15 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
                 CopyOnTick.Add(id, copyInfo);
             }
         }
+    }
+}
+
+void FMZClient::OnPinShowAsChanged(FGuid id, mz::proto::ShowAs showAs)
+{
+    std::unique_lock lock(CopyOnTickMutex);
+    if (auto res = CopyOnTick.Find(id))
+    {
+        res->ReadOnly = (showAs == mz::proto::ShowAs::OUTPUT_PIN);
     }
 }
 
@@ -342,7 +363,6 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
         }
     );
     FlushRenderingCommands();
-
 }
 
 void FMZClient::ThawTextures(TArray<FGuid> textures)
@@ -366,7 +386,6 @@ bool FMZClient::Tick(float dt)
     if (!ResourceChanged.IsEmpty())
     {
         std::lock_guard lock(ResourceChangedMutex);
-
         for (auto& [id, entity] : ResourceChanged)
         {
             mz::proto::msg<mz::app::AppEvent> event;
@@ -387,7 +406,6 @@ bool FMZClient::Tick(float dt)
         {
             std::unique_lock lock(CopyOnTickMutex);
             WaitCommands();
-
             TArray<D3D12_RESOURCE_BARRIER> barriers;
             for (auto& [id, pin] : CopyOnTick)
             {
@@ -397,35 +415,33 @@ bool FMZClient::Tick(float dt)
                     continue;
                 }
                 FD3D12TextureBase* Base = GetD3D12TextureFromRHITexture(RHIResource);
-                ID3D12Resource* Resource = Base->GetResource()->GetResource();
-                
+                ID3D12Resource* SrcResource = Base->GetResource()->GetResource();
+                ID3D12Resource* DstResource = pin.DstResource;
+
                 D3D12_RESOURCE_BARRIER barrier = {
                     .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
                     .Transition = {
-                        .pResource   = Resource,
+                        .pResource   = SrcResource,
                         .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-                        .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET, // D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+                        .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
                         .StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE,
                     }
                 };
+                
+                if (!pin.ReadOnly)
+                {
+                    barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
+                    Swap(SrcResource, DstResource);
+                }
 
                 CmdList->ResourceBarrier(1, &barrier);
-                CmdList->CopyResource(pin.DstResource, Resource);
-                barriers.Add({
-                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                        .Transition = {
-                            .pResource   = Resource,
-                            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-                            .StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE,
-                            .StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET,
-                        }
-                    });
+                CmdList->CopyResource(DstResource, SrcResource);
+                Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+                barriers.Add(barrier);
             }
-
             CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
             ExecCommands();
         });
-
 
     return true;
 }

@@ -47,6 +47,8 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendPinRemoved(FGuid) override;
 	 virtual void SendPinAdded(MZEntity) override;
 	 virtual void SendPinValueChanged(MZEntity) override;
+	 
+
 	 virtual void Disconnect() override;
 	 virtual void NodeRemoved() override;
 
@@ -57,6 +59,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* dyn) override;
 	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
+	 virtual void OnPinShowAsChanged(FGuid, mz::proto::ShowAs) override;
 
 	 void WaitCommands();
 	 void ExecCommands();
@@ -74,6 +77,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 {
 		 MZEntity SrcEntity = {};
 		 ID3D12Resource* DstResource = 0;
+		 bool ReadOnly = true;
 		 void Release()
 		 {
 			 if(DstResource) DstResource->Release();

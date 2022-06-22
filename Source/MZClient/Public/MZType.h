@@ -24,6 +24,7 @@ namespace mz::proto
 	class Texture;
 	class Pin;
 	class Node;
+	enum ShowAs;
 }
 
 struct MZCLIENT_API MZType

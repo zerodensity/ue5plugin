@@ -30,4 +30,5 @@ class IMZClient : public IModuleInterface {
   virtual void NodeRemoved() = 0;
   virtual void QueueTextureCopy(FGuid id, const struct MZEntity* entity, mz::proto::Pin* dyn) = 0;
   virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) = 0;
+  virtual void OnPinShowAsChanged(FGuid, mz::proto::ShowAs) = 0;
 };
