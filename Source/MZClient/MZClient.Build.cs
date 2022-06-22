@@ -49,14 +49,25 @@ public class MZClient : ModuleRules
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
-
+					"Core",
+					"CoreUObject",
+					"Engine",
+					"Projects",
+					"RemoteControl",
+					"RenderCore",
+					"RHI",
+					"RHICore",
+					"D3D11RHI",
+					"D3D12RHI",
+					"VulkanRHI",
+					"MZProto",
 				}
 				);
 
-			// PrivateIncludePathModuleNames.Add("D3D11RHI");
-			// PrivateIncludePathModuleNames.Add("D3D12RHI");
+            PrivateIncludePathModuleNames.Add("D3D11RHI");
+            PrivateIncludePathModuleNames.Add("D3D12RHI");
 
-			AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
+            AddEngineThirdPartyPrivateStaticDependencies(Target, "DX11");
 			AddEngineThirdPartyPrivateStaticDependencies(Target, "DX12");
 
 			PublicDefinitions.Add("PLATFORM_WIN64");

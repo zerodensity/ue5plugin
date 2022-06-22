@@ -12,16 +12,35 @@ public class MZRemoteControl : ModuleRules
 		{
 			PublicDependencyModuleNames.AddRange(
 				new string[] {
+					//"Core",
+					//"CoreUObject",
+					//"UnrealEd",
+					//"MZProto",
+					"Engine",
 					"Core",
 					"CoreUObject",
+					"Slate",
+					"SlateCore",
+					"InputCore",
+					"EditorFramework",
 					"UnrealEd",
-					"MZProto",
+					"GraphEditor",
+					"EditorStyle",
+					"PropertyEditor",
+					"AppFramework",
+					"Projects",
+					"Sequencer",
+					"EditorWidgets",
+					"ApplicationCore",
+					"CurveEditor",
+					"ToolWidgets",
 				}
 			);
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[] {
 				"RemoteControl",
+				"MZProto",
 				"MZClient",
 				}
 			);

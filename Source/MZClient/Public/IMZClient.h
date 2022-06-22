@@ -23,6 +23,8 @@ class IMZClient : public IModuleInterface {
   virtual void SendPinRemoved(FGuid) = 0;
   virtual void SendPinAdded(MZEntity entity) = 0;
   virtual void OnNodeUpdateReceived(mz::proto::Node const&) = 0;
+  virtual void FreezeTextures(TArray<FGuid>) = 0;
+  virtual void ThawTextures(TArray<FGuid>) = 0;
 
   virtual void Disconnect() = 0;
   virtual void NodeRemoved() = 0;

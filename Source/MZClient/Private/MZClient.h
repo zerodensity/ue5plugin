@@ -49,10 +49,17 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendPinValueChanged(MZEntity) override;
 	 virtual void Disconnect() override;
 	 virtual void NodeRemoved() override;
+
+	 virtual void FreezeTextures(TArray<FGuid>) override;
+	 virtual void ThawTextures(TArray<FGuid>) override;
+
 	 void ClearResources();
 
 	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* dyn) override;
 	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
+
+	 void WaitCommands();
+	 void ExecCommands();
 
      void InitRHI();
      
@@ -60,26 +67,16 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 bool Tick(float dt);
 
+
 	 std::atomic_bool bClientShouldDisconnect = false;
 
 	 struct ResourceInfo
 	 {
 		 MZEntity SrcEntity = {};
-		 ID3D12Resource* SrcResource = 0;
 		 ID3D12Resource* DstResource = 0;
-		 ID3D12Fence* Fence = 0;
-		 void* Event = 0;
-		 uint64_t FenceValue = 0;
 		 void Release()
 		 {
-			 if (Fence && Event && (Fence->GetCompletedValue() < FenceValue))
-			 {
-				 WaitForSingleObject(Event, INFINITE);
-			 }
-			 if(SrcResource) SrcResource->Release();
 			 if(DstResource) DstResource->Release();
-			 if(Fence) Fence->Release();
-			 if(Event) CloseHandle(Event);
 			 memset(this, 0, sizeof(*this));
 		 }
 	 };
@@ -88,6 +85,9 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 struct ID3D12CommandAllocator* CmdAlloc;
 	 struct ID3D12CommandQueue* CmdQueue;
 	 struct ID3D12GraphicsCommandList* CmdList;
+	 struct ID3D12Fence* CmdFence;
+	 HANDLE CmdEvent;
+	 uint64_t CmdFenceValue = 0;
 
 	 class ClientImpl* Client = 0;
 
@@ -99,5 +99,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 std::mutex ResourceChangedMutex;
 	 TMap<FGuid, MZEntity> ResourceChanged;
+
+	 TMap<FGuid, ResourceInfo> Frozen;
 };
 

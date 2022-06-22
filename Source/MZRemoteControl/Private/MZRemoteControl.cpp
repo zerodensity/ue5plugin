@@ -102,12 +102,15 @@ struct FMZRemoteControl : IMZRemoteControl {
               EntityCache.Remove(guid);
               IMZClient::Get()->SendPinRemoved(guid);
           }
+          
+          TMap<FGuid, MZEntity> Updates;
 
           for (auto& entity : preset->GetExposedEntities())
           {
-              RegisterExposedEntity(preset, entity.Pin().Get());
+              auto mze = RegisterExposedEntity(preset, entity.Pin().Get());
+              Updates.Add(mze.Entity->GetId(), mze);
           }
-
+          IMZClient::Get()->SendNodeUpdate(Updates);
           return;
       }
 
@@ -151,11 +154,11 @@ struct FMZRemoteControl : IMZRemoteControl {
       FMessageDialog::Debugf(FText::FromString("Preset imported " + preset->GetName()), 0);
   }
 
-
   void OnAssetLoaded(UObject* asset)
   {
       if (auto preset = Cast<URemoteControlPreset>(asset))
       {
+          FMessageDialog::Debugf(FText::FromString("Asset loaded "), 0);
           OnPresetLoaded(preset);
       }
   }
@@ -192,21 +195,40 @@ struct FMZRemoteControl : IMZRemoteControl {
       }
   }
 
+  void OnAssetEditorOpened(UObject* obj)
+  {
+      if (auto preset = Cast<URemoteControlPreset>(obj))
+      {
+          // IMZClient::Get()->FreezeTextures(PresetEntities[preset]);
+      }
+  }
+
+  void OnAssetEditorClosed(UObject* obj, EAssetEditorCloseReason reason)
+  {
+      if (auto preset = Cast<URemoteControlPreset>(obj))
+      {
+          IMZClient::Get()->ThawTextures(PresetEntities[preset]);
+      }
+  }
+  
   void StartupModule() override {
 
     IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName).Get();
     AssetRegistry.OnAssetRemoved().AddRaw(this, &FMZRemoteControl::OnAssetRemoved);
     AssetRegistry.OnAssetRenamed().AddRaw(this, &FMZRemoteControl::OnAssetRenamed);
     AssetRegistry.OnAssetAdded().AddRaw(this, &FMZRemoteControl::OnAssetAdded);
-    // FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
+
+    GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OnAssetEditorOpened().AddRaw(this, &FMZRemoteControl::OnAssetEditorOpened);
     
-    TArray<TSoftObjectPtr<URemoteControlPreset>> presets;
-    IRemoteControlModule::Get().GetPresets(presets);
-    for (auto& preset : presets)
-    {
-        OnPresetLoaded(preset.Get());
-    }
-   // FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMZRemoteControl::OnObjectPropertyChanged);
+    FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
+
+    //TArray<TSoftObjectPtr<URemoteControlPreset>> presets;
+    //IRemoteControlModule::Get().GetPresets(presets);
+    //for (auto& preset : presets)
+    //{
+    //    OnPresetLoaded(preset.Get());
+    //}
+    // FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMZRemoteControl::OnObjectPropertyChanged);
 
     // FMessageDialog::Debugf(FText::FromString("Loaded MZRemoteControl module"), 0);
   }

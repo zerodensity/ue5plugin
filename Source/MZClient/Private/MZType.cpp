@@ -191,18 +191,53 @@ MzTextureInfo MZEntity::GetResourceInfo() const
     return info;
 }
 
-FRHITexture2D* MZEntity::GetRHIResource() const
+FTextureRenderTargetResource* MZEntity::GetRT() const
 {
     UObject* obj = Entity->GetBoundObject();
-    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty()); 
-    UTextureRenderTarget2D* trt2d =  prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj);
+    if (!obj)
+    {
+        return nullptr;
+    }
+    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty());
+    UTextureRenderTarget2D* trt2d = prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj);
     trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(trt2d));
-    FTextureRenderTargetResource* res = trt2d->GetRenderTargetResource();
-    return res->GetTexture2DRHI();
+    return trt2d->GetRenderTargetResource();
+}
+
+FRHITexture2D* MZEntity::GetRHIResource() const
+{
+    if (auto RT = GetRT())
+    {
+        return RT->GetTexture2DRHI();
+    }
+    return nullptr;
 }
 
 ID3D12Resource* MZEntity::GetResource() const
 {
-    return (ID3D12Resource*)GetRHIResource()->GetNativeResource();
+    if (auto Res = GetRHIResource())
+    {
+        return (ID3D12Resource*)Res->GetNativeResource();
+    }
+    return nullptr;
 }
 
+
+void MZEntity::Transition(FRHICommandListImmediate& RHICmdList) const
+{
+    RHICmdList.TransitionResource(ERHIAccess::RTV, GetRHIResource());
+}
+
+void MZEntity::Transition(TArray<MZEntity> entities)
+{
+    ENQUEUE_RENDER_COMMAND(MZEntity_Transition)([&entities](FRHICommandListImmediate& RHICmdList) {
+        for (auto& entity : entities)
+        {
+            if (entity.Type == EName::ObjectProperty)
+            {
+                entity.Transition(RHICmdList);
+            }
+        }
+        });
+    FlushRenderingCommands();
+}

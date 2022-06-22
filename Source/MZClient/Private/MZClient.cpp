@@ -2,6 +2,7 @@
 #include "MZClient.h"
 //
 #include "../../MZRemoteControl/Public/IMZRemoteControl.h"
+#include "ScreenRendering.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
@@ -77,11 +78,6 @@ void FMZClient::Disconnect() {
     Client->nodeId.clear();
 
     std::unique_lock lock(CopyOnTickMutex);
-    for (auto& [_, pin] : CopyOnTick)
-    {
-       if (pin.SrcResource) 
-           pin.SrcResource->Release();
-    }
 
     PendingCopyQueue.Empty();
     CopyOnTick.Empty();
@@ -111,6 +107,8 @@ void FMZClient::InitRHI()
     CmdQueue = D3D12RHI->RHIGetD3DCommandQueue();
     CmdQueue->AddRef();
     Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
+    Dev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&CmdFence));
+    CmdEvent = CreateEventA(0, 0, 0, 0);
     CmdList->Close();
 }
 
@@ -168,8 +166,9 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
                 ResourceInfo copyInfo = {
                     .SrcEntity = *entity,
                 };
-                copyInfo.Event = CreateEventA(0, 0, 0, 0);
-                mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource, &copyInfo.Fence);
+                ID3D12Fence* fence = 0;
+                mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource, &fence);
+                fence->Release();
                 PendingCopyQueue.Remove(id);
                 CopyOnTick.Add(id, copyInfo);
             }
@@ -297,6 +296,68 @@ void FMZClient::SendPinRemoved(FGuid guid)
     Client->Write(event);
 }
 
+void FMZClient::WaitCommands()
+{
+    if (CmdFence->GetCompletedValue() < CmdFenceValue)
+    {
+        CmdFence->SetEventOnCompletion(CmdFenceValue, CmdEvent);
+        WaitForSingleObject(CmdEvent, INFINITE);
+    }
+
+    CmdAlloc->Reset();
+    CmdList->Reset(CmdAlloc, 0);
+}
+
+void FMZClient::ExecCommands()
+{
+    CmdList->Close();
+    CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
+    CmdQueue->Signal(CmdFence, ++CmdFenceValue);
+}
+
+void FMZClient::FreezeTextures(TArray<FGuid> textures)
+{
+    std::unique_lock lock(CopyOnTickMutex);
+    ENQUEUE_RENDER_COMMAND(FMZClient_FreezeTextures)([this,textures=std::move(textures)](FRHICommandListImmediate& RHICmdList) {
+        std::vector<D3D12_RESOURCE_BARRIER> barriers;
+        for (auto id : textures)
+        {
+            if (auto res = CopyOnTick.Find(id))
+            {
+                barriers.push_back(D3D12_RESOURCE_BARRIER{
+                    .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                    .Transition = {
+                        .pResource = res->SrcEntity.GetResource(),
+                        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                        .StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
+                        .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
+                    }
+                    });
+            }
+        }
+
+        WaitCommands();
+        CmdList->ResourceBarrier(barriers.size(), barriers.data());
+        ExecCommands();
+        }
+    );
+    FlushRenderingCommands();
+
+}
+
+void FMZClient::ThawTextures(TArray<FGuid> textures)
+{
+    std::unique_lock lock(CopyOnTickMutex);
+    for (auto id : textures)
+    {
+        ResourceInfo res;
+        if (Frozen.RemoveAndCopyValue(id, res))
+        {
+            CopyOnTick.Add(id, res);
+        }
+    }
+}
+
 
 bool FMZClient::Tick(float dt)
 {
@@ -325,64 +386,44 @@ bool FMZClient::Tick(float dt)
         [this](FRHICommandListImmediate& RHICmdList)
         {
             std::unique_lock lock(CopyOnTickMutex);
-            CmdAlloc->Reset();
-            CmdList->Reset(CmdAlloc, 0);
+            WaitCommands();
+
             TArray<D3D12_RESOURCE_BARRIER> barriers;
             for (auto& [id, pin] : CopyOnTick)
             {
                 FRHITexture2D*  RHIResource = pin.SrcEntity.GetRHIResource();
-                ID3D12Resource* SrcResource = pin.SrcEntity.GetResource();
-                if (!pin.SrcResource)
+                if (!RHIResource)
                 {
-                    pin.SrcResource = SrcResource;
-                    pin.SrcResource->AddRef();
-                }
-                else if (pin.SrcResource != SrcResource)
-                {
-                    std::lock_guard changedLock(ResourceChangedMutex);
-                    CopyOnTick.Remove(id);
-                    ResourceChanged.Add(id, pin.SrcEntity);
                     continue;
                 }
-
-                if (pin.Fence->GetCompletedValue() < pin.FenceValue)
-                {
-                    pin.Fence->SetEventOnCompletion(pin.FenceValue, pin.Event);
-                    WaitForSingleObject(pin.Event, INFINITE);
-                }
-
-                FD3D12TextureBase* Base = (FD3D12TextureBase*)RHIResource->GetTextureBaseRHI();
+                FD3D12TextureBase* Base = GetD3D12TextureFromRHITexture(RHIResource);
+                ID3D12Resource* Resource = Base->GetResource()->GetResource();
                 
                 D3D12_RESOURCE_BARRIER barrier = {
-                        .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-                        .Transition = {
-                            .pResource   = pin.SrcResource,
-                            .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-                            .StateBefore = Base->GetResource()->GetReadableState(),
-                            .StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE,
-                        }
+                    .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+                    .Transition = {
+                        .pResource   = Resource,
+                        .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+                        .StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET, // D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE|D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE
+                        .StateAfter  = D3D12_RESOURCE_STATE_COPY_SOURCE,
+                    }
                 };
 
                 CmdList->ResourceBarrier(1, &barrier);
-                CmdList->CopyResource(pin.DstResource, pin.SrcResource);
+                CmdList->CopyResource(pin.DstResource, Resource);
                 barriers.Add({
                         .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
                         .Transition = {
-                            .pResource   = pin.SrcResource,
+                            .pResource   = Resource,
                             .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                             .StateBefore = D3D12_RESOURCE_STATE_COPY_SOURCE,
-                            .StateAfter  = barrier.Transition.StateBefore,
+                            .StateAfter  = D3D12_RESOURCE_STATE_RENDER_TARGET,
                         }
                     });
             }
 
             CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
-            CmdList->Close();
-            CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
-            for (auto& [_, pin] : CopyOnTick)
-            {
-                CmdQueue->Signal(pin.Fence, ++pin.FenceValue);
-            }
+            ExecCommands();
         });
 
 

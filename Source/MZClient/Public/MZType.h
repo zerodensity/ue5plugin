@@ -76,6 +76,10 @@ struct MZCLIENT_API MZEntity
 	MzTextureInfo GetResourceInfo() const;
 	struct ID3D12Resource* GetResource() const;
 	FRHITexture2D* GetRHIResource() const;
-	void Barrier();
+	FTextureRenderTargetResource* GetRT() const;
+	
 	static EName GetType(FProperty* Field);
+
+	void Transition(FRHICommandListImmediate& RHICmdList) const;
+	static void Transition(TArray<MZEntity> entities);
 };
