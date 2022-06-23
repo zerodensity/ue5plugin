@@ -49,7 +49,6 @@ struct FMZRemoteControl : IMZRemoteControl {
       return false;
   }
 
-
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
   {
       for (auto& id : entities)

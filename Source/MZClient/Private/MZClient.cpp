@@ -204,6 +204,11 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::proto::ShowAs showAs)
     {
         res->ReadOnly = (showAs == mz::proto::ShowAs::OUTPUT_PIN);
     }
+    MZEntity entity;
+    if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
+    {
+        entity.Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt(showAs));
+    }
 }
 
 void FMZClient::OnPinValueChanged(FGuid id, void* val, size_t sz)
@@ -267,7 +272,6 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
     {
         mz::proto::Pin* pin = req->add_pins_to_add();
         FString label = entity.Entity->GetLabel().ToString();
-        pin->set_pin_show_as(mz::proto::ShowAs::OUTPUT_PIN);
         pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
         entity.SerializeToProto(pin);
         if (pin->data().empty())
@@ -285,14 +289,10 @@ void FMZClient::SendPinAdded(MZEntity entity)
     mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
     req->set_clear(false);
-
-    pin->set_pin_show_as(mz::proto::ShowAs::OUTPUT_PIN);
     pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
-
     mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->nodeId.c_str());
     entity.SerializeToProto(pin);
 
-    FVector* v = (FVector*)pin->data().c_str();
     Client->Write(event);
 }
 

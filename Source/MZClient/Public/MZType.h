@@ -71,7 +71,7 @@ struct MZCLIENT_API MZEntity
 	EName Type = EName::None;
 	FRemoteControlEntity* Entity = 0;
 	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
-	
+
 	void SerializeToProto(mz::proto::Pin* req) const;
 	void SetPropertyValue(void* val);
 

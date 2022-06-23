@@ -82,6 +82,19 @@ void MZEntity::SerializeToProto(mz::proto::Pin* pin) const
 {
 	FString id = Entity->GetId().ToString();
 	FString label = Entity->GetLabel().ToString();
+	mz::proto::ShowAs showAs = mz::proto::ShowAs::OUTPUT_PIN;
+
+	if (auto showAsValue = Entity->GetMetadata().Find("MZ_PIN_SHOW_AS_VALUE"))
+	{
+		showAs = (mz::proto::ShowAs)FCString::Atoi(**showAsValue);
+	}
+	else
+	{
+		Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt(showAs));
+	}
+
+	pin->set_pin_show_as(showAs);
+
 	mz::app::SetField(pin, mz::proto::Pin::kIdFieldNumber, TCHAR_TO_UTF8(*id));
 	mz::app::SetField(pin, mz::proto::Pin::kDisplayNameFieldNumber, TCHAR_TO_UTF8(*label));
 	mz::app::SetField(pin, mz::proto::Pin::kNameFieldNumber, TCHAR_TO_UTF8(*label));
