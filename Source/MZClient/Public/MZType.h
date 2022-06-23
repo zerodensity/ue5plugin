@@ -73,6 +73,7 @@ struct MZCLIENT_API MZEntity
 	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
 	
 	void SerializeToProto(mz::proto::Pin* req) const;
+	void SetPropertyValue(void* val);
 
 	MzTextureInfo GetResourceInfo() const;
 	struct ID3D12Resource* GetResource() const;

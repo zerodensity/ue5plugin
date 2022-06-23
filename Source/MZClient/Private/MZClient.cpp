@@ -58,6 +58,15 @@ public:
         }
     }
 
+    virtual void OnPropertyValueChanged(mz::PropertyValueChanged const& action) override
+    {
+        FGuid out;
+        if (FGuid::Parse(action.pin_id().c_str(), out))
+        {
+            IMZClient::Get()->OnPinValueChanged(out, (void*)action.value().data(), action.value().size());
+        }
+    }
+
     std::string nodeId;
 
     std::atomic_bool shutdown = true;
@@ -197,6 +206,12 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::proto::ShowAs showAs)
     }
 }
 
+void FMZClient::OnPinValueChanged(FGuid id, void* val, size_t sz)
+{
+    std::lock_guard lock(ValueUpdatesMutex);
+    ValueUpdates.Add(id, std::vector<uint8>((uint8*)val, (uint8*)val + sz));
+}
+
 void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
 {
 
@@ -236,6 +251,7 @@ void FMZClient::SendPinValueChanged(MZEntity entity)
     // SendNodeUpdate(entity);
 }
 
+
 void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
 {
     if (!Client || Client->nodeId.empty())
@@ -254,6 +270,10 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
         pin->set_pin_show_as(mz::proto::ShowAs::OUTPUT_PIN);
         pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
         entity.SerializeToProto(pin);
+        if (pin->data().empty())
+        {
+            abort();
+        }
     }
 
     Client->Write(event);
@@ -266,13 +286,13 @@ void FMZClient::SendPinAdded(MZEntity entity)
     mz::proto::Pin* pin = req->add_pins_to_add();
     req->set_clear(false);
 
-    FString label = entity.Entity->GetLabel().ToString();
     pin->set_pin_show_as(mz::proto::ShowAs::OUTPUT_PIN);
     pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
 
     mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->nodeId.c_str());
     entity.SerializeToProto(pin);
 
+    FVector* v = (FVector*)pin->data().c_str();
     Client->Write(event);
 }
 
@@ -365,23 +385,24 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
     FlushRenderingCommands();
 }
 
-void FMZClient::ThawTextures(TArray<FGuid> textures)
-{
-    std::unique_lock lock(CopyOnTickMutex);
-    for (auto id : textures)
-    {
-        ResourceInfo res;
-        if (Frozen.RemoveAndCopyValue(id, res))
-        {
-            CopyOnTick.Add(id, res);
-        }
-    }
-}
-
 
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
+
+    if (!ValueUpdates.IsEmpty())
+    {
+        std::lock_guard lock(ValueUpdatesMutex);
+        for (auto& [id, val] : ValueUpdates)
+        {
+            MZEntity entity;
+            if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
+            {
+                entity.SetPropertyValue(val.data());
+            }
+        }
+        ValueUpdates.Empty();
+    }
 
     if (!ResourceChanged.IsEmpty())
     {

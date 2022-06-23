@@ -11,8 +11,12 @@ namespace UE::Math
 	using TVector3 = TVector<T>;
 };
 
+#define Stringify(x) #x
+#define ConcatStringify(a,b,c) Stringify(a##b##c)
+
 #define VectorValueSpec(T, N, P) \
 template<> struct VectorValue<T, N> {\
+	static constexpr const char* mzName = ConcatStringify(mz.proto.vec,N,P); \
 	using mz = mz::proto::vec##N##P; \
 	using ue = UE::Math::TVector##N<T>; \
 };
@@ -28,87 +32,51 @@ VectorValueSpecN(float, );
 VectorValueSpecN(double, d);
 
 
+#pragma optimize("", off)
+
 template<class T, int N>
 static void SetVectorValue(mz::proto::Pin* pin, const TSharedPtr<IRemoteControlPropertyHandle>& p)
 {
-	mz::proto::msg<typename VectorValue<T, N>::mz> m;
-	typename VectorValue<T, N>::ue v;
-	p->GetValue(v);
-	m->set_x(v.X);
-	m->set_y(v.Y);
-	if constexpr (N >= 3) m->set_z(v.Z);
-	if constexpr (N >= 4) m->set_w(v.W);
-	mz::app::SetPin(pin, m.m_Ptr);
+	if (sizeof(typename VectorValue<T, N>::ue) != (sizeof(T) * N))
+	{
+		abort();
+	}
+
+	typename VectorValue<T, N>::ue val;
+	p->GetValue(val);
+	mz::app::SetField(pin, mz::proto::Pin::kTypeNameFieldNumber, VectorValue<T, N>::mzName);
+	mz::app::SetBytes(pin, &val, sizeof(typename VectorValue<T, N>::ue));
 }
 
 template<class T>
 static void SetValue(mz::proto::Pin* pin, const TSharedPtr<IRemoteControlPropertyHandle>& p)
 {
 	using ValueType = decltype(T{}.val());
-	mz::proto::msg<T> m;
+	static mz::proto::msg<T> m;
 	ValueType val;
 	p->GetValue(val);
-	m->set_val(val);
-	mz::app::SetPin(pin, m.m_Ptr);
+	
+	mz::app::SetField(pin, mz::proto::Pin::kTypeNameFieldNumber, m->GetTypeName().c_str());
+	mz::app::SetBytes(pin, &val, sizeof(val));
 }
 
 template<>
 void SetValue<mz::proto::String>(mz::proto::Pin* pin, const TSharedPtr<IRemoteControlPropertyHandle>& p)
 {
-	mz::proto::msg<mz::proto::String> m;
 	FString val;
 	p->GetValue(val);
-	mz::app::SetField(m.m_Ptr, m->kValFieldNumber, TCHAR_TO_UTF8(*val));
-	mz::app::SetPin(pin, m.m_Ptr);
+	size_t len = val.Len();
+	mz::app::SetField(pin, mz::proto::Pin::kTypeNameFieldNumber, "mz.proto.String");
+	mz::app::SetBytes(pin, TCHAR_TO_UTF8(*val), len);
 }
 
-
-#pragma optimize("", off)
-void MZType::SerializeToProto(mz::proto::Pin* pin, const MZEntity* e)
+void SetRotator(mz::proto::Pin* pin, const TSharedPtr<IRemoteControlPropertyHandle>& p)
 {
-	switch (Tag)
-	{
-	case BOOL:	 
-		SetValue<mz::proto::Bool>(pin, e->Property);
-		break;
-
-	case INT:	 
-		switch (Width)
-		{
-		case 32: SetValue<mz::proto::i32>(pin, e->Property); break;
-		case 64: SetValue<mz::proto::i64>(pin, e->Property); break;
-		}
-		break;
-	case FLOAT:
-		switch (Width)
-		{
-		case 32: SetValue<mz::proto::f32>(pin, e->Property); break;
-		case 64: SetValue<mz::proto::f64>(pin, e->Property); break;
-		}
-		break;
-	
-	case STRING: {
-		FString val;
-		mz::proto::msg<mz::proto::String> m;
-		e->Property->GetValue(val);
-
-		mz::app::SetField(m.m_Ptr,  m->kValFieldNumber, TCHAR_TO_UTF8(*val));
-		mz::app::SetPin(pin, m.m_Ptr);
-	}
-	break;
-	case STRUCT:
-	{
-		break;
-	}
-	case TRT2D:
-	{
-		FMZClient::Get()->QueueTextureCopy(e->Entity->GetId(), e, pin);
-		break;
-	}
-	}
+	FRotator val;
+	p->GetValue(val);
+	mz::app::SetField(pin, mz::proto::Pin::kTypeNameFieldNumber, "mz.proto.vec3d");
+	mz::app::SetBytes(pin, &val, sizeof(FRotator));
 }
-
-#pragma optimize("", off)
 
 void MZEntity::SerializeToProto(mz::proto::Pin* pin) const
 {
@@ -123,6 +91,7 @@ void MZEntity::SerializeToProto(mz::proto::Pin* pin) const
 	case EName::Vector4:           SetVectorValue<double, 4>  (pin, Property); break; 
 	case EName::Vector:	           SetVectorValue<double, 3>  (pin, Property); break;
 	case EName::Vector2d:          SetVectorValue<double, 2>  (pin, Property); break; 
+	case EName::Rotator:           SetRotator				  (pin, Property); break;
 	case EName::FloatProperty:     SetValue<mz::proto::f32>   (pin, Property); break;
 	case EName::DoubleProperty:    SetValue<mz::proto::f64>   (pin, Property); break;
 	case EName::Int32Property:	   SetValue<mz::proto::i32>   (pin, Property); break;
@@ -135,6 +104,24 @@ void MZEntity::SerializeToProto(mz::proto::Pin* pin) const
 			FMZClient::Get()->QueueTextureCopy(Entity->GetId(), this, pin);
 			break;
 		}
+	default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
+	}
+}
+
+void MZEntity::SetPropertyValue(void* val)
+{
+	switch (Type)
+	{
+	case EName::Vector4: Property->SetValue(*(FVector4*)val); break;
+	case EName::Vector: Property->SetValue(*(FVector*)val); break;
+	case EName::Vector2d: Property->SetValue(*(FVector2D*)val); break;
+	case EName::Rotator: Property->SetValue(*(FRotator*)val); break;
+	case EName::FloatProperty:  Property->SetValue(*(float*)val); break;
+	case EName::DoubleProperty: Property->SetValue(*(double*)val); break;
+	case EName::Int32Property: Property->SetValue(*(int32_t*)val); break;
+	case EName::Int64Property: Property->SetValue(*(int64_t*)val); break;
+	case EName::BoolProperty: Property->SetValue(*(bool*)val); break;
+	case EName::StrProperty:  Property->SetValue(UTF8_TO_TCHAR(((char*)val))); break;
 	default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
 	}
 }

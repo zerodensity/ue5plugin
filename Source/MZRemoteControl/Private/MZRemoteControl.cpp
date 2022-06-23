@@ -34,10 +34,21 @@ struct FMZRemoteControl : IMZRemoteControl {
   TMap<URemoteControlPreset*, TArray<FGuid>> PresetEntities;
   //TMap<FProperty*, FGuid> TrackedProperties;
 
-  virtual TMap<FGuid, MZEntity> const& GetExposedEntities() override
+  virtual TMap<FGuid, MZEntity>& GetExposedEntities() override
   {
       return EntityCache;
   }
+
+  virtual bool GetExposedEntity(FGuid id, MZEntity& out) override
+  {
+      if (auto entity = EntityCache.Find(id))
+      {
+          out = *entity;
+          return true;
+      }
+      return false;
+  }
+
 
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
   {
@@ -203,13 +214,6 @@ struct FMZRemoteControl : IMZRemoteControl {
       }
   }
 
-  void OnAssetEditorClosed(UObject* obj, EAssetEditorCloseReason reason)
-  {
-      if (auto preset = Cast<URemoteControlPreset>(obj))
-      {
-          IMZClient::Get()->ThawTextures(PresetEntities[preset]);
-      }
-  }
   
   void StartupModule() override {
 

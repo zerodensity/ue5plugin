@@ -53,13 +53,13 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void NodeRemoved() override;
 
 	 virtual void FreezeTextures(TArray<FGuid>) override;
-	 virtual void ThawTextures(TArray<FGuid>) override;
 
 	 void ClearResources();
 
 	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* dyn) override;
 	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
 	 virtual void OnPinShowAsChanged(FGuid, mz::proto::ShowAs) override;
+	 virtual void OnPinValueChanged(FGuid, void*, size_t) override;
 
 	 void WaitCommands();
 	 void ExecCommands();
@@ -103,7 +103,8 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 std::mutex ResourceChangedMutex;
 	 TMap<FGuid, MZEntity> ResourceChanged;
-
-	 TMap<FGuid, ResourceInfo> Frozen;
+	 
+	 std::mutex ValueUpdatesMutex;
+	 TMap<FGuid, std::vector<uint8>> ValueUpdates;
 };
 
