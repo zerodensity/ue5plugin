@@ -170,16 +170,16 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
             if (mz::app::ParseFromString(tex.m_Ptr, pin->data().c_str()))
             {
                 MzTextureShareInfo info = {
+                    .type = tex->type(),
+                    .pid = tex->pid(),
+                    .memory = tex->memory(),
+                    .offset = tex->offset(),
                     .textureInfo = {
                         .width = tex->width(),
                         .height = tex->height(),
                         .format = (MzFormat)tex->format(),
                         .usage = (MzImageUsage)tex->usage(),
                     },
-                    .pid = tex->pid(),
-                    .memory = tex->memory(),
-                    .sync = tex->sync(),
-                    .offset = tex->offset(),
                 };
 
                 ResourceInfo copyInfo = {
@@ -187,9 +187,7 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
                     .ReadOnly  = pin->pin_show_as() == mz::proto::ShowAs::OUTPUT_PIN,
                 };
 
-                ID3D12Fence* fence = 0;
-                mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource, &fence);
-                fence->Release();
+                mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
                 PendingCopyQueue.Remove(id);
                 CopyOnTick.Add(id, copyInfo);
             }
