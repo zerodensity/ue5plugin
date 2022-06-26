@@ -124,9 +124,6 @@ MZType* MZType::GetType(FField* Field)
 
 EName MZEntity::GetType(FProperty* Field)
 {
-    FString name = Field->GetNameCPP();
-    FString ty = Field->GetCPPType();
-
     if (Field->HasAnyCastFlags(CASTCLASS_FStructProperty))
     {
         return *((FStructProperty*)Field)->Struct->GetFName().ToEName();
