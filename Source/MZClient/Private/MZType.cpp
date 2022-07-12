@@ -188,17 +188,31 @@ MzTextureInfo MZEntity::GetResourceInfo() const
     return info;
 }
 
-FTextureRenderTargetResource* MZEntity::GetRT() const
+UObject* MZEntity::GetObj() const
 {
     UObject* obj = Entity->GetBoundObject();
+    return obj;
+}
+
+UTextureRenderTarget2D* MZEntity::GetURT() const
+{
+    UObject* obj = GetObj();
     if (!obj)
     {
         return nullptr;
     }
-    FObjectProperty* prop = CastField<FObjectProperty>(Property->GetProperty());
-    UTextureRenderTarget2D* trt2d = prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj);
-    trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(trt2d));
-    return trt2d->GetRenderTargetResource();
+    auto prop = CastField<FObjectProperty>(Property->GetProperty());
+    return Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+}
+
+FTextureRenderTargetResource* MZEntity::GetRT() const
+{
+    UTextureRenderTarget2D* urt = GetURT();
+    if (!urt)
+    {
+        return nullptr;
+    }
+    return urt->GetRenderTargetResource();
 }
 
 FRHITexture2D* MZEntity::GetRHIResource() const

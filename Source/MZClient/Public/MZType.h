@@ -79,6 +79,8 @@ struct MZCLIENT_API MZEntity
 	struct ID3D12Resource* GetResource() const;
 	FRHITexture2D* GetRHIResource() const;
 	FTextureRenderTargetResource* GetRT() const;
+	UObject* GetObj() const;
+	UTextureRenderTarget2D* GetURT() const;
 	
 	static EName GetType(FProperty* Field);
 

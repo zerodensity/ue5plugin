@@ -93,7 +93,7 @@ void MZEntity::SerializeToProto(mz::proto::Pin* pin) const
 		Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt(showAs));
 	}
 
-	pin->set_pin_show_as(showAs);
+	pin->set_show_as(showAs);
 
 	mz::app::SetField(pin, mz::proto::Pin::kIdFieldNumber, TCHAR_TO_UTF8(*id));
 	mz::app::SetField(pin, mz::proto::Pin::kDisplayNameFieldNumber, TCHAR_TO_UTF8(*label));

@@ -1,12 +1,13 @@
 
 #include "MZClient.h"
-//
+
 #include "../../MZRemoteControl/Public/IMZRemoteControl.h"
 #include "ScreenRendering.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 #pragma optimize("", off)
+
 
 class MZCLIENT_API ClientImpl : public mz::app::AppClient
 {
@@ -58,7 +59,7 @@ public:
         }
     }
 
-    virtual void OnPropertyValueChanged(mz::PropertyValueChanged const& action) override
+    virtual void OnPinValueChanged(mz::PinValueChanged const& action) override
     {
         FGuid out;
         if (FGuid::Parse(action.pin_id().c_str(), out))
@@ -184,7 +185,8 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
 
                 ResourceInfo copyInfo = {
                     .SrcEntity = *entity,
-                    .ReadOnly  = pin->pin_show_as() == mz::proto::ShowAs::OUTPUT_PIN,
+                    .ReadOnly  = pin->show_as() == mz::proto::ShowAs::INPUT_PIN,
+                    .Info = info,
                 };
 
                 mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
@@ -200,7 +202,7 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::proto::ShowAs showAs)
     std::unique_lock lock(CopyOnTickMutex);
     if (auto res = CopyOnTick.Find(id))
     {
-        res->ReadOnly = (showAs == mz::proto::ShowAs::OUTPUT_PIN);
+        res->ReadOnly = (showAs == mz::proto::ShowAs::INPUT_PIN);
     }
     MZEntity entity;
     if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
@@ -239,6 +241,8 @@ void FMZClient::QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pi
 
 void FMZClient::StartupModule() {
 
+    CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
+    //GEngine->SetCustomTimeStep(CustomTimeStepImpl);
     // FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
     InitConnection();
     InitRHI();
@@ -270,7 +274,7 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
     {
         mz::proto::Pin* pin = req->add_pins_to_add();
         FString label = entity.Entity->GetLabel().ToString();
-        pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
+        pin->set_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
         entity.SerializeToProto(pin);
         if (pin->data().empty())
         {
@@ -287,7 +291,7 @@ void FMZClient::SendPinAdded(MZEntity entity)
     mz::app::NodeUpdate* req = event->mutable_node_update();
     mz::proto::Pin* pin = req->add_pins_to_add();
     req->set_clear(false);
-    pin->set_pin_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
+    pin->set_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
     mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->nodeId.c_str());
     entity.SerializeToProto(pin);
 
@@ -396,7 +400,50 @@ bool FMZClient::Tick(float dt)
             MZEntity entity;
             if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
             {
-                entity.SetPropertyValue(val.data());
+                if (EName::ObjectProperty == entity.Type)
+                {
+                    mz::proto::msg<mz::proto::Texture> tex;
+                    if (mz::app::ParseFromString(tex.m_Ptr, (const char*)val.data()))
+                    {
+                        MzTextureShareInfo info = {
+                            .type = tex->type(),
+                            .pid = tex->pid(),
+                            .memory = tex->memory(),
+                            .offset = tex->offset(),
+                            .textureInfo = {
+                                .width = tex->width(),
+                                .height = tex->height(),
+                                .format = (MzFormat)tex->format(),
+                                .usage = (MzImageUsage)tex->usage(),
+                            },
+                        };
+                        std::unique_lock xlock(CopyOnTickMutex);
+                        if (auto res = CopyOnTick.Find(id))
+                        {
+                            if (res->Info.memory != info.memory || res->Info.offset != info.offset || 
+                                res->Info.textureInfo.format != info.textureInfo.format ||
+                                res->Info.textureInfo.usage != info.textureInfo.usage ||
+                                res->Info.textureInfo.width != info.textureInfo.width ||
+                                res->Info.textureInfo.height != info.textureInfo.height
+                                )
+                            {
+                                WaitCommands();
+                                res->DstResource->Release();
+                                ExecCommands();
+                                mzGetD3D12Resources(&info, Dev, &res->DstResource);
+                                res->Info = info;
+
+
+
+                                //urt->UpdateResource();
+                            }
+                        }
+                    }
+                }
+                else
+                {
+                    entity.SetPropertyValue(val.data());
+                }
             }
         }
         ValueUpdates.Empty();
@@ -420,6 +467,23 @@ bool FMZClient::Tick(float dt)
         return true;
     }
 
+    {
+        std::unique_lock lock(CopyOnTickMutex);
+        mz::proto::msg<mz::app::AppEvent> event;
+        auto batched = event->mutable_batch();
+        for (auto& [id, pin] : CopyOnTick)
+        {
+            if(pin.ReadOnly)
+            {
+                batched->add_events()->mutable_pin_schedule()->set_pin_id(TCHAR_TO_UTF8(*id.ToString()));
+            }
+        }
+        if (!batched->events().empty())
+        {
+            Client->Write(event);
+        }
+    }
+
     ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
         [this](FRHICommandListImmediate& RHICmdList)
         {
@@ -428,14 +492,61 @@ bool FMZClient::Tick(float dt)
             TArray<D3D12_RESOURCE_BARRIER> barriers;
             for (auto& [id, pin] : CopyOnTick)
             {
+                UTextureRenderTarget2D*  URT = pin.SrcEntity.GetURT();
                 FRHITexture2D*  RHIResource = pin.SrcEntity.GetRHIResource();
+                
                 if (!RHIResource)
                 {
                     continue;
                 }
+                
                 FD3D12TextureBase* Base = GetD3D12TextureFromRHITexture(RHIResource);
                 ID3D12Resource* SrcResource = Base->GetResource()->GetResource();
                 ID3D12Resource* DstResource = pin.DstResource;
+                D3D12_RESOURCE_DESC SrcDesc = SrcResource->GetDesc();
+                D3D12_RESOURCE_DESC DstDesc = DstResource->GetDesc();
+
+                if (pin.ReadOnly && SrcDesc != DstDesc)
+                {
+                    EPixelFormat format = PF_Unknown;
+                    ETextureSourceFormat sourceFormat = TSF_Invalid;
+                    ETextureRenderTargetFormat rtFormat = RTF_RGBA16f;
+                    for (auto& fmt : GPixelFormats)
+                    {
+                        if (fmt.PlatformFormat == DstDesc.Format)
+                        {
+                            format = fmt.UnrealFormat;
+                            sourceFormat = (fmt.BlockBytes == 8) ? TSF_RGBA16F : TSF_BGRA8;
+                            rtFormat     = (fmt.BlockBytes == 8) ? RTF_RGBA16f : RTF_RGBA8;
+                            break;
+                        }
+                    }
+                    
+                    ETextureCreateFlags Flags = ETextureCreateFlags::ShaderResource;
+
+                    if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS) Flags |= ETextureCreateFlags::Shared;
+                    if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER)       Flags |= ETextureCreateFlags::Shared;
+                    if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)       Flags |= ETextureCreateFlags::RenderTargetable;
+                    if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)    Flags |= ETextureCreateFlags::UAV;
+                    if (DstDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)      Flags ^= ETextureCreateFlags::ShaderResource;
+
+                    FD3D12DynamicRHI* DynamicRHI = static_cast<FD3D12DynamicRHI*>(GDynamicRHI);
+                    FTexture2DRHIRef Texture2DRHI = DynamicRHI->RHICreateTexture2DFromResource(format, Flags, FClearValueBinding::Black, DstResource);
+                    URT->RenderTargetFormat = rtFormat;
+                    URT->SizeX = DstDesc.Width;
+                    URT->SizeY = DstDesc.Height;
+                    URT->ClearColor = FLinearColor::Black;
+                    URT->bGPUSharedFlag = 1;
+                    RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
+                    URT->Resource->TextureRHI = Texture2DRHI;
+                    URT->Resource->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
+                    continue;
+                }
+
+                if (SrcResource == DstResource)
+                {
+                    continue;
+                }
 
                 D3D12_RESOURCE_BARRIER barrier = {
                     .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
@@ -447,7 +558,7 @@ bool FMZClient::Tick(float dt)
                     }
                 };
                 
-                if (!pin.ReadOnly)
+                if (pin.ReadOnly)
                 {
                     barrier.Transition.StateAfter  = D3D12_RESOURCE_STATE_COPY_DEST;
                     Swap(SrcResource, DstResource);

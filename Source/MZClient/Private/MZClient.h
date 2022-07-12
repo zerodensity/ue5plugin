@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/EngineCustomTimeStep.h"
+
 #include "IMZClient.h"
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -24,6 +26,8 @@
 #include "D3D12RHIPrivate.h"
 #include "D3D12RHI.h"
 #include "D3D12Resources.h"
+
+#include "MZCustomTimeStep.h"
 
 /**
  * Implements communication with the MediaZ server
@@ -78,6 +82,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 		 MZEntity SrcEntity = {};
 		 ID3D12Resource* DstResource = 0;
 		 bool ReadOnly = true;
+		 MzTextureShareInfo Info = {};
 		 void Release()
 		 {
 			 if(DstResource) DstResource->Release();
@@ -106,5 +111,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 
 	 std::mutex ValueUpdatesMutex;
 	 TMap<FGuid, std::vector<uint8>> ValueUpdates;
+
+	 UMZCustomTimeStep* CustomTimeStepImpl;
 };
 
