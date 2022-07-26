@@ -17,23 +17,24 @@ public:
     virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
     {
         FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
-        if (event.has_node())
+
+        if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
         {
-            nodeId = (event.node().id().c_str());
+            nodeId = *(FGuid*)event.node()->id();
             IMZClient::Get()->SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities());
         }
     }
 
-    virtual void OnNodeUpdate(mz::proto::Node const& archive) override
+    virtual void OnNodeUpdate(mz::NodeUpdated const& archive) override
     {
-        IMZClient::Get()->OnNodeUpdateReceived(archive);
+        IMZClient::Get()->OnNodeUpdateReceived(*archive.node());
     }
 
-    virtual void OnMenuFired(mz::app::ContextMenuRequest const& request) override
+    virtual void OnMenuFired(mz::ContextMenuRequest const& request) override
     {
     }
 
-    void OnTextureCreated(mz::proto::Texture const& texture)
+    void OnTextureCreated(mz::fb::Texture const& texture)
     {
         //IMZClient::Get()->OnTextureReceived(texture);
     }
@@ -41,7 +42,7 @@ public:
     virtual void Done(grpc::Status const& Status) override
     {
         IMZClient::Get()->Disconnect();
-        nodeId.clear();
+        nodeId = {};
         shutdown = true;
     }
 
@@ -52,23 +53,18 @@ public:
 
     virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
     {
-        FGuid out;
-        if (FGuid::Parse(action.pin_id().c_str(), out))
-        {
-            IMZClient::Get()->OnPinShowAsChanged(out, action.show_as());
-        }
+        IMZClient::Get()->OnPinShowAsChanged(*(FGuid*)action.pin_id(), action.show_as());
     }
 
     virtual void OnPinValueChanged(mz::PinValueChanged const& action) override
     {
-        FGuid out;
-        if (FGuid::Parse(action.pin_id().c_str(), out))
-        {
-            IMZClient::Get()->OnPinValueChanged(out, (void*)action.value().data(), action.value().size());
-        }
+        auto ptr = action.value()->Data();
+        auto sz = action.value()->size();
+
+        IMZClient::Get()->OnPinValueChanged(*(FGuid*)action.pin_id(), ptr, sz);
     }
 
-    std::string nodeId;
+    FGuid nodeId;
 
     std::atomic_bool shutdown = true;
 };
@@ -89,12 +85,12 @@ void FMZClient::ClearResources()
 
 void FMZClient::NodeRemoved() 
 {
-    Client->nodeId.clear();
+    Client->nodeId = {};
     ClearResources();
 }
 
 void FMZClient::Disconnect() {
-    Client->nodeId.clear();
+    Client->nodeId = {};
 
     std::unique_lock lock(CopyOnTickMutex);
 
@@ -132,30 +128,26 @@ void FMZClient::InitRHI()
 }
 
 
-TMap<FGuid, const mz::proto::Pin*> ParsePins(mz::proto::Node const& archive)
+TMap<FGuid, const mz::fb::Pin*> ParsePins(mz::fb::Node const& archive)
 {
-    TMap<FGuid, const mz::proto::Pin*> re;
-    for (auto& pin : archive.pins())
+    TMap<FGuid, const mz::fb::Pin*> re;
+    for (auto pin : *archive.pins())
     {
-        FGuid out;
-        if (FGuid::Parse(pin.id().c_str(), out))
-        {
-            re.Add(out, &pin);
-        }
+        re.Add(*(FGuid*)pin->id()->bytes()->Data(), pin);
     }
     return re;
 }
 
-void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
+void FMZClient::OnNodeUpdateReceived(mz::fb::Node const& archive)
 {
-    if (Client->nodeId.empty())
+    if (!Client->nodeId.IsValid())
     {
-        Client->nodeId = archive.id().c_str();
+        Client->nodeId = *(FGuid*)archive.id()->bytes()->Data();
         SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities());
         return;
     }
 
-    if (Client->nodeId != archive.id().c_str())
+    if (Client->nodeId != *(FGuid*)archive.id()->bytes()->Data())
     {   
         // SHOULDNT BE HERE
         abort();
@@ -167,42 +159,39 @@ void FMZClient::OnNodeUpdateReceived(mz::proto::Node const& archive)
     {
         if (auto entity = PendingCopyQueue.Find(id))
         {
-            mz::proto::msg<mz::proto::Texture> tex;
-            if (mz::app::ParseFromString(tex.m_Ptr, pin->data().c_str()))
-            {
-                MzTextureShareInfo info = {
-                    .type = tex->type(),
-                    .pid = tex->pid(),
-                    .memory = tex->memory(),
-                    .offset = tex->offset(),
-                    .textureInfo = {
-                        .width = tex->width(),
-                        .height = tex->height(),
-                        .format = (MzFormat)tex->format(),
-                        .usage = (MzImageUsage)tex->usage(),
-                    },
-                };
+            mz::fb::Texture* tex = (mz::fb::Texture*)pin->data()->Data();
+            MzTextureShareInfo info = {
+                .type = tex->type(),
+                .pid = tex->pid(),
+                .memory = tex->memory(),
+                .offset = tex->offset(),
+                .textureInfo = {
+                    .width = tex->width(),
+                    .height = tex->height(),
+                    .format = (MzFormat)tex->format(),
+                    .usage = (MzImageUsage)tex->usage(),
+                },
+            };
 
-                ResourceInfo copyInfo = {
-                    .SrcEntity = *entity,
-                    .ReadOnly  = pin->show_as() == mz::proto::ShowAs::INPUT_PIN,
-                    .Info = info,
-                };
+            ResourceInfo copyInfo = {
+                .SrcEntity = *entity,
+                .ReadOnly = pin->show_as() == mz::fb::ShowAs_INPUT_PIN,
+                .Info = info,
+            };
 
-                mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
-                PendingCopyQueue.Remove(id);
-                CopyOnTick.Add(id, copyInfo);
-            }
+            mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
+            PendingCopyQueue.Remove(id);
+            CopyOnTick.Add(id, copyInfo);
         }
     }
 }
 
-void FMZClient::OnPinShowAsChanged(FGuid id, mz::proto::ShowAs showAs)
+void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
 {
     std::unique_lock lock(CopyOnTickMutex);
     if (auto res = CopyOnTick.Find(id))
     {
-        res->ReadOnly = (showAs == mz::proto::ShowAs::INPUT_PIN);
+        res->ReadOnly = (showAs == mz::fb::ShowAs_INPUT_PIN);
     }
     MZEntity entity;
     if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
@@ -211,18 +200,18 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::proto::ShowAs showAs)
     }
 }
 
-void FMZClient::OnPinValueChanged(FGuid id, void* val, size_t sz)
+void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
 {
     std::lock_guard lock(ValueUpdatesMutex);
     ValueUpdates.Add(id, std::vector<uint8>((uint8*)val, (uint8*)val + sz));
 }
 
-void FMZClient::OnTextureReceived(FGuid id, mz::proto::Texture const& texture)
+void FMZClient::OnTextureReceived(FGuid id, mz::fb::Texture const& texture)
 {
 
 }
 
-void FMZClient::QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* pin)
+void FMZClient::QueueTextureCopy(FGuid id, const MZEntity* entity, mz::fb::Texture* tex)
 {
     MzTextureInfo info = entity->GetResourceInfo();
     {
@@ -230,16 +219,23 @@ void FMZClient::QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pi
         PendingCopyQueue.Add(id, *entity);
     }
 
-    mz::proto::msg<mz::proto::Texture> tex;
-    tex->set_width(info.width);
-    tex->set_height(info.height);
-    tex->set_format(info.format);
-    tex->set_usage(info.usage | MZ_IMAGE_USAGE_SAMPLED);
-    mz::app::SetPin(pin, tex.m_Ptr);
+    tex->mutate_width(info.width);
+    tex->mutate_height(info.height);
+    tex->mutate_format(info.format);
+    tex->mutate_usage(info.usage | MZ_IMAGE_USAGE_SAMPLED);
 }
 
-
 void FMZClient::StartupModule() {
+    using namespace grpc;
+    using namespace grpc::internal;
+    if (grpc::g_glip == nullptr) {
+        static auto* const g_gli = new GrpcLibrary();
+        grpc::g_glip = g_gli;
+    }
+    if (grpc::g_core_codegen_interface == nullptr) {
+        static auto* const g_core_codegen = new CoreCodegen();
+        grpc::g_core_codegen_interface = g_core_codegen;
+    }
 
     CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
     //GEngine->SetCustomTimeStep(CustomTimeStepImpl);
@@ -261,41 +257,28 @@ void FMZClient::SendPinValueChanged(MZEntity entity)
 
 void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
 {
-    if (!Client || Client->nodeId.empty())
+    if (!Client || !Client->nodeId.IsValid())
     {
         return;
     }
 
-    mz::proto::msg<mz::app::AppEvent> event;
-    mz::app::NodeUpdate* req = event->mutable_node_update();
-    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->nodeId.c_str());
-    req->set_clear(false);
+    MessageBuilder mbb;
+    std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
+
     for (auto& [id, entity] : entities)
     {
-        mz::proto::Pin* pin = req->add_pins_to_add();
-        FString label = entity.Entity->GetLabel().ToString();
-        pin->set_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
-        entity.SerializeToProto(pin);
-        if (pin->data().empty())
-        {
-            abort();
-        }
+        pins.push_back(entity.SerializeToProto(mbb));
     }
-
-    Client->Write(event);
+    auto msg = CreateAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins));
+    
+    Client->Write(msg);
 }
 
 void FMZClient::SendPinAdded(MZEntity entity)
 {
-    mz::proto::msg<mz::app::AppEvent> event;
-    mz::app::NodeUpdate* req = event->mutable_node_update();
-    mz::proto::Pin* pin = req->add_pins_to_add();
-    req->set_clear(false);
-    pin->set_can_show_as(mz::proto::CanShowAs::INPUT_OUTPUT_PROPERTY);
-    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->nodeId.c_str());
-    entity.SerializeToProto(pin);
-
-    Client->Write(event);
+    MessageBuilder mbb;
+    std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
+    Client->Write(CreateAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins)));
 }
 
 void FMZClient::SendPinRemoved(FGuid guid)
@@ -319,24 +302,19 @@ void FMZClient::SendPinRemoved(FGuid guid)
         if (removed)
         {
             res.Release();
-            mz::proto::msg<mz::app::AppEvent> event;
-            mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*guid.ToString()));
-            Client->Write(event);
+            MessageBuilder mbb;
+            Client->Write(CreateAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&guid)));
         }
     }
 
-    if (!Client || Client->nodeId.empty())
+    if (!Client || !Client->nodeId.IsValid())
     {
         return;
     }
 
-    mz::proto::msg<mz::app::AppEvent> event;
-    mz::app::NodeUpdate* req = event->mutable_node_update();
-
-    mz::app::SetField(req, mz::app::NodeUpdate::kNodeIdFieldNumber, Client->nodeId.c_str());
-    mz::app::AddRepeatedField(req, mz::app::NodeUpdate::kPinsToDeleteFieldNumber, TCHAR_TO_UTF8(*id));
-    
-    Client->Write(event);
+    MessageBuilder mbb;
+    std::vector<mz::fb::UUID> pins_to_delete = { *(mz::fb::UUID*)&guid };
+    Client->Write(CreateAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, &pins_to_delete)));
 }
 
 void FMZClient::WaitCommands()
@@ -402,41 +380,34 @@ bool FMZClient::Tick(float dt)
             {
                 if (EName::ObjectProperty == entity.Type)
                 {
-                    mz::proto::msg<mz::proto::Texture> tex;
-                    if (mz::app::ParseFromString(tex.m_Ptr, (const char*)val.data()))
+                    mz::fb::Texture* tex = (mz::fb::Texture*)val.data();
+                    MzTextureShareInfo info = {
+                          .type = tex->type(),
+                          .pid = tex->pid(),
+                          .memory = tex->memory(),
+                          .offset = tex->offset(),
+                          .textureInfo = {
+                              .width = tex->width(),
+                              .height = tex->height(),
+                              .format = (MzFormat)tex->format(),
+                              .usage = (MzImageUsage)tex->usage(),
+                          },
+                    };
+                    std::unique_lock xlock(CopyOnTickMutex);
+                    if (auto res = CopyOnTick.Find(id))
                     {
-                        MzTextureShareInfo info = {
-                            .type = tex->type(),
-                            .pid = tex->pid(),
-                            .memory = tex->memory(),
-                            .offset = tex->offset(),
-                            .textureInfo = {
-                                .width = tex->width(),
-                                .height = tex->height(),
-                                .format = (MzFormat)tex->format(),
-                                .usage = (MzImageUsage)tex->usage(),
-                            },
-                        };
-                        std::unique_lock xlock(CopyOnTickMutex);
-                        if (auto res = CopyOnTick.Find(id))
+                        if (res->Info.memory != info.memory || res->Info.offset != info.offset ||
+                            res->Info.textureInfo.format != info.textureInfo.format ||
+                            res->Info.textureInfo.usage != info.textureInfo.usage ||
+                            res->Info.textureInfo.width != info.textureInfo.width ||
+                            res->Info.textureInfo.height != info.textureInfo.height
+                            )
                         {
-                            if (res->Info.memory != info.memory || res->Info.offset != info.offset || 
-                                res->Info.textureInfo.format != info.textureInfo.format ||
-                                res->Info.textureInfo.usage != info.textureInfo.usage ||
-                                res->Info.textureInfo.width != info.textureInfo.width ||
-                                res->Info.textureInfo.height != info.textureInfo.height
-                                )
-                            {
-                                WaitCommands();
-                                res->DstResource->Release();
-                                ExecCommands();
-                                mzGetD3D12Resources(&info, Dev, &res->DstResource);
-                                res->Info = info;
-
-
-
-                                //urt->UpdateResource();
-                            }
+                            WaitCommands();
+                            res->DstResource->Release();
+                            ExecCommands();
+                            mzGetD3D12Resources(&info, Dev, &res->DstResource);
+                            res->Info = info;
                         }
                     }
                 }
@@ -452,11 +423,10 @@ bool FMZClient::Tick(float dt)
     if (!ResourceChanged.IsEmpty())
     {
         std::lock_guard lock(ResourceChangedMutex);
+        MessageBuilder mbb;
         for (auto& [id, entity] : ResourceChanged)
         {
-            mz::proto::msg<mz::app::AppEvent> event;
-            mz::app::SetField(event.m_Ptr, mz::app::AppEvent::kRemoveTexture, TCHAR_TO_UTF8(*id.ToString()));
-            Client->Write(event);
+            Client->Write(CreateAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&id)));
         }
         SendNodeUpdate(ResourceChanged);
         ResourceChanged.Empty();
@@ -469,18 +439,20 @@ bool FMZClient::Tick(float dt)
 
     {
         std::unique_lock lock(CopyOnTickMutex);
-        mz::proto::msg<mz::app::AppEvent> event;
-        auto batched = event->mutable_batch();
+        MessageBuilder mbb;
+        
+        std::vector<flatbuffers::Offset<mz::app::AppEvent>> batched;
+
         for (auto& [id, pin] : CopyOnTick)
         {
             if(pin.ReadOnly)
             {
-                batched->add_events()->mutable_pin_schedule()->set_pin_id(TCHAR_TO_UTF8(*id.ToString()));
+                batched.push_back(mz::app::CreateAppEvent(mbb, mz::app::AppEventUnion_PinScheduleRequest, mz::app::CreatePinScheduleRequest(mbb, (mz::fb::UUID*)&id).Union()));
             }
         }
-        if (!batched->events().empty())
+        if (!batched.empty())
         {
-            Client->Write(event);
+            Client->Write(CreateAppEvent(mbb, mz::app::CreateBatchAppEventDirect(mbb, &batched)));
         }
     }
 

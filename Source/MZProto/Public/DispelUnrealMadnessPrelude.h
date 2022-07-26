@@ -25,9 +25,9 @@
 void MemoryBarrier();
 #include "Windows/AllowWindowsPlatformTypes.h"
 #pragma intrinsic(_InterlockedCompareExchange64)
-#define InterlockedCompareExchangeAcquire64 _InterlockedCompareExchange64
-#define InterlockedCompareExchangeRelease64 _InterlockedCompareExchange64
-#define InterlockedCompareExchangeNoFence64 _InterlockedCompareExchange64
+//#define InterlockedCompareExchangeAcquire64 _InterlockedCompareExchange64
+//#define InterlockedCompareExchangeRelease64 _InterlockedCompareExchange64
+//#define InterlockedCompareExchangeNoFence64 _InterlockedCompareExchange64
 #define InterlockedCompareExchange64 _InterlockedCompareExchange64
 
 #endif 

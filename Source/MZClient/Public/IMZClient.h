@@ -22,13 +22,14 @@ class IMZClient : public IModuleInterface {
   virtual void SendPinValueChanged(MZEntity) = 0;
   virtual void SendPinRemoved(FGuid) = 0;
   virtual void SendPinAdded(MZEntity entity) = 0;
-  virtual void OnNodeUpdateReceived(mz::proto::Node const&) = 0;
+  virtual void OnNodeUpdateReceived(mz::fb::Node const&) = 0;
   virtual void FreezeTextures(TArray<FGuid>) = 0;
 
   virtual void Disconnect() = 0;
   virtual void NodeRemoved() = 0;
-  virtual void QueueTextureCopy(FGuid id, const struct MZEntity* entity, mz::proto::Pin* dyn) = 0;
-  virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) = 0;
-  virtual void OnPinShowAsChanged(FGuid, mz::proto::ShowAs) = 0;
-  virtual void OnPinValueChanged(FGuid, void*, size_t) = 0;
+
+  virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::fb::Texture* tex) = 0;
+  virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) = 0;
+  virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) = 0;
+  virtual void OnPinValueChanged(FGuid, const void*, size_t) = 0;
 };

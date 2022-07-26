@@ -10,7 +10,6 @@
 #include "IRemoteControlPropertyHandle.h"
 #include "RemoteControlPreset.h"
 
-
 #include <queue>
 
 #include "mediaz.h"
@@ -29,6 +28,19 @@
 
 #include "MZCustomTimeStep.h"
 
+#include <mzFlatBuffersCommon.h>
+
+using MessageBuilder = flatbuffers::grpc::MessageBuilder;
+
+template<class T> requires(mz::app::AppEventUnionTraits<T>::enum_value != 0)
+static flatbuffers::grpc::Message<mz::app::AppEvent> CreateAppEvent(MessageBuilder& b, flatbuffers::Offset<T> event)
+{
+	b.Finish(mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union()));
+	auto msg = b.ReleaseMessage<mz::app::AppEvent>();
+	assert(msg.Verify());
+	return msg;
+}
+
 /**
  * Implements communication with the MediaZ server
  */
@@ -45,7 +57,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 uint32 Run();
 
-	 virtual void OnNodeUpdateReceived(mz::proto::Node const&) override;
+	 virtual void OnNodeUpdateReceived(mz::fb::Node const&) override;
 
 	 virtual void SendNodeUpdate(TMap<FGuid, MZEntity> const& entities) override;
 	 virtual void SendPinRemoved(FGuid) override;
@@ -60,10 +72,10 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 void ClearResources();
 
-	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::proto::Pin* dyn) override;
-	 virtual void OnTextureReceived(FGuid id, mz::proto::Texture const& texture) override;
-	 virtual void OnPinShowAsChanged(FGuid, mz::proto::ShowAs) override;
-	 virtual void OnPinValueChanged(FGuid, void*, size_t) override;
+	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::fb::Texture* tex) override;
+	 virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) override;
+	 virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) override;
+	 virtual void OnPinValueChanged(FGuid, const void*, size_t) override;
 
 	 void WaitCommands();
 	 void ExecCommands();

@@ -12,59 +12,20 @@
 
 #include "mediaz.h"
 
-namespace mz::app
+#include <mzFlatBuffersCommon.h>
+
+namespace mz
 {
-	class AddPinRequest;
-	class NodeUpdateRequest;
+	struct NodeUpdate;
 }
 
-namespace mz::proto
+namespace mz::fb
 {
-	class Pin;
-	class Texture;
-	class Pin;
-	class Node;
-	enum ShowAs;
+	struct Pin;
+	struct Texture;
+	struct Node;
+	enum ShowAs:int;
 }
-
-struct MZCLIENT_API MZType
-{
-	enum
-	{
-		BOOL,
-		STRING,
-		INT,
-		FLOAT,
-		ARRAY,
-		STRUCT,
-		TRT2D,
-	} Tag;
-
-	FFieldClass* FieldClass = 0;
-
-	std::string TypeName;
-
-	//Scalar
-	uint32_t Width = 0;
-
-	// Array
-	MZType* ElementType = 0;
-	uint32_t ElementCount = 0;
-
-	struct Member
-	{
-		FField* Field;
-		MZType* Type;
-	};
-	//Struct
-	TArray<Member> StructFields;
-
-	static MZType* GetType(FField*);
-	void SerializeToProto(mz::proto::Pin* dyn, const struct MZEntity* p);
-private:
-	MZType() = default;
-	bool Init(FField*);
-};
 
 struct MZCLIENT_API MZEntity
 {
@@ -72,7 +33,7 @@ struct MZCLIENT_API MZEntity
 	FRemoteControlEntity* Entity = 0;
 	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
 
-	void SerializeToProto(mz::proto::Pin* req) const;
+	flatbuffers::Offset<mz::fb::Pin> SerializeToProto(flatbuffers::FlatBufferBuilder& fbb) const;
 	void SetPropertyValue(void* val);
 
 	MzTextureInfo GetResourceInfo() const;
@@ -86,4 +47,6 @@ struct MZCLIENT_API MZEntity
 
 	void Transition(FRHICommandListImmediate& RHICmdList) const;
 	static void Transition(TArray<MZEntity> entities);
+
+	std::vector<uint8_t> GetValue(FString& TypeName) const;
 };

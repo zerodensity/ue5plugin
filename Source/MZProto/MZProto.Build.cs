@@ -57,10 +57,11 @@ public class MZProto : ModuleRules
             Libs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "lib"),"*.lib")));
 
             var Dlls =  new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "bin"),"*.dll"));
-            Dlls.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"),"*.dll")));
+            // Dlls.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"),"*.dll")));
 
             var Pdbs = new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "bin"), "*.pdb"));
-            Pdbs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), "*.pdb")));
+            // Pdbs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), "*.pdb")));
+
 
             foreach (string pdb in Pdbs)
             {
@@ -80,7 +81,7 @@ public class MZProto : ModuleRules
                 "zlib",
                 "libcrypto",
             };
-        
+            
   
             if (Target.Configuration == UnrealTargetConfiguration.Shipping)
             {
@@ -99,9 +100,9 @@ public class MZProto : ModuleRules
                 PublicAdditionalLibraries.Add(lib);
             }
 
-            PublicDefinitions.Add("GOOGLE_PROTOBUF_NO_RTTI");
-            PublicDefinitions.Add("GPR_FORBID_UNREACHABLE_CODE");
-            PublicDefinitions.Add("GRPC_ALLOW_EXCEPTIONS=0");
+            //PublicDefinitions.Add("GOOGLE_PROTOBUF_NO_RTTI");
+            //PublicDefinitions.Add("GPR_FORBID_UNREACHABLE_CODE");
+            //PublicDefinitions.Add("GRPC_ALLOW_EXCEPTIONS=0");
             // PublicDefinitions.Add("GOOGLE_PROTOBUF_INTERNAL_DONATE_STEAL_INLINE");
             // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_DEFAULT_STRING");
             // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_RELEASE");
