@@ -25,6 +25,7 @@
 
 #include <thread>
 #include <map>
+#include <mutex>
 
 #define LOCTEXT_NAMESPACE "FMZRemoteControl"
 #pragma optimize("", off)
@@ -35,6 +36,7 @@ struct FMZRemoteControl : IMZRemoteControl {
   TMap<URemoteControlPreset*, TArray<FGuid>> PresetEntities;
   //TMap<FProperty*, FGuid> TrackedProperties;
 
+  std::mutex Mutex;
   TMap<URemoteControlPreset*, TSet<FRemoteControlEntity*>> ToBeResolved;
 
   virtual TMap<FGuid, MZEntity>& GetExposedEntities() override
@@ -73,7 +75,8 @@ struct FMZRemoteControl : IMZRemoteControl {
   {
       if (!entity->GetBoundObject())
       {
-          ToBeResolved[preset].Add(entity);
+          std::unique_lock lock(Mutex);
+          ToBeResolved.FindOrAdd(preset).Add(entity);
           return false;
       }
 
@@ -83,7 +86,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       mze.Entity = entity; 
       mze.Property = rprop.GetPropertyHandle();
       EntityCache.Add(entity->GetId(), mze);
-      PresetEntities[preset].Add(entity->GetId());
+      PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       return true;
   }
 
@@ -120,12 +123,18 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   bool Tick(float)
   {     
+      std::unique_lock lock(Mutex);
       auto tmp = ToBeResolved;
       ToBeResolved.Empty();
-      for (auto& [preset, entities] : tmp)
+      for (auto& [preset, entities] : ToBeResolved)
       {
           for (auto& entity : entities)
           {
+              if (!entity->GetBoundObject())
+              {
+                  ToBeResolved.FindOrAdd(preset).Add(entity);
+                  continue;
+              }
               MZEntity mze;
               RegisterExposedEntity(preset, entity, mze);
           }
@@ -158,10 +167,8 @@ struct FMZRemoteControl : IMZRemoteControl {
           IMZClient::Get()->SendNodeUpdate(Updates);
           return;
       }
-
+      PresetEntities.FindOrAdd(preset);
       FMessageDialog::Debugf(FText::FromString("Preset loaded " + preset->GetName()), 0);
-      PresetEntities.Add(preset, {});
-      ToBeResolved.Add(preset, {});
 
       for (auto& entity : preset->GetExposedEntities())
       {
@@ -253,6 +260,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
   
   void StartupModule() override {
+
     FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZRemoteControl::Tick));
     IAssetRegistry& AssetRegistry = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(AssetRegistryConstants::ModuleName).Get();
     AssetRegistry.OnAssetRemoved().AddRaw(this, &FMZRemoteControl::OnAssetRemoved);

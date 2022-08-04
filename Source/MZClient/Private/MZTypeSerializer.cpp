@@ -10,7 +10,7 @@ flatbuffers::Offset<mz::fb::Pin> MZEntity::SerializeToProto(flatbuffers::FlatBuf
 {
 	FGuid id = Entity->GetId();
 	FString label = Entity->GetLabel().ToString();
-	mz::fb::ShowAs showAs = mz::fb::ShowAs_OUTPUT_PIN;
+	mz::fb::ShowAs showAs = mz::fb::ShowAs::OUTPUT_PIN;
 
 	if (auto showAsValue = Entity->GetMetadata().Find("MZ_PIN_SHOW_AS_VALUE"))
 	{
@@ -18,12 +18,12 @@ flatbuffers::Offset<mz::fb::Pin> MZEntity::SerializeToProto(flatbuffers::FlatBuf
 	}
 	else
 	{
-		Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt(showAs));
+		Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt((u32)showAs));
 	}
 
 	FString typeName = "mz.fb.Void";
 	std::vector<uint8_t> data = GetValue(typeName);
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), 0, showAs, mz::fb::CanShowAs_INPUT_OUTPUT_PROPERTY, 0, &data);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), showAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, 0, &data);
 }
 
 
@@ -41,6 +41,10 @@ std::vector<uint8_t> MZEntity::GetValue(FString& TypeName) const
 {
 	switch (Type)
 	{
+	case EName::Matrix:            TypeName = "mz.fb.mat4d";
+	{
+		
+	}
 	case EName::Vector4:           TypeName = "mz.fb.vec4d";return GetValueAsBytes<FVector4>(Property);
 	case EName::Vector:	           TypeName = "mz.fb.vec3d";return GetValueAsBytes<FVector>(Property);
 	case EName::Vector2d:          TypeName = "mz.fb.vec2d";return GetValueAsBytes<FVector2D>(Property);
@@ -61,7 +65,7 @@ std::vector<uint8_t> MZEntity::GetValue(FString& TypeName) const
 		return bytes;
 	}
 	case EName::ObjectProperty:
-		if (((FObjectProperty*)Property->GetProperty())->PropertyClass->IsChildOf<UTextureRenderTarget2D>())
+		if (IsTRT2D())
 		{
 			TypeName = "mz.fb.Texture";
 			std::vector<uint8_t> re(sizeof(mz::fb::Texture));

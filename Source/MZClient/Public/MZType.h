@@ -24,7 +24,7 @@ namespace mz::fb
 	struct Pin;
 	struct Texture;
 	struct Node;
-	enum ShowAs:int;
+	enum class ShowAs:uint32_t;
 }
 
 struct MZCLIENT_API MZEntity
@@ -41,9 +41,11 @@ struct MZCLIENT_API MZEntity
 	FRHITexture2D* GetRHIResource() const;
 	FTextureRenderTargetResource* GetRT() const;
 	UObject* GetObj() const;
+	UObject* GetValue() const;
 	UTextureRenderTarget2D* GetURT() const;
 	
 	static EName GetType(FProperty* Field);
+	bool IsTRT2D() const;
 
 	void Transition(FRHICommandListImmediate& RHICmdList) const;
 	static void Transition(TArray<MZEntity> entities);

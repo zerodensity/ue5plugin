@@ -19,6 +19,12 @@ EName MZEntity::GetType(FProperty* Field)
     return *Field->GetClass()->GetFName().ToEName();
 }
 
+bool MZEntity::IsTRT2D() const
+{
+    return EName::ObjectProperty == Type && ((FObjectProperty*)Property->GetProperty())->PropertyClass->IsChildOf<UTextureRenderTarget2D>();
+}
+
+
 MzTextureInfo MZEntity::GetResourceInfo() const
 {
     UObject* obj = Entity->GetBoundObject();
@@ -90,6 +96,17 @@ UTextureRenderTarget2D* MZEntity::GetURT() const
     }
     auto prop = CastField<FObjectProperty>(Property->GetProperty());
     return Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+}
+
+UObject* MZEntity::GetValue() const
+{
+    UObject* obj = GetObj();
+    if (!obj)
+    {
+        return nullptr;
+    }
+    auto prop = CastField<FObjectProperty>(Property->GetProperty());
+    return prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<char>(obj));
 }
 
 FTextureRenderTargetResource* MZEntity::GetRT() const

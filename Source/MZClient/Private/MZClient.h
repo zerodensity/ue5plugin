@@ -30,16 +30,18 @@
 
 #include <mzFlatBuffersCommon.h>
 
+
 using MessageBuilder = flatbuffers::grpc::MessageBuilder;
 
-template<class T> requires(mz::app::AppEventUnionTraits<T>::enum_value != 0)
-static flatbuffers::grpc::Message<mz::app::AppEvent> CreateAppEvent(MessageBuilder& b, flatbuffers::Offset<T> event)
+template<class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
+static flatbuffers::grpc::Message<mz::app::AppEvent> MakeAppEvent(MessageBuilder& b, flatbuffers::Offset<T> event)
 {
 	b.Finish(mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union()));
 	auto msg = b.ReleaseMessage<mz::app::AppEvent>();
 	assert(msg.Verify());
 	return msg;
 }
+
 
 /**
  * Implements communication with the MediaZ server
@@ -126,4 +128,5 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 UMZCustomTimeStep* CustomTimeStepImpl;
 };
+
 
