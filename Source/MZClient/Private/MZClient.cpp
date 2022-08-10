@@ -164,6 +164,7 @@ void FMZClient::OnNodeUpdateReceived(mz::fb::Node const& archive)
             mz::fb::Texture* tex = (mz::fb::Texture*)pin->data()->Data();
             MzTextureShareInfo info = {
                 .type = tex->type(),
+                .handle = tex->handle(),
                 .pid = tex->pid(),
                 .memory = tex->memory(),
                 .offset = tex->offset(),
@@ -307,7 +308,26 @@ void FMZClient::SendPinRemoved(FGuid guid)
         {
             res.Release();
             MessageBuilder mbb;
-            Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&guid)));
+
+            mz::fb::Texture tex;
+            mz::app::TDestroyResource destroy;
+            mz::app::TAPICalls call;
+
+            tex.mutate_format((mz::fb::Format)res.Info.textureInfo.format);
+            tex.mutate_usage((mz::fb::ImageUsage)res.Info.textureInfo.usage);
+            tex.mutate_width(res.Info.textureInfo.width);
+            tex.mutate_height(res.Info.textureInfo.height);
+            tex.mutate_pid(res.Info.pid);
+            tex.mutate_handle(res.Info.handle);
+            tex.mutate_memory(res.Info.memory);
+            tex.mutate_offset(res.Info.offset);
+            tex.mutate_type(res.Info.type);
+
+            destroy.res.Set(tex);
+            call.call.Set(destroy);
+
+            // Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&guid)));
+            Client->Write(MakeAppEvent(mbb, mz::app::CreateAPICalls(mbb, &call)));
         }
     }
 
@@ -435,7 +455,7 @@ bool FMZClient::Tick(float dt)
         MessageBuilder mbb;
         for (auto& [id, entity] : ResourceChanged)
         {
-            Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&id)));
+            // Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&id)));
         }
         SendNodeUpdate(ResourceChanged);
         ResourceChanged.Empty();
@@ -456,7 +476,7 @@ bool FMZClient::Tick(float dt)
         {
             if(pin.ReadOnly)
             {
-                batched.push_back(mz::app::CreateAppEvent(mbb, mz::app::AppEventUnion::PinScheduleRequest, mz::app::CreatePinScheduleRequest(mbb, (mz::fb::UUID*)&id).Union()));
+                // batched.push_back(mz::app::CreateAppEvent(mbb, mz::app::AppEventUnion::PinScheduleRequest, mz::app::CreatePinScheduleRequest(mbb, (mz::fb::UUID*)&id).Union()));
             }
         }
         if (!batched.empty())
