@@ -80,14 +80,18 @@ struct FMZRemoteControl : IMZRemoteControl {
           return false;
       }
 
-      FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
-      FProperty* prop = rprop.GetProperty();
-      mze.Type = MZEntity::GetType(prop);
-      mze.Entity = entity; 
-      mze.Property = rprop.GetPropertyHandle();
-      EntityCache.Add(entity->GetId(), mze);
-      PresetEntities.FindOrAdd(preset).Add(entity->GetId());
-      return true;
+      if (preset->GetProperty(entity->GetId()).IsSet())
+      {
+          FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
+          FProperty* prop = rprop.GetProperty();
+          mze.Type = MZEntity::GetType(prop);
+          mze.Entity = entity; 
+          mze.Property = rprop.GetPropertyHandle();
+          EntityCache.Add(entity->GetId(), mze);
+          PresetEntities.FindOrAdd(preset).Add(entity->GetId());
+          return true;
+      }
+      return false;
   }
 
   void OnEntityExposed(URemoteControlPreset* preset, FGuid const& guid)
