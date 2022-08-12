@@ -281,6 +281,11 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
 
 void FMZClient::SendPinAdded(MZEntity entity)
 {
+    if (!Client || !Client->nodeId.IsValid())
+    {
+        return;
+    }
+
     MessageBuilder mbb;
     std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins)));
