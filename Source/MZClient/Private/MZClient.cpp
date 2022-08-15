@@ -1,4 +1,4 @@
-
+﻿
 
 #include "MZClient.h"
 #include "MZCamParams.h"
@@ -64,6 +64,11 @@ public:
         auto sz = action.value()->size();
 
         IMZClient::Get()->OnPinValueChanged(*(FGuid*)action.pin_id(), ptr, sz);
+    }
+
+    virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
+    {
+        IMZClient::Get()->OnFunctionCall(action.function_name()->str());
     }
 
     FGuid nodeId;
@@ -209,6 +214,24 @@ void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
     ValueUpdates.Add(id, std::vector<uint8>((uint8*)val, (uint8*)val + sz));
 }
 
+void FMZClient::OnFunctionCall(std::string funcName)
+{
+    auto [object, rfunc] = functionMap[funcName];
+    if (!rfunc.GetFunction())
+    {
+        return;
+    }
+    
+
+
+    
+    auto func = rfunc.GetFunction();
+    auto fargs = rfunc.FunctionArguments->GetStruct()->ChildProperties;
+    
+
+    object->ProcessEvent(func, nullptr);
+}
+
 void FMZClient::OnTextureReceived(FGuid id, mz::fb::Texture const& texture)
 {
 
@@ -289,6 +312,43 @@ void FMZClient::SendPinAdded(MZEntity entity)
     MessageBuilder mbb;
     std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins)));
+}
+
+std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> SerPresetEntity(URemoteControlPreset* preset, FRemoteControlEntity* entity)
+{
+    MessageBuilder mbb;
+    std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> funcList;
+    auto rfunc = preset->GetFunction(entity->GetId()).GetValue();
+    auto func = rfunc.GetFunction();
+    
+    flatbuffers::Offset<mz::fb::NodeTemplate> nt = mz::fb::CreateNodeTemplateDirect(mbb, TCHAR_TO_ANSI(*func->GetName()), false, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), 0, 0);
+
+    funcList.push_back(nt);
+    return funcList;
+}
+
+void FMZClient::SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEntity* entity)
+{
+    if (!Client || !Client->nodeId.IsValid())
+    {
+        return;
+    }
+
+    MessageBuilder mbb;
+    //std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
+    //std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> functions = SerPresetEntity(preset, entity);
+    std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> funcList;
+    auto rfunc = preset->GetFunction(entity->GetId()).GetValue();
+    auto func = rfunc.GetFunction();
+    std::string uniqueName = TCHAR_TO_UTF8(*func->GetDisplayNameText().ToString());
+    
+    functionMap[uniqueName] = {entity->GetBoundObject(), rfunc};
+    //TODO send pins 
+    
+    flatbuffers::Offset<mz::fb::NodeTemplate> nt = mz::fb::CreateNodeTemplateDirect(mbb, TCHAR_TO_ANSI(*func->GetDisplayNameText().ToString()), false, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), 0, 0);
+
+    funcList.push_back(nt);
+    Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, 0, 0, &funcList)));
 }
 
 void FMZClient::SendPinRemoved(FGuid guid)

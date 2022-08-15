@@ -91,6 +91,11 @@ struct FMZRemoteControl : IMZRemoteControl {
           PresetEntities.FindOrAdd(preset).Add(entity->GetId());
           return true;
       }
+      if (preset->GetFunction(entity->GetId()).IsSet())
+      {
+          return true;
+      }
+
       return false;
   }
 
@@ -98,6 +103,11 @@ struct FMZRemoteControl : IMZRemoteControl {
   {
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       MZEntity mze;
+      if (preset->GetFunction(entity->GetId()).IsSet())
+      {
+          IMZClient::Get()->SendFunctionAdded(preset, entity);
+          return;
+      }
       if (RegisterExposedEntity(preset, entity, mze))
       {
           IMZClient::Get()->SendPinAdded(mze);

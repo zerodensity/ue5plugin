@@ -11,6 +11,7 @@
 #include "RemoteControlPreset.h"
 
 #include <queue>
+#include <map>
 
 #include "mediaz.h"
 
@@ -64,6 +65,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendNodeUpdate(TMap<FGuid, MZEntity> const& entities) override;
 	 virtual void SendPinRemoved(FGuid) override;
 	 virtual void SendPinAdded(MZEntity) override;
+	 virtual void SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEntity* entity) override;
 	 virtual void SendPinValueChanged(MZEntity) override;
 	 
 
@@ -78,6 +80,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) override;
 	 virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) override;
 	 virtual void OnPinValueChanged(FGuid, const void*, size_t) override;
+	 virtual void OnFunctionCall(std::string funcName) override;
 
 	 void WaitCommands();
 	 void ExecCommands();
@@ -125,6 +128,8 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 
 	 std::mutex ValueUpdatesMutex;
 	 TMap<FGuid, std::vector<uint8>> ValueUpdates;
+
+	 std::map< std::string, std::pair<UObject*, FRemoteControlFunction>> functionMap;
 
 	 UMZCustomTimeStep* CustomTimeStepImpl;
 };

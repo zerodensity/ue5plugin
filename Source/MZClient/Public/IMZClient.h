@@ -22,6 +22,7 @@ class IMZClient : public IModuleInterface {
   virtual void SendPinValueChanged(MZEntity) = 0;
   virtual void SendPinRemoved(FGuid) = 0;
   virtual void SendPinAdded(MZEntity entity) = 0;
+  virtual void SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEntity* entity) = 0;
   virtual void OnNodeUpdateReceived(mz::fb::Node const&) = 0;
   virtual void FreezeTextures(TArray<FGuid>) = 0;
 
@@ -32,4 +33,5 @@ class IMZClient : public IModuleInterface {
   virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) = 0;
   virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) = 0;
   virtual void OnPinValueChanged(FGuid, const void*, size_t) = 0;
+  virtual void OnFunctionCall(std::string funcName) = 0;
 };
