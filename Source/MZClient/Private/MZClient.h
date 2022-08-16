@@ -131,6 +131,9 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 std::map< std::string, std::pair<UObject*, FRemoteControlFunction>> functionMap;
 
+	 std::mutex FunctionsMutex;
+	 std::queue<FRemoteControlFunction> Functions;
+
 	 UMZCustomTimeStep* CustomTimeStepImpl;
 };
 

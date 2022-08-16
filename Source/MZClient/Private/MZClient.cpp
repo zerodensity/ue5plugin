@@ -214,22 +214,69 @@ void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
     ValueUpdates.Add(id, std::vector<uint8>((uint8*)val, (uint8*)val + sz));
 }
 
+
+
 void FMZClient::OnFunctionCall(std::string funcName)
 {
+    //FScopedTransaction FunctionTransaction(LOCTEXT("CallExposedFunction", "Called a function through preset."));
+    //FTaskTagScope(ETaskTag::E);
+    //FEditorScriptExecutionGuard ScriptGuard;
+
+
     auto [object, rfunc] = functionMap[funcName];
     if (!rfunc.GetFunction())
     {
         return;
     }
     
-
-
-    
     auto func = rfunc.GetFunction();
-    auto fargs = rfunc.FunctionArguments->GetStruct()->ChildProperties;
-    
 
-    object->ProcessEvent(func, nullptr);
+    for (TFieldIterator<FProperty> It(func); It; ++It)
+    {
+        FProperty* Property = *It;
+        const bool IsStruct = Property->IsA(UStructProperty::StaticClass());
+        if (IsStruct && CastChecked<UStructProperty>(Property)->Struct == TBaseStructure<FVector>::Get())
+        {
+            FVector NewVector;
+            NewVector.X = 30.f;
+            NewVector.Y = 60.f;
+            NewVector.Z = 90.f;
+
+            auto StructPtr = Property->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
+
+            if (StructPtr)
+            {
+                (*StructPtr) = NewVector;
+            }
+        }
+
+        //if (!It->HasAnyPropertyFlags(CPF_ReturnParm))
+        //{
+        //    const FName DefaultPropertyKey = *FString::Printf(TEXT("CPP_Default_%s"), *It->GetCPPType());
+        //   
+        //    FVector* v = It->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
+        //    v->X = 10.0;
+        //    v->Y = 12.0;
+        //    v->Z = 3.0;
+        //    //It->
+        //    //*(It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory())) = a;
+        //    //It->ImportText(*a, It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory()), PPF_None, NULL);
+
+        //}
+    }
+    //FEditorScriptExecutionGuard ScriptGuard;
+    auto fargs = rfunc.FunctionArguments->GetStructMemory();
+    
+    if (rfunc.FunctionArguments && rfunc.FunctionArguments->IsValid())
+    {
+        std::lock_guard lock(FunctionsMutex);
+        Functions.push(rfunc);
+        //object->Modify();
+        //object->ProcessEvent(rfunc.GetFunction(), rfunc.FunctionArguments->GetStructMemory());
+    }
+
+    //object->Modify();
+    //object->ProcessEvent(func, fargs);
 }
 
 void FMZClient::OnTextureReceived(FGuid id, mz::fb::Texture const& texture)
@@ -389,7 +436,7 @@ void FMZClient::SendPinRemoved(FGuid guid)
             tex.mutate_type(res.Info.type);
 
             destroy.res.Set(tex);
-            call.call.Set(destroy);
+            //call.call.Set(destroy);
 
             // Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&guid)));
             Client->Write(MakeAppEvent(mbb, mz::app::CreateAPICalls(mbb, &call)));
@@ -458,6 +505,29 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
+
+    {
+        FEditorScriptExecutionGuard ScriptGuard;
+        std::lock_guard lock(FunctionsMutex);
+        while (!Functions.empty())
+        {
+            auto rfunc = Functions.front();
+            Functions.pop();
+            for (UObject* Object : rfunc.GetBoundObjects())
+            {
+                if (rfunc.FunctionArguments && rfunc.FunctionArguments->IsValid())
+                {
+                    Object->Modify();
+                    Object->ProcessEvent(rfunc.GetFunction(), rfunc.FunctionArguments->GetStructMemory());
+                }
+                else
+                {
+                    ensureAlwaysMsgf(false, TEXT("Function arguments could not be resolved."));
+                }
+            }
+
+        }
+    }
 
     if (!ValueUpdates.IsEmpty())
     {
