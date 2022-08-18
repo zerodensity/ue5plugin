@@ -37,7 +37,7 @@ bool MZParam::SetValue(void* val)
     case EName::Int32Property: *(fprop->ContainerPtrToValuePtr<int32_t>(rFunction.FunctionArguments->GetStructMemory())) = *(int32_t*)val; break;
     case EName::Int64Property: *(fprop->ContainerPtrToValuePtr<int64_t>(rFunction.FunctionArguments->GetStructMemory())) = *(int64_t*)val; break;
     case EName::BoolProperty: *(fprop->ContainerPtrToValuePtr<bool>(rFunction.FunctionArguments->GetStructMemory())) = *(bool*)val; break;
-    case EName::StrProperty:  *(fprop->ContainerPtrToValuePtr<char>(rFunction.FunctionArguments->GetStructMemory())) = *(char*)val; break;
+    case EName::StrProperty:  *(fprop->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory())) = FString((char*)val); break;
     default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
     }
     return true;
