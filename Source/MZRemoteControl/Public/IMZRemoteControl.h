@@ -16,7 +16,7 @@ public:
             return FModuleManager::GetModulePtr<IMZRemoteControl>(ModuleName);
         }
     }
-	virtual TMap<FGuid, MZEntity>& GetExposedEntities() = 0;
-    virtual bool GetExposedEntity(FGuid id, MZEntity& out) = 0;
+	virtual TMap<FGuid, MZRemoteValue*>& GetExposedEntities() = 0;
+    virtual MZRemoteValue* GetExposedEntity(FGuid id) = 0;
 };
 

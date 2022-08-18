@@ -6,6 +6,7 @@
 #include "Containers/Map.h"
 #include "Containers/UnrealString.h"
 #include "UObject/Field.h"
+#include "MZFunction.h"
 
 #include <memory>
 #include <string>
@@ -26,6 +27,12 @@ namespace mz::fb
 	struct Node;
 	enum class ShowAs:uint32_t;
 }
+
+//typedef EntityBase<IRemoteControlPropertyHandle> MZ
+//
+//MZEntity<>
+//
+//template<typename X>
 
 struct MZCLIENT_API MZEntity
 {

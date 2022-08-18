@@ -32,26 +32,25 @@
 
 struct FMZRemoteControl : IMZRemoteControl {
 
-  TMap<FGuid, MZEntity> EntityCache;
+  TMap<FGuid, MZRemoteValue*> EntityCache;
   TMap<URemoteControlPreset*, TArray<FGuid>> PresetEntities;
   //TMap<FProperty*, FGuid> TrackedProperties;
 
   std::mutex Mutex;
   TMap<URemoteControlPreset*, TSet<FRemoteControlEntity*>> ToBeResolved;
 
-  virtual TMap<FGuid, MZEntity>& GetExposedEntities() override
+  virtual TMap<FGuid, MZRemoteValue*>& GetExposedEntities() override
   {
       return EntityCache;
   }
 
-  virtual bool GetExposedEntity(FGuid id, MZEntity& out) override
+  virtual MZRemoteValue* GetExposedEntity(FGuid id) override
   {
       if (auto entity = EntityCache.Find(id))
       {
-          out = *entity;
-          return true;
+         return *entity;
       }
-      return false;
+      return nullptr;
   }
 
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
@@ -71,29 +70,57 @@ struct FMZRemoteControl : IMZRemoteControl {
   }
 
 
-  bool RegisterExposedEntity(URemoteControlPreset* preset, FRemoteControlEntity* entity, MZEntity& mze)
+  MZFunction* RegisterExposedFunction(URemoteControlPreset* preset, FRemoteControlEntity* entity)
+  {
+      MZFunction* mzf = new MZFunction();
+      auto rfunc = preset->GetFunction(entity->GetId()).GetValue();
+      auto func = rfunc.GetFunction();
+      for (TFieldIterator<FProperty> It(func); It; ++It)
+      {
+          if (It->HasAnyPropertyFlags(CPF_ReturnParm | CPF_OutParm))
+          {
+              continue;
+          }
+          FProperty* Property = *It;
+          FGuid id = FGuid::NewGuid();
+          MZParam* mzprm = new MZParam(rfunc, entity->GetBoundObject(), MZEntity::GetType(Property), id,  Property, entity);
+          EntityCache.Add(id, mzprm);
+          mzf->params.push_back(mzprm);
+      }
+      PresetEntities.FindOrAdd(preset).Add(entity->GetId());
+      mzf->rFunction = rfunc;
+      mzf->id = entity->GetId();
+      mzf->object = rfunc.GetBoundObject();
+      return mzf;
+  }
+
+  MZRemoteValue* RegisterExposedEntity(URemoteControlPreset* preset, FRemoteControlEntity* entity)
   {
       if (!entity->GetBoundObject())
       {
           std::unique_lock lock(Mutex);
           ToBeResolved.FindOrAdd(preset).Add(entity);
-          return false;
+          return nullptr;
       }
 
       if (preset->GetProperty(entity->GetId()).IsSet())
       {
           FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
           FProperty* prop = rprop.GetProperty();
-          mze.Type = MZEntity::GetType(prop);
-          mze.Entity = entity; 
-          mze.Property = rprop.GetPropertyHandle();
-          EntityCache.Add(entity->GetId(), mze);
+          MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), entity->GetBoundObject(), MZEntity::GetType(prop), entity->GetId(), prop, entity);
+          EntityCache.Add(entity->GetId(), mzprop);
           PresetEntities.FindOrAdd(preset).Add(entity->GetId());
-          return true;
+          return mzprop;
       }
-      if (preset->GetFunction(entity->GetId()).IsSet())
+      else if (preset->GetFunction(entity->GetId()).IsSet())
       {
-          return true;
+          assert(0);
+          //FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
+          //FProperty* prop = rprop.GetProperty();
+          //MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), entity->GetBoundObject(), MZEntity::GetType(prop), entity->GetId(), prop, entity);
+          //EntityCache.Add(entity->GetId(), mzprop);
+          //PresetEntities.FindOrAdd(preset).Add(entity->GetId());
+          //return mzprop;
       }
 
       return false;
@@ -102,15 +129,18 @@ struct FMZRemoteControl : IMZRemoteControl {
   void OnEntityExposed(URemoteControlPreset* preset, FGuid const& guid)
   {
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
-      MZEntity mze;
+      MZRemoteValue* mzrv;
       if (preset->GetFunction(entity->GetId()).IsSet())
       {
-          IMZClient::Get()->SendFunctionAdded(preset, entity);
-          return;
+          MZFunction* mzf = RegisterExposedFunction(preset, entity);
+          IMZClient::Get()->SendFunctionAdded(mzf);
+          //return;
       }
-      if (RegisterExposedEntity(preset, entity, mze))
+      else if (preset->GetProperty(entity->GetId()).IsSet())
       {
-          IMZClient::Get()->SendPinAdded(mze);
+          mzrv = RegisterExposedEntity(preset, entity);
+          IMZClient::Get()->SendPinAdded(mzrv);
+          //RegisterExposedEntity(preset, entity, mze)
       }
   }
 
@@ -149,8 +179,7 @@ struct FMZRemoteControl : IMZRemoteControl {
                   ToBeResolved.FindOrAdd(preset).Add(entity);
                   continue;
               }
-              MZEntity mze;
-              RegisterExposedEntity(preset, entity, mze);
+              RegisterExposedEntity(preset, entity);
           }
       }
       return true;
@@ -164,7 +193,7 @@ struct FMZRemoteControl : IMZRemoteControl {
           auto& presetEntities = PresetEntities[preset];
           auto exposedEntities = preset->GetExposedEntities();
 
-          TMap<FGuid, MZEntity> Updates;
+          TMap<FGuid, MZRemoteValue*> Updates;
 
           for (auto& entity : exposedEntities)
           {
@@ -172,10 +201,10 @@ struct FMZRemoteControl : IMZRemoteControl {
               {
                   continue;
               }
-              MZEntity mze;
-              if (RegisterExposedEntity(preset, entity.Pin().Get(), mze))
+              MZRemoteValue* mzrv = RegisterExposedEntity(preset, entity.Pin().Get());
+              if (mzrv)
               {
-                  Updates.Add(mze.Entity->GetId(), mze);
+                  Updates.Add(mzrv->id, mzrv);
               }
           }
           IMZClient::Get()->SendNodeUpdate(Updates);
@@ -186,8 +215,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
       for (auto& entity : preset->GetExposedEntities())
       {
-          MZEntity mze;
-          RegisterExposedEntity(preset, entity.Pin().Get(), mze);
+          MZRemoteValue* mzrv = RegisterExposedEntity(preset, entity.Pin().Get());
       }
   
       preset->OnEntitiesUpdated().AddRaw(this, &FMZRemoteControl::OnEntitiesUpdated);

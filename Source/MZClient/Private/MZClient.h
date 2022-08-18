@@ -62,11 +62,11 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 virtual void OnNodeUpdateReceived(mz::fb::Node const&) override;
 
-	 virtual void SendNodeUpdate(TMap<FGuid, MZEntity> const& entities) override;
+	 virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities) override;
 	 virtual void SendPinRemoved(FGuid) override;
-	 virtual void SendPinAdded(MZEntity) override;
-	 virtual void SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEntity* entity) override;
-	 virtual void SendPinValueChanged(MZEntity) override;
+	 virtual void SendPinAdded(MZRemoteValue*) override;
+	 virtual void SendFunctionAdded(MZFunction* mzFunc) override;
+	 virtual void SendPinValueChanged(MZRemoteValue*) override;
 	 
 
 	 virtual void Disconnect() override;
@@ -76,7 +76,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 void ClearResources();
 
-	 virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::fb::Texture* tex) override;
+	 virtual void QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex) override;
 	 virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) override;
 	 virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) override;
 	 virtual void OnPinValueChanged(FGuid, const void*, size_t) override;
@@ -96,7 +96,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 struct ResourceInfo
 	 {
-		 MZEntity SrcEntity = {};
+		 MZRemoteValue* SrcMzrc = 0;
 		 ID3D12Resource* DstResource = 0;
 		 bool ReadOnly = true;
 		 MzTextureShareInfo Info = {};
@@ -118,13 +118,13 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 class ClientImpl* Client = 0;
 
 	 std::mutex PendingCopyQueueMutex;
-	 TMap<FGuid, MZEntity> PendingCopyQueue;
+	 TMap<FGuid, MZRemoteValue*> PendingCopyQueue;
 
 	 std::mutex CopyOnTickMutex;
 	 TMap<FGuid, ResourceInfo> CopyOnTick;
 
 	 std::mutex ResourceChangedMutex;
-	 TMap<FGuid, MZEntity> ResourceChanged;
+	 TMap<FGuid, MZRemoteValue*> ResourceChanged;
 	 
 	 std::mutex ValueUpdatesMutex;
 	 TMap<FGuid, std::vector<uint8>> ValueUpdates;

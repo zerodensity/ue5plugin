@@ -18,18 +18,18 @@ class IMZClient : public IModuleInterface {
     }
   }
 
-  virtual void SendNodeUpdate(TMap<FGuid, MZEntity> const& entities) = 0;
-  virtual void SendPinValueChanged(MZEntity) = 0;
+  virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities) = 0;
+  virtual void SendPinValueChanged(MZRemoteValue*) = 0;
   virtual void SendPinRemoved(FGuid) = 0;
-  virtual void SendPinAdded(MZEntity entity) = 0;
-  virtual void SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEntity* entity) = 0;
+  virtual void SendPinAdded(MZRemoteValue* mzrv) = 0;
+  virtual void SendFunctionAdded(MZFunction* mzFunc) = 0;
   virtual void OnNodeUpdateReceived(mz::fb::Node const&) = 0;
   virtual void FreezeTextures(TArray<FGuid>) = 0;
 
   virtual void Disconnect() = 0;
   virtual void NodeRemoved() = 0;
 
-  virtual void QueueTextureCopy(FGuid id, const MZEntity* entity, mz::fb::Texture* tex) = 0;
+  virtual void QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex) = 0;
   virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) = 0;
   virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) = 0;
   virtual void OnPinValueChanged(FGuid, const void*, size_t) = 0;

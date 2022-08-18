@@ -27,15 +27,6 @@ flatbuffers::Offset<mz::fb::Pin> MZEntity::SerializeToProto(flatbuffers::FlatBuf
 }
 
 
-template<class T> 
-std::vector<uint8_t> GetValueAsBytes(const TSharedPtr<IRemoteControlPropertyHandle>& p)
-{
-	T dat;
-	p->GetValue(dat);
-	std::vector<uint8_t> bytes(sizeof(T));
-	memcpy(bytes.data(), &dat, sizeof(T));
-	return bytes;
-}
 
 std::vector<uint8_t> MZEntity::GetValue(FString& TypeName) const
 {
@@ -70,8 +61,8 @@ std::vector<uint8_t> MZEntity::GetValue(FString& TypeName) const
 			TypeName = "mz.fb.Texture";
 			std::vector<uint8_t> re(sizeof(mz::fb::Texture));
 			mz::fb::Texture tex = {};
-			FMZClient::Get()->QueueTextureCopy(Entity->GetId(), this, &tex);
-			memcpy(re.data(), &tex, sizeof(tex));
+			//FMZClient::Get()->QueueTextureCopy(Entity->GetId(), this, &tex);
+			//memcpy(re.data(), &tex, sizeof(tex));
 			return re;
 		}
 		break;

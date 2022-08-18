@@ -182,7 +182,7 @@ void FMZClient::OnNodeUpdateReceived(mz::fb::Node const& archive)
             };
 
             ResourceInfo copyInfo = {
-                .SrcEntity = *entity,
+                .SrcMzrc = *entity,
                 .ReadOnly = pin->show_as() == mz::fb::ShowAs::INPUT_PIN,
                 .Info = info,
             };
@@ -201,10 +201,10 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
     {
         res->ReadOnly = (showAs == mz::fb::ShowAs::INPUT_PIN);
     }
-    MZEntity entity;
-    if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
+    MZRemoteValue* mzrv = IMZRemoteControl::Get()->GetExposedEntity(id);
+    if (mzrv)
     {
-        entity.Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt((u32)showAs));
+        mzrv->Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt((u32)showAs));
     }
 }
 
@@ -231,39 +231,39 @@ void FMZClient::OnFunctionCall(std::string funcName)
     
     auto func = rfunc.GetFunction();
 
-    for (TFieldIterator<FProperty> It(func); It; ++It)
-    {
-        FProperty* Property = *It;
-        const bool IsStruct = Property->IsA(UStructProperty::StaticClass());
-        if (IsStruct && CastChecked<UStructProperty>(Property)->Struct == TBaseStructure<FVector>::Get())
-        {
-            FVector NewVector;
-            NewVector.X = 30.f;
-            NewVector.Y = 60.f;
-            NewVector.Z = 90.f;
+    //for (TFieldIterator<FProperty> It(func); It; ++It)
+    //{
+    //    FProperty* Property = *It;
+    //    const bool IsStruct = Property->IsA(UStructProperty::StaticClass());
+    //    if (IsStruct && CastChecked<UStructProperty>(Property)->Struct == TBaseStructure<FVector>::Get())
+    //    {
+    //        FVector NewVector;
+    //        NewVector.X = 30.f;
+    //        NewVector.Y = 60.f;
+    //        NewVector.Z = 90.f;
 
-            auto StructPtr = Property->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
+    //        auto StructPtr = Property->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
 
-            if (StructPtr)
-            {
-                (*StructPtr) = NewVector;
-            }
-        }
+    //        if (StructPtr)
+    //        {
+    //            (*StructPtr) = NewVector;
+    //        }
+    //    }
 
-        //if (!It->HasAnyPropertyFlags(CPF_ReturnParm))
-        //{
-        //    const FName DefaultPropertyKey = *FString::Printf(TEXT("CPP_Default_%s"), *It->GetCPPType());
-        //   
-        //    FVector* v = It->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
-        //    v->X = 10.0;
-        //    v->Y = 12.0;
-        //    v->Z = 3.0;
-        //    //It->
-        //    //*(It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory())) = a;
-        //    //It->ImportText(*a, It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory()), PPF_None, NULL);
+    //    //if (!It->HasAnyPropertyFlags(CPF_ReturnParm))
+    //    //{
+    //    //    const FName DefaultPropertyKey = *FString::Printf(TEXT("CPP_Default_%s"), *It->GetCPPType());
+    //    //   
+    //    //    FVector* v = It->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
+    //    //    v->X = 10.0;
+    //    //    v->Y = 12.0;
+    //    //    v->Z = 3.0;
+    //    //    //It->
+    //    //    //*(It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory())) = a;
+    //    //    //It->ImportText(*a, It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory()), PPF_None, NULL);
 
-        //}
-    }
+    //    //}
+    //}
     //FEditorScriptExecutionGuard ScriptGuard;
     auto fargs = rfunc.FunctionArguments->GetStructMemory();
     
@@ -284,12 +284,12 @@ void FMZClient::OnTextureReceived(FGuid id, mz::fb::Texture const& texture)
 
 }
 
-void FMZClient::QueueTextureCopy(FGuid id, const MZEntity* entity, mz::fb::Texture* tex)
+void FMZClient::QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex)
 {
-    MzTextureInfo info = entity->GetResourceInfo();
+    MzTextureInfo info = MZValueUtils::GetResourceInfo(mzrv);
     {
         std::unique_lock lock(PendingCopyQueueMutex);
-        PendingCopyQueue.Add(id, *entity);
+        PendingCopyQueue.Add(id, mzrv);
     }
 
     tex->mutate_width(info.width);
@@ -321,15 +321,16 @@ void FMZClient::StartupModule() {
 
 void FMZClient::ShutdownModule() 
 {
+
 }
 
-void FMZClient::SendPinValueChanged(MZEntity entity)
+void FMZClient::SendPinValueChanged(MZRemoteValue* mzrv)
 {
     // SendNodeUpdate(entity);
 }
 
 
-void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
+void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities)
 {
     if (!Client || !Client->nodeId.IsValid())
     {
@@ -341,7 +342,7 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
 
     for (auto& [id, entity] : entities)
     {
-        pins.push_back(entity.SerializeToProto(mbb));
+        pins.push_back(entity->SerializeToFlatBuffer(mbb));
     }
     
     auto msg = MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins));
@@ -349,7 +350,7 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZEntity> const& entities)
     Client->Write(msg);
 }
 
-void FMZClient::SendPinAdded(MZEntity entity)
+void FMZClient::SendPinAdded(MZRemoteValue* mzrv)
 {
     if (!Client || !Client->nodeId.IsValid())
     {
@@ -357,7 +358,7 @@ void FMZClient::SendPinAdded(MZEntity entity)
     }
 
     MessageBuilder mbb;
-    std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
+    std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { mzrv->SerializeToFlatBuffer(mbb) };
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins)));
 }
 
@@ -374,7 +375,7 @@ std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> SerPresetEntity(URemoteCo
     return funcList;
 }
 
-void FMZClient::SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEntity* entity)
+void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
 {
     if (!Client || !Client->nodeId.IsValid())
     {
@@ -384,17 +385,21 @@ void FMZClient::SendFunctionAdded(URemoteControlPreset* preset, FRemoteControlEn
     MessageBuilder mbb;
     //std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
     //std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> functions = SerPresetEntity(preset, entity);
-    std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> funcList;
-    auto rfunc = preset->GetFunction(entity->GetId()).GetValue();
+    std::vector<flatbuffers::Offset<mz::fb::Node>> funcList;
+    auto rfunc = mzFunc->rFunction;
     auto func = rfunc.GetFunction();
     std::string uniqueName = TCHAR_TO_UTF8(*func->GetDisplayNameText().ToString());
-    
-    functionMap[uniqueName] = {entity->GetBoundObject(), rfunc};
+    std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
+    for (auto param : mzFunc->params)
+    {
+        pins.push_back(param->SerializeToFlatBuffer(mbb));
+    }
+    functionMap[uniqueName] = {mzFunc->object, rfunc};
     //TODO send pins 
     
-    flatbuffers::Offset<mz::fb::NodeTemplate> nt = mz::fb::CreateNodeTemplateDirect(mbb, TCHAR_TO_ANSI(*func->GetDisplayNameText().ToString()), false, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), 0, 0);
+    flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzFunc->id), TCHAR_TO_ANSI(*func->GetDisplayNameText().ToString()), "UE5.UE5", false, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0);
 
-    funcList.push_back(nt);
+    funcList.push_back(node);
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, 0, 0, &funcList)));
 }
 
@@ -484,7 +489,7 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
                 barriers.push_back(D3D12_RESOURCE_BARRIER{
                     .Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
                     .Transition = {
-                        .pResource = res->SrcEntity.GetResource(),
+                        .pResource = MZValueUtils::GetResource(res->SrcMzrc),
                         .Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
                         .StateBefore = D3D12_RESOURCE_STATE_NON_PIXEL_SHADER_RESOURCE | D3D12_RESOURCE_STATE_PIXEL_SHADER_RESOURCE,
                         .StateAfter = D3D12_RESOURCE_STATE_RENDER_TARGET,
@@ -539,10 +544,22 @@ bool FMZClient::Tick(float dt)
 
         for (auto& [id, val] : updates)
         {
-            MZEntity entity;
-            if (IMZRemoteControl::Get()->GetExposedEntity(id, entity))
+            MZRemoteValue* mzrv = IMZRemoteControl::Get()->GetExposedEntity(id);
+            if (mzrv)
             {
-                if (entity.IsTRT2D())
+                auto obj = (UObject*)(mzrv->GetValue(EName::ObjectProperty));
+                UTextureRenderTarget2D* mzrvtrt2d = nullptr;
+                if (obj)
+                {
+                    if (((FObjectProperty*)mzrv->fprop)->PropertyClass->IsChildOf<UTextureRenderTarget2D>())
+                    {
+                        mzrvtrt2d = (UTextureRenderTarget2D*)obj;
+                    }
+                }
+                        
+                
+                
+                if (mzrvtrt2d)
                 {
                     mz::fb::Texture* tex = (mz::fb::Texture*)val.data();
                     MzTextureShareInfo info = {
@@ -577,7 +594,7 @@ bool FMZClient::Tick(float dt)
                 }
                 else
                 {
-                    entity.SetPropertyValue(val.data());
+                    mzrv->SetValue(val.data());
                 }
             }
         }
@@ -628,9 +645,16 @@ bool FMZClient::Tick(float dt)
             TArray<D3D12_RESOURCE_BARRIER> barriers;
             for (auto& [id, pin] : CopyOnTick)
             {
-                UTextureRenderTarget2D*  URT = pin.SrcEntity.GetURT();
-                FRHITexture2D*  RHIResource = pin.SrcEntity.GetRHIResource();
-                
+                UObject* obj = pin.SrcMzrc->object;
+                if (!obj) continue;
+                auto prop = CastField<FObjectProperty>(pin.SrcMzrc->fprop);
+                if (!prop) continue;
+                auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+                if (!URT) continue;
+                auto rt = URT->GetRenderTargetResource();
+                if (!rt) continue;
+                auto RHIResource = rt->GetTexture2DRHI();
+
                 if (!RHIResource)
                 {
                     continue;
