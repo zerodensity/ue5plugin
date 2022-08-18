@@ -55,7 +55,7 @@ std::vector<uint8_t> GetValueAsBytes(void* value)
 
 FString MZParam::GetStringData()
 {
-    return *(fprop->ContainerPtrToValuePtr<FString>(object));
+    return *(fprop->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory()));
 }
 
 std::vector<uint8_t> MZParam::GetValue(FString& TypeName)
