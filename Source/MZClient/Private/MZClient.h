@@ -62,7 +62,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 virtual void OnNodeUpdateReceived(mz::fb::Node const&) override;
 
-	 virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities) override;
+	 virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
 	 virtual void SendPinRemoved(FGuid) override;
 	 virtual void SendPinAdded(MZRemoteValue*) override;
 	 virtual void SendFunctionAdded(MZFunction* mzFunc) override;

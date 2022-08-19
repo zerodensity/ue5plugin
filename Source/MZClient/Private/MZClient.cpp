@@ -23,7 +23,7 @@ public:
         if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
         {
             nodeId = *(FGuid*)event.node()->id();
-            IMZClient::Get()->SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities());
+            IMZClient::Get()->SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities(), IMZRemoteControl::Get()->GetExposedFunctions());
         }
     }
 
@@ -150,7 +150,7 @@ void FMZClient::OnNodeUpdateReceived(mz::fb::Node const& archive)
     if (!Client->nodeId.IsValid())
     {
         Client->nodeId = *(FGuid*)archive.id()->bytes()->Data();
-        SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities());
+        SendNodeUpdate(IMZRemoteControl::Get()->GetExposedEntities(), IMZRemoteControl::Get()->GetExposedFunctions());
         return;
     }
 
@@ -218,10 +218,6 @@ void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
 
 void FMZClient::OnFunctionCall(std::string funcName)
 {
-    //FScopedTransaction FunctionTransaction(LOCTEXT("CallExposedFunction", "Called a function through preset."));
-    //FTaskTagScope(ETaskTag::E);
-    //FEditorScriptExecutionGuard ScriptGuard;
-
 
     auto [object, rfunc] = functionMap[funcName];
     if (!rfunc.GetFunction())
@@ -230,53 +226,13 @@ void FMZClient::OnFunctionCall(std::string funcName)
     }
     
     auto func = rfunc.GetFunction();
-
-    //for (TFieldIterator<FProperty> It(func); It; ++It)
-    //{
-    //    FProperty* Property = *It;
-    //    const bool IsStruct = Property->IsA(UStructProperty::StaticClass());
-    //    if (IsStruct && CastChecked<UStructProperty>(Property)->Struct == TBaseStructure<FVector>::Get())
-    //    {
-    //        FVector NewVector;
-    //        NewVector.X = 30.f;
-    //        NewVector.Y = 60.f;
-    //        NewVector.Z = 90.f;
-
-    //        auto StructPtr = Property->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
-
-    //        if (StructPtr)
-    //        {
-    //            (*StructPtr) = NewVector;
-    //        }
-    //    }
-
-    //    //if (!It->HasAnyPropertyFlags(CPF_ReturnParm))
-    //    //{
-    //    //    const FName DefaultPropertyKey = *FString::Printf(TEXT("CPP_Default_%s"), *It->GetCPPType());
-    //    //   
-    //    //    FVector* v = It->ContainerPtrToValuePtr<FVector>(rfunc.FunctionArguments->GetStructMemory());
-    //    //    v->X = 10.0;
-    //    //    v->Y = 12.0;
-    //    //    v->Z = 3.0;
-    //    //    //It->
-    //    //    //*(It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory())) = a;
-    //    //    //It->ImportText(*a, It->ContainerPtrToValuePtr<uint8>(rfunc.FunctionArguments->GetStructMemory()), PPF_None, NULL);
-
-    //    //}
-    //}
-    //FEditorScriptExecutionGuard ScriptGuard;
     auto fargs = rfunc.FunctionArguments->GetStructMemory();
     
     if (rfunc.FunctionArguments && rfunc.FunctionArguments->IsValid())
     {
         std::lock_guard lock(FunctionsMutex);
         Functions.push(rfunc);
-        //object->Modify();
-        //object->ProcessEvent(rfunc.GetFunction(), rfunc.FunctionArguments->GetStructMemory());
     }
-
-    //object->Modify();
-    //object->ProcessEvent(func, fargs);
 }
 
 void FMZClient::OnTextureReceived(FGuid id, mz::fb::Texture const& texture)
@@ -330,7 +286,7 @@ void FMZClient::SendPinValueChanged(MZRemoteValue* mzrv)
 }
 
 
-void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities)
+void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions)
 {
     if (!Client || !Client->nodeId.IsValid())
     {
@@ -339,13 +295,30 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities)
 
     MessageBuilder mbb;
     std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
+    std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;
 
-    for (auto& [id, entity] : entities)
+    for (auto& [id, mzrv] : entities)
     {
-        pins.push_back(entity->SerializeToFlatBuffer(mbb));
+        if (mzrv->GetAsProp())
+        {
+            pins.push_back(mzrv->SerializeToFlatBuffer(mbb));
+        }
+    }
+    for (auto& [id, mzf] : functions)
+    {
+        auto rfunc = mzf->rFunction;
+        auto func = rfunc.GetFunction();
+        std::string uniqueName = TCHAR_TO_UTF8(*func->GetDisplayNameText().ToString());
+        std::vector<flatbuffers::Offset<mz::fb::Pin>> fpins;
+        for (auto param : mzf->params)
+        {
+            fpins.push_back(param->SerializeToFlatBuffer(mbb));
+        }
+        flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzf->id), TCHAR_TO_ANSI(*func->GetDisplayNameText().ToString()), "UE5.UE5", false, &fpins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0);
+        nodeFunctions.push_back(node);
     }
     
-    auto msg = MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins));
+    auto msg = MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins, 0, &nodeFunctions));
     
     Client->Write(msg);
 }
@@ -383,8 +356,6 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
     }
 
     MessageBuilder mbb;
-    //std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { entity.SerializeToProto(mbb) };
-    //std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> functions = SerPresetEntity(preset, entity);
     std::vector<flatbuffers::Offset<mz::fb::Node>> funcList;
     auto rfunc = mzFunc->rFunction;
     auto func = rfunc.GetFunction();
@@ -601,17 +572,17 @@ bool FMZClient::Tick(float dt)
     
     }
 
-    if (!ResourceChanged.IsEmpty())
-    {
-        std::lock_guard lock(ResourceChangedMutex);
-        MessageBuilder mbb;
-        for (auto& [id, entity] : ResourceChanged)
-        {
-            // Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&id)));
-        }
-        SendNodeUpdate(ResourceChanged);
-        ResourceChanged.Empty();
-    }
+    //if (!ResourceChanged.IsEmpty()) //question : no one adds items to resource changed
+    //{
+    //    std::lock_guard lock(ResourceChangedMutex);
+    //    MessageBuilder mbb;
+    //    for (auto& [id, entity] : ResourceChanged)
+    //    {
+    //        // Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&id)));
+    //    }
+    //    SendNodeUpdate(ResourceChanged);
+    //    ResourceChanged.Empty();
+    //}
 
     if (CopyOnTick.IsEmpty())
     {

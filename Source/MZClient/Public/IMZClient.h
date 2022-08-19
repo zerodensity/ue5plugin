@@ -18,7 +18,7 @@ class IMZClient : public IModuleInterface {
     }
   }
 
-  virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities) = 0;
+  virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) = 0;
   virtual void SendPinValueChanged(MZRemoteValue*) = 0;
   virtual void SendPinRemoved(FGuid) = 0;
   virtual void SendPinAdded(MZRemoteValue* mzrv) = 0;
