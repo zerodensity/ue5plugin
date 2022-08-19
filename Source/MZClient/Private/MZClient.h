@@ -66,6 +66,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendPinRemoved(FGuid) override;
 	 virtual void SendPinAdded(MZRemoteValue*) override;
 	 virtual void SendFunctionAdded(MZFunction* mzFunc) override;
+	 virtual void SendFunctionRemoved(FGuid guid) override;
 	 virtual void SendPinValueChanged(MZRemoteValue*) override;
 	 
 

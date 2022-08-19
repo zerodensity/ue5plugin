@@ -23,6 +23,7 @@ class IMZClient : public IModuleInterface {
   virtual void SendPinRemoved(FGuid) = 0;
   virtual void SendPinAdded(MZRemoteValue* mzrv) = 0;
   virtual void SendFunctionAdded(MZFunction* mzFunc) = 0;
+  virtual void SendFunctionRemoved(FGuid guid) = 0;
   virtual void OnNodeUpdateReceived(mz::fb::Node const&) = 0;
   virtual void FreezeTextures(TArray<FGuid>) = 0;
 

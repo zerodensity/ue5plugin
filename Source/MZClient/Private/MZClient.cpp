@@ -366,6 +366,18 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, 0, 0, &funcList)));
 }
 
+void FMZClient::SendFunctionRemoved(FGuid guid) {
+    
+    
+    if (!Client || !Client->nodeId.IsValid())
+    {
+        return;
+    }
+    MessageBuilder mbb;
+    std::vector<mz::fb::UUID> functions_to_delete = { *(mz::fb::UUID*)&guid };
+    Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, 0, &functions_to_delete)));
+}
+
 void FMZClient::SendPinRemoved(FGuid guid)
 {
     FString id = guid.ToString();
