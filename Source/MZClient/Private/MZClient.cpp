@@ -68,7 +68,7 @@ public:
 
     virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
     {
-        IMZClient::Get()->OnFunctionCall(action.function_name()->str());
+        IMZClient::Get()->OnFunctionCall(*(FGuid*)action.node_id(), *(FGuid*)action.function_id());
     }
 
     FGuid nodeId;
@@ -216,22 +216,14 @@ void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
 
 
 
-void FMZClient::OnFunctionCall(std::string funcName)
+void FMZClient::OnFunctionCall(FGuid nodeId, FGuid funcId)
 {
+    auto mzfunc = IMZRemoteControl::Get()->GetExposedFunction(funcId);
 
-    auto [object, rfunc] = functionMap[funcName];
-    if (!rfunc.GetFunction())
-    {
-        return;
-    }
-    
-    auto func = rfunc.GetFunction();
-    auto fargs = rfunc.FunctionArguments->GetStructMemory();
-    
-    if (rfunc.FunctionArguments && rfunc.FunctionArguments->IsValid())
+    if (mzfunc->rFunction.FunctionArguments && mzfunc->rFunction.FunctionArguments->IsValid())
     {
         std::lock_guard lock(FunctionsMutex);
-        Functions.push(rfunc);
+        Functions.push(mzfunc->rFunction);
     }
 }
 

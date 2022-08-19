@@ -76,27 +76,6 @@ public:
 	FProperty* fprop = 0;
 	FRemoteControlEntity* Entity = 0;
 
-	//template <class T>
-	//T* GetValue()
-	//{
-	//	if (type == EName::ObjectProperty)
-	//	{
-	//		FObjectProperty* prop = CastField<FObjectProperty>(fprop);
-	//		void* ValueAddress = prop->ContainerPtrToValuePtr< void >(object);
-	//		T* PropertyValue = prop->GetObjectPropertyValue(ValueAddress);
-	//		return PropertyValue;
-	//	//	FObjectProperty* prop = CastField<FObjectProperty>(fprop);
-	//	//	if (!prop) return nullptr;
-	//	//	return (T*)Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(object)));
-	//	}
-	//	else
-	//	{
-	//		//return nullptr;
-	//		return fprop->ContainerPtrToValuePtr<T>(object);
-	//	}
-
-	//}
-
 
 };
 
@@ -160,35 +139,6 @@ public:
 	static MzTextureInfo GetResourceInfo(MZRemoteValue* mzrv);
 	static ID3D12Resource* GetResource(MZRemoteValue* mzrv);
 };
-
-//class MZCLIENT_API MZParam
-//{
-//public:
-//	EName Type = EName::None;
-//	FRemoteControlEntity* Entity = 0;
-//
-//	FRemoteControlFunction rFunction;
-//	FProperty* fprop = 0;
-//	FGuid id;
-//
-//	flatbuffers::Offset<mz::fb::Pin> SerializeToProto(flatbuffers::FlatBufferBuilder& fbb);
-//	void SetPropertyValue(void* val);
-//
-//	MzTextureInfo GetResourceInfo() const;
-//	struct ID3D12Resource* GetResource() const;
-//	FRHITexture2D* GetRHIResource() const;
-//	FTextureRenderTargetResource* GetRT() const;
-//	UObject* GetObj() const;
-//	UObject* GetValue() const;
-//	UTextureRenderTarget2D* GetURT() const;
-//
-//
-//	bool IsTRT2D() const;
-//
-//	void Transition(FRHICommandListImmediate& RHICmdList) const;
-//
-//	std::vector<uint8_t> GetValue(FString& TypeName);
-//};
 
 class MZCLIENT_API MZFunction
 {

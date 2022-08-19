@@ -19,5 +19,6 @@ public:
     virtual TMap<FGuid, MZRemoteValue*>& GetExposedEntities() = 0;
     virtual TMap<FGuid, MZFunction*>& GetExposedFunctions() = 0;
     virtual MZRemoteValue* GetExposedEntity(FGuid id) = 0;
+    virtual MZFunction* GetExposedFunction(FGuid id) = 0;
 };
 

@@ -59,6 +59,15 @@ struct FMZRemoteControl : IMZRemoteControl {
       return nullptr;
   }
 
+  virtual MZFunction* GetExposedFunction(FGuid id) override
+  {
+      if (auto entity = FunctionCache.Find(id))
+      {
+          return *entity;
+      }
+      return nullptr;
+  }
+
   void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
   {
       for (auto& id : entities)
