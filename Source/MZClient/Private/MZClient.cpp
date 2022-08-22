@@ -78,6 +78,7 @@ public:
 
 FMZClient::FMZClient() {}
 
+
 void FMZClient::ClearResources()
 {
     std::unique_lock lock(CopyOnTickMutex);
@@ -98,7 +99,7 @@ void FMZClient::NodeRemoved()
 
 void FMZClient::Disconnect() {
     Client->nodeId = {};
-
+    //TODO reset the custom time step
     std::unique_lock lock(CopyOnTickMutex);
 
     PendingCopyQueue.Empty();
@@ -110,6 +111,15 @@ void FMZClient::InitConnection()
 {
     if (Client)
     {
+        if (!ctsBound && (Client->nodeId.IsValid()))
+        {
+            CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
+            auto tis = GEngine->SetCustomTimeStep(CustomTimeStepImpl);
+            if (tis)
+            {
+                ctsBound = true;
+            }
+        }
         if (Client->shutdown)
         {
             Client->shutdown = (GRPC_CHANNEL_READY != Client->Connect());
@@ -217,7 +227,7 @@ void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
 
 
 void FMZClient::OnFunctionCall(FGuid nodeId, FGuid funcId)
-{
+{    
     auto mzfunc = IMZRemoteControl::Get()->GetExposedFunction(funcId);
 
     if (mzfunc->rFunction.FunctionArguments && mzfunc->rFunction.FunctionArguments->IsValid())
@@ -258,8 +268,7 @@ void FMZClient::StartupModule() {
         static auto* const g_core_codegen = new CoreCodegen();
         grpc::g_core_codegen_interface = g_core_codegen;
     }
-
-    CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
+    
     //GEngine->SetCustomTimeStep(CustomTimeStepImpl);
     // FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
     InitConnection();
@@ -485,6 +494,7 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
+    //CustomTimeStepImpl->CV.notify_one();
 
     {
         FEditorScriptExecutionGuard ScriptGuard;

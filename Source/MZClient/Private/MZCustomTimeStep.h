@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Engine/EngineCustomTimeStep.h"
-
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 #include "MZCustomTimeStep.generated.h"
 
 UCLASS()
@@ -9,6 +11,10 @@ class UMZCustomTimeStep : public UEngineCustomTimeStep
 {
 	GENERATED_BODY()
 public:
+
+	std::mutex Mutex;
+	std::condition_variable CV;
+	//std::atomic<bool> wait = false;
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
 	virtual bool Initialize(class UEngine* InEngine) override
 	{
@@ -25,10 +31,13 @@ public:
 	 * Update FApp::CurrentTime/FApp::DeltaTime and optionally wait until the end of the frame.
 	 * @return	true if the Engine's TimeStep should also be performed; false otherwise.
 	 */
+
+
 	virtual bool UpdateTimeStep(class UEngine* InEngine) override
 	{
-		UpdateApplicationLastTime();
-		FApp::SetDeltaTime(FApp::GetDeltaTime()/128.0);
+		//UpdateApplicationLastTime();
+		std::unique_lock lock(Mutex);
+		//CV.wait(lock);
 		return true;
 	}
 

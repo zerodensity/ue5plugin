@@ -69,7 +69,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendFunctionRemoved(FGuid guid) override;
 	 virtual void SendPinValueChanged(MZRemoteValue*) override;
 	 
-
+	 
 	 virtual void Disconnect() override;
 	 virtual void NodeRemoved() override;
 
@@ -92,7 +92,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 
 	 bool Tick(float dt);
 
-
+	 bool ctsBound = false;
 	 std::atomic_bool bClientShouldDisconnect = false;
 
 	 struct ResourceInfo
@@ -135,7 +135,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 std::mutex FunctionsMutex;
 	 std::queue<FRemoteControlFunction> Functions;
 
-	 UMZCustomTimeStep* CustomTimeStepImpl;
+	 UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
 };
 
 
