@@ -35,4 +35,5 @@ class IMZClient : public IModuleInterface {
   virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) = 0;
   virtual void OnPinValueChanged(FGuid, const void*, size_t) = 0;
   virtual void OnFunctionCall(FGuid nodeId, FGuid funcId) = 0;
+  virtual void OnExecute() = 0;
 };

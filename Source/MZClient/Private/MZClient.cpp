@@ -71,6 +71,11 @@ public:
         IMZClient::Get()->OnFunctionCall(*(FGuid*)action.node_id(), *(FGuid*)action.function_id());
     }
 
+    virtual void OnExecute() override
+    {
+        IMZClient::Get()->OnExecute();
+    }
+
     FGuid nodeId;
 
     std::atomic_bool shutdown = true;
@@ -78,6 +83,13 @@ public:
 
 FMZClient::FMZClient() {}
 
+void FMZClient::OnExecute()
+{
+    //TODO add stuff for exectuing
+    //CustomTimeStepImpl->CV.notify_one();
+    //CustomTimeStepImpl->CV.notify_one();
+    FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
+}
 
 void FMZClient::ClearResources()
 {
@@ -494,7 +506,6 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
-    //CustomTimeStepImpl->CV.notify_one();
 
     {
         FEditorScriptExecutionGuard ScriptGuard;
