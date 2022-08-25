@@ -1,4 +1,4 @@
-﻿
+
 
 #include "MZClient.h"
 #include "MZCamParams.h"
@@ -88,7 +88,7 @@ void FMZClient::OnExecute()
     //TODO add stuff for exectuing
     //CustomTimeStepImpl->CV.notify_one();
     //CustomTimeStepImpl->CV.notify_one();
-    FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
+    // FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
 }
 
 void FMZClient::ClearResources()
