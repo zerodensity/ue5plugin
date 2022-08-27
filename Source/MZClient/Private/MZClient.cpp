@@ -5,6 +5,7 @@
 
 #include "../../MZRemoteControl/Public/IMZRemoteControl.h"
 #include "ScreenRendering.h"
+#include "HardwareInfo.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
@@ -145,6 +146,11 @@ void FMZClient::InitConnection()
 
 void FMZClient::InitRHI()
 {
+	if ("D3D12" != FHardwareInfo::GetHardwareInfo(NAME_RHI))
+	{
+		return;
+	}
+
     Dev = (ID3D12Device*)GDynamicRHI->RHIGetNativeDevice();
     HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAlloc));
     FD3D12DynamicRHI* D3D12RHI = static_cast<FD3D12DynamicRHI*>(GDynamicRHI);
