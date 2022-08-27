@@ -98,14 +98,13 @@ struct FMZRemoteControl : IMZRemoteControl {
           }
           FProperty* Property = *It;
           FGuid id = FGuid::NewGuid();
-          MZParam* mzprm = new MZParam(rfunc, entity->GetBoundObject(), MZEntity::GetType(Property), id,  Property, entity);
+          MZParam* mzprm = new MZParam(rfunc, MZEntity::GetType(Property), id,  entity, Property->GetFName());
           EntityCache.Add(id, mzprm);
           mzf->params.push_back(mzprm);
       }
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       mzf->rFunction = rfunc;
       mzf->id = entity->GetId();
-      mzf->object = rfunc.GetBoundObject();
       FunctionCache.Add(mzf->id, mzf);
       return mzf;
   }
@@ -121,7 +120,7 @@ struct FMZRemoteControl : IMZRemoteControl {
 
       FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
       FProperty* prop = rprop.GetProperty();
-      MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), entity->GetBoundObject(), MZEntity::GetType(prop), entity->GetId(), prop, entity);
+      MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), MZEntity::GetType(prop), entity->GetId(), entity);
       EntityCache.Add(entity->GetId(), mzprop);
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       return mzprop;
@@ -186,7 +185,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       std::unique_lock lock(Mutex);
       auto tmp = ToBeResolved;
       ToBeResolved.Empty();
-      for (auto& [preset, entities] : ToBeResolved)
+      for (auto& [preset, entities] : tmp)
       {
           for (auto& entity : entities)
           {
@@ -223,15 +222,12 @@ struct FMZRemoteControl : IMZRemoteControl {
               {
                   MZFunction* mzf = RegisterExposedFunction(preset, entity.Pin().Get());
                   IMZClient::Get()->SendFunctionAdded(mzf);
-                  
               }
               else if (preset->GetProperty(entity.Pin()->GetId()).IsSet())
               {
                   mzrv = RegisterExposedEntity(preset, entity.Pin().Get());
                   IMZClient::Get()->SendPinAdded(mzrv);
-                  
               }
-
           }
           //IMZClient::Get()->SendNodeUpdate(MZRVUpdates, MZFUpdates);
           return;

@@ -54,6 +54,12 @@ public:
 	virtual void* GetValue(EName _type) = 0;
 	virtual flatbuffers::Offset<mz::fb::Pin> SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb) = 0;
 
+	virtual FProperty* GetProperty() = 0;
+
+	UObject* GetObject() 
+	{
+		return Entity->GetBoundObject();
+	}
 
 	virtual MZParam* GetAsParam()
 	{
@@ -70,13 +76,9 @@ public:
 		return type;
 	}
 
-	UObject* object = 0;
 	EName type = EName::None;
 	FGuid id;
-	FProperty* fprop = 0;
 	FRemoteControlEntity* Entity = 0;
-
-
 };
 
 
@@ -84,38 +86,38 @@ class MZCLIENT_API MZParam : public MZRemoteValue
 {
 public:
 	MZParam(FRemoteControlFunction rFunction,
-		UObject* object,
-		EName type,
-		FGuid id,
-		FProperty* fprop,
-		FRemoteControlEntity* Entity);
-	MZParam* GetAsParam()
+			EName type,
+			FGuid id,
+			FRemoteControlEntity* Entity, 
+			FName name);
+	MZParam* GetAsParam() override
 	{
 		return this;
+	}
+
+	FProperty* GetProperty() override
+	{
+		return rFunction.GetFunction()->FindPropertyByName(name);
 	}
 
 	std::vector<uint8_t> GetValue(FString& TypeName);
 	bool SetValue(void* data);
 	FString GetStringData();
 	void* GetValue(EName _type);
-
 	flatbuffers::Offset<mz::fb::Pin> SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb);
-	
 
 private:
 	FRemoteControlFunction rFunction;
-
+	FName name;
 };
 
 class MZCLIENT_API MZProperty : public MZRemoteValue
 {
 public:
 	MZProperty(TSharedPtr<IRemoteControlPropertyHandle> Property,
-		UObject* object,
-		EName type,
-		FGuid id,
-		FProperty* fprop,
-		FRemoteControlEntity* Entity);
+			   EName type,
+			   FGuid id,
+			   FRemoteControlEntity* Entity);
 	MZProperty* GetAsProp()
 	{
 		return this;
@@ -123,10 +125,9 @@ public:
 	std::vector<uint8_t> GetValue(FString& TypeName);
 	bool SetValue(void* data);
 	void* GetValue(EName _type);
-	
-
 	flatbuffers::Offset<mz::fb::Pin> SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb);
-	
+
+	FProperty* GetProperty() override;
 
 private:
 	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
@@ -144,8 +145,10 @@ class MZCLIENT_API MZFunction
 {
 public:
 	FGuid id;
-	UObject* object = 0;
 	FRemoteControlFunction rFunction;
 	std::vector<MZParam*> params;
-
+	UObject* GetObject()
+	{
+		return rFunction.GetBoundObject();
+	}
 };

@@ -9,35 +9,20 @@
 #include <map>
 
 
-MZParam::MZParam(FRemoteControlFunction _rFunction,
-	UObject* _object,
-	EName _type,
-	FGuid _id,
-	FProperty* _fprop,
-	FRemoteControlEntity* _Entity) : rFunction(_rFunction)
-{
-	object = _object;
-	type = _type;
-	id = _id;
-	fprop = _fprop;
-	Entity = _Entity;
-}
-
-
 bool MZParam::SetValue(void* val)
 {
     switch (type)
     {
-    case EName::Vector4: *(fprop->ContainerPtrToValuePtr<FVector4>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector4*)val; break;
-    case EName::Vector: *(fprop->ContainerPtrToValuePtr<FVector>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector*)val; break;
-    case EName::Vector2d: *(fprop->ContainerPtrToValuePtr<FVector2D>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector2D*)val; break;
-    case EName::Rotator: *(fprop->ContainerPtrToValuePtr<FRotator>(rFunction.FunctionArguments->GetStructMemory())) = *(FRotator*)val; break;
-    case EName::FloatProperty:  *(fprop->ContainerPtrToValuePtr<float>(rFunction.FunctionArguments->GetStructMemory())) = *(float*)val; break;
-    case EName::DoubleProperty: *(fprop->ContainerPtrToValuePtr<double>(rFunction.FunctionArguments->GetStructMemory())) = *(double*)val; break;
-    case EName::Int32Property: *(fprop->ContainerPtrToValuePtr<int32_t>(rFunction.FunctionArguments->GetStructMemory())) = *(int32_t*)val; break;
-    case EName::Int64Property: *(fprop->ContainerPtrToValuePtr<int64_t>(rFunction.FunctionArguments->GetStructMemory())) = *(int64_t*)val; break;
-    case EName::BoolProperty: *(fprop->ContainerPtrToValuePtr<bool>(rFunction.FunctionArguments->GetStructMemory())) = *(bool*)val; break;
-    case EName::StrProperty:  *(fprop->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory())) = FString((char*)val); break;
+    case EName::Vector4: *(GetProperty()->ContainerPtrToValuePtr<FVector4>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector4*)val; break;
+    case EName::Vector: *(GetProperty()->ContainerPtrToValuePtr<FVector>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector*)val; break;
+    case EName::Vector2d: *(GetProperty()->ContainerPtrToValuePtr<FVector2D>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector2D*)val; break;
+    case EName::Rotator: *(GetProperty()->ContainerPtrToValuePtr<FRotator>(rFunction.FunctionArguments->GetStructMemory())) = *(FRotator*)val; break;
+    case EName::FloatProperty:  *(GetProperty()->ContainerPtrToValuePtr<float>(rFunction.FunctionArguments->GetStructMemory())) = *(float*)val; break;
+    case EName::DoubleProperty: *(GetProperty()->ContainerPtrToValuePtr<double>(rFunction.FunctionArguments->GetStructMemory())) = *(double*)val; break;
+    case EName::Int32Property: *(GetProperty()->ContainerPtrToValuePtr<int32_t>(rFunction.FunctionArguments->GetStructMemory())) = *(int32_t*)val; break;
+    case EName::Int64Property: *(GetProperty()->ContainerPtrToValuePtr<int64_t>(rFunction.FunctionArguments->GetStructMemory())) = *(int64_t*)val; break;
+    case EName::BoolProperty: *(GetProperty()->ContainerPtrToValuePtr<bool>(rFunction.FunctionArguments->GetStructMemory())) = *(bool*)val; break;
+    case EName::StrProperty:  *(GetProperty()->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory())) = FString((char*)val); break;
     default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
     }
     return true;
@@ -55,7 +40,7 @@ std::vector<uint8_t> GetValueAsBytes(void* value)
 
 FString MZParam::GetStringData()
 {
-    return *(fprop->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory()));
+    return *(GetProperty()->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory()));
 }
 
 std::vector<uint8_t> MZParam::GetValue(FString& TypeName)
@@ -86,7 +71,7 @@ std::vector<uint8_t> MZParam::GetValue(FString& TypeName)
     }
     case EName::ObjectProperty:
 
-        if (((FObjectProperty*)fprop)->PropertyClass->IsChildOf<UTextureRenderTarget2D>())
+        if (((FObjectProperty*)GetProperty())->PropertyClass->IsChildOf<UTextureRenderTarget2D>())
         {
             TypeName = "mz.fb.Texture";
             std::vector<uint8_t> re(sizeof(mz::fb::Texture));
@@ -101,12 +86,28 @@ std::vector<uint8_t> MZParam::GetValue(FString& TypeName)
     return {};
 }
 
+FProperty* MZProperty::GetProperty()
+{
+	return Property->GetProperty();
+}
+
+MZParam::MZParam(FRemoteControlFunction rFunction,
+	EName type,
+	FGuid id,
+	FRemoteControlEntity* Entity,
+	FName name) : rFunction(rFunction)
+{
+	this->type = type;
+	this->id = id;
+	this->Entity = Entity;
+	this->name = name;
+}
 
 flatbuffers::Offset<mz::fb::Pin> MZParam::SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb)
 {
    
-    //FString label = Entity->GetLabel().ToString();
-    FString label = fprop->GetFullName();
+    FString label = Entity->GetLabel().ToString();
+    // FString label = GetProperty()->GetFullName();
     mz::fb::ShowAs showAs = mz::fb::ShowAs::INPUT_PIN;
 
     //if (auto showAsValue = Entity->GetMetadata().Find("MZ_PIN_SHOW_AS_VALUE"))
@@ -124,16 +125,12 @@ flatbuffers::Offset<mz::fb::Pin> MZParam::SerializeToFlatBuffer(flatbuffers::Fla
 }
 
 MZProperty::MZProperty(TSharedPtr<IRemoteControlPropertyHandle> _Property,
-	UObject* _object,
 	EName _type,
 	FGuid _id,
-	FProperty* _fprop,
 	FRemoteControlEntity* _Entity) : Property(_Property)
 {
-	object = _object;
 	type = _type;
 	id = _id;
-	fprop = _fprop;
 	Entity = _Entity;
 }
 
@@ -167,22 +164,22 @@ void* MZParam::GetValue(EName _type)
     {
     case EName::ObjectProperty:
     {
-        FObjectProperty* prop = CastField<FObjectProperty>(fprop);
+        FObjectProperty* prop = CastField<FObjectProperty>(GetProperty());
         void* ValueAddress = prop->ContainerPtrToValuePtr< void >(rFunction.FunctionArguments->GetStructMemory());
         UObject* PropertyValue = prop->GetObjectPropertyValue(ValueAddress);
         return PropertyValue;
     };
     break;
-    case EName::Vector:            return fprop->ContainerPtrToValuePtr<FVector>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::Vector4:           return fprop->ContainerPtrToValuePtr<FVector4>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::Vector2d:          return fprop->ContainerPtrToValuePtr<FVector2D>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::Rotator:           return fprop->ContainerPtrToValuePtr<FRotator>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::FloatProperty:     return fprop->ContainerPtrToValuePtr<float>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::DoubleProperty:    return fprop->ContainerPtrToValuePtr<double>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::Int32Property:	   return fprop->ContainerPtrToValuePtr<int32_t>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::Int64Property:	   return fprop->ContainerPtrToValuePtr<int64_t>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::BoolProperty:	   return fprop->ContainerPtrToValuePtr<bool>(rFunction.FunctionArguments->GetStructMemory());
-    case EName::StrProperty:	   return fprop->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::Vector:            return GetProperty()->ContainerPtrToValuePtr<FVector>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::Vector4:           return GetProperty()->ContainerPtrToValuePtr<FVector4>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::Vector2d:          return GetProperty()->ContainerPtrToValuePtr<FVector2D>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::Rotator:           return GetProperty()->ContainerPtrToValuePtr<FRotator>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::FloatProperty:     return GetProperty()->ContainerPtrToValuePtr<float>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::DoubleProperty:    return GetProperty()->ContainerPtrToValuePtr<double>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::Int32Property:	   return GetProperty()->ContainerPtrToValuePtr<int32_t>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::Int64Property:	   return GetProperty()->ContainerPtrToValuePtr<int64_t>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::BoolProperty:	   return GetProperty()->ContainerPtrToValuePtr<bool>(rFunction.FunctionArguments->GetStructMemory());
+    case EName::StrProperty:	   return GetProperty()->ContainerPtrToValuePtr<FString>(rFunction.FunctionArguments->GetStructMemory());
     default:
         break;
     }
@@ -201,22 +198,22 @@ void* MZProperty::GetValue(EName _type)
     {   
         case EName::ObjectProperty:
         {
-            FObjectProperty* prop = CastField<FObjectProperty>(fprop);
-            void* ValueAddress = prop->ContainerPtrToValuePtr< void >(object);
+            FObjectProperty* prop = CastField<FObjectProperty>(GetProperty());
+            void* ValueAddress = prop->ContainerPtrToValuePtr< void >(GetObject());
             UObject* PropertyValue = prop->GetObjectPropertyValue(ValueAddress);
             return PropertyValue;
         };
             break;
-        case EName::Vector:            return fprop->ContainerPtrToValuePtr<FVector>(object);
-        case EName::Vector4:           return fprop->ContainerPtrToValuePtr<FVector4>(object);
-        case EName::Vector2d:          return fprop->ContainerPtrToValuePtr<FVector2D>(object);
-        case EName::Rotator:           return fprop->ContainerPtrToValuePtr<FRotator>(object);
-        case EName::FloatProperty:     return fprop->ContainerPtrToValuePtr<float>(object);
-        case EName::DoubleProperty:    return fprop->ContainerPtrToValuePtr<double>(object);
-        case EName::Int32Property:	   return fprop->ContainerPtrToValuePtr<int32_t>(object);
-        case EName::Int64Property:	   return fprop->ContainerPtrToValuePtr<int64_t>(object);
-        case EName::BoolProperty:	   return fprop->ContainerPtrToValuePtr<bool>(object);
-        case EName::StrProperty:	   return fprop->ContainerPtrToValuePtr<FString>(object);
+        case EName::Vector:            return GetProperty()->ContainerPtrToValuePtr<FVector>(GetObject());
+        case EName::Vector4:           return GetProperty()->ContainerPtrToValuePtr<FVector4>(GetObject());
+        case EName::Vector2d:          return GetProperty()->ContainerPtrToValuePtr<FVector2D>(GetObject());
+        case EName::Rotator:           return GetProperty()->ContainerPtrToValuePtr<FRotator>(GetObject());
+        case EName::FloatProperty:     return GetProperty()->ContainerPtrToValuePtr<float>(GetObject());
+        case EName::DoubleProperty:    return GetProperty()->ContainerPtrToValuePtr<double>(GetObject());
+        case EName::Int32Property:	   return GetProperty()->ContainerPtrToValuePtr<int32_t>(GetObject());
+        case EName::Int64Property:	   return GetProperty()->ContainerPtrToValuePtr<int64_t>(GetObject());
+        case EName::BoolProperty:	   return GetProperty()->ContainerPtrToValuePtr<bool>(GetObject());
+        case EName::StrProperty:	   return GetProperty()->ContainerPtrToValuePtr<FString>(GetObject());
         default:
             break;
     }
@@ -304,8 +301,8 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::SerializeToFlatBuffer(flatbuffers::
 
 MzTextureInfo MZValueUtils::GetResourceInfo(MZRemoteValue* mzrv)
 {
-    UObject* obj = mzrv->object;
-    FObjectProperty* prop = CastField<FObjectProperty>(mzrv->fprop);
+    UObject* obj = mzrv->GetObject();
+    FObjectProperty* prop = CastField<FObjectProperty>(mzrv->GetProperty());
 
     UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 
@@ -361,9 +358,9 @@ MzTextureInfo MZValueUtils::GetResourceInfo(MZRemoteValue* mzrv)
 
 ID3D12Resource* MZValueUtils::GetResource(MZRemoteValue* mzrv)
 {
-    UObject* obj = mzrv->object;
+    UObject* obj = mzrv->GetObject();
     if (!obj) return nullptr;
-    auto prop = CastField<FObjectProperty>(mzrv->fprop);
+    auto prop = CastField<FObjectProperty>(mzrv->GetProperty());
     if (!prop) return nullptr;
     auto urt = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
     if (!urt) return nullptr;

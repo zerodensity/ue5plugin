@@ -378,7 +378,7 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
     {
         pins.push_back(param->SerializeToFlatBuffer(mbb));
     }
-    functionMap[uniqueName] = {mzFunc->object, rfunc};
+    functionMap[uniqueName] = {mzFunc->GetObject(), rfunc};
     //TODO send pins 
     
     flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzFunc->id), TCHAR_TO_ANSI(*func->GetDisplayNameText().ToString()), "UE5.UE5", false, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0);
@@ -547,7 +547,7 @@ bool FMZClient::Tick(float dt)
                 UTextureRenderTarget2D* mzrvtrt2d = nullptr;
                 if (obj)
                 {
-                    if (((FObjectProperty*)mzrv->fprop)->PropertyClass->IsChildOf<UTextureRenderTarget2D>())
+                    if (((FObjectProperty*)mzrv->GetProperty())->PropertyClass->IsChildOf<UTextureRenderTarget2D>())
                     {
                         mzrvtrt2d = (UTextureRenderTarget2D*)obj;
                     }
@@ -641,9 +641,9 @@ bool FMZClient::Tick(float dt)
             TArray<D3D12_RESOURCE_BARRIER> barriers;
             for (auto& [id, pin] : CopyOnTick)
             {
-                UObject* obj = pin.SrcMzrc->object;
+                UObject* obj = pin.SrcMzrc->GetObject();
                 if (!obj) continue;
-                auto prop = CastField<FObjectProperty>(pin.SrcMzrc->fprop);
+                auto prop = CastField<FObjectProperty>(pin.SrcMzrc->GetProperty());
                 if (!prop) continue;
                 auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
                 if (!URT) continue;
