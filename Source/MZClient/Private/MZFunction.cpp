@@ -282,7 +282,7 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::SerializeToFlatBuffer(flatbuffers::
 {
     FGuid idx = Entity->GetId();
     FString label = Entity->GetLabel().ToString();
-    mz::fb::ShowAs showAs = mz::fb::ShowAs::OUTPUT_PIN;
+    mz::fb::ShowAs showAs = mz::fb::ShowAs::PROPERTY;
 
     if (auto showAsValue = Entity->GetMetadata().Find("MZ_PIN_SHOW_AS_VALUE"))
     {
