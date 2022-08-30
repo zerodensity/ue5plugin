@@ -106,7 +106,8 @@ MZParam::MZParam(FRemoteControlFunction rFunction,
 flatbuffers::Offset<mz::fb::Pin> MZParam::SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb)
 {
    
-    FString label = Entity->GetLabel().ToString();
+	FString label = name.ToString();
+	//FString label = Entity->GetLabel().ToString();
     // FString label = GetProperty()->GetFullName();
     mz::fb::ShowAs showAs = mz::fb::ShowAs::INPUT_PIN;
 

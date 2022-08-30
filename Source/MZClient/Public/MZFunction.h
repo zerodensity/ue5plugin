@@ -146,6 +146,8 @@ class MZCLIENT_API MZFunction
 {
 public:
 	FGuid id;
+	FName category;
+	FName name;
 	FRemoteControlFunction rFunction;
 	std::vector<MZParam*> params;
 	UObject* GetObject()

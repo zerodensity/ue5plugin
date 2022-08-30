@@ -105,6 +105,8 @@ struct FMZRemoteControl : IMZRemoteControl {
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       mzf->rFunction = rfunc;
       mzf->id = entity->GetId();
+	  mzf->category = preset->Layout.FindGroupFromField(entity->GetId())->Name;
+	  mzf->name = entity->GetLabel();
       FunctionCache.Add(mzf->id, mzf);
       return mzf;
   }
@@ -259,7 +261,15 @@ struct FMZRemoteControl : IMZRemoteControl {
 			  mzrv->category = preset->Layout.FindGroupFromField(id)->Name;
 		  }
 	  }
-	  IMZClient::Get()->SendCategoryUpdate(EntityCache);
+	  for (auto [id, mzf] : FunctionCache)
+	  {
+		  mzf->category = preset->Layout.FindGroupFromField(id)->Name;
+		  for (auto param : mzf->params)
+		  {
+			  param->category = preset->Layout.FindGroupFromField(id)->Name;
+		  }
+	  }
+	  IMZClient::Get()->SendCategoryUpdate(EntityCache, FunctionCache);
 
 
 	  //FMessageDialog::Debugf(FText::FromString("Preset layout changed " + preset->GetFName().ToString()), 0);
