@@ -79,6 +79,7 @@ public:
 	EName type = EName::None;
 	FGuid id;
 	FRemoteControlEntity* Entity = 0;
+	FName category;
 };
 
 

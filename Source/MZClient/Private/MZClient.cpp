@@ -304,6 +304,21 @@ void FMZClient::SendPinValueChanged(MZRemoteValue* mzrv)
     // SendNodeUpdate(entity);
 }
 
+void FMZClient::SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities)
+{
+	std::vector< flatbuffers::Offset<mz::app::PinCategory>> pinCategories;
+	MessageBuilder mb;
+	for (auto& [id, mzrv] : entities)
+	{
+		if (mzrv->GetAsProp())
+		{
+			pinCategories.push_back(mz::app::CreatePinCategoryDirect(mb, (mz::fb::UUID*)&mzrv->id, TCHAR_TO_ANSI(*mzrv->category.ToString())));
+		}
+	}
+	auto msg = MakeAppEvent(mb, mz::app::CreateNodeCategoriesUpdateDirect(mb, &pinCategories));
+	Client->Write(msg);
+}
+
 
 void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions)
 {

@@ -121,6 +121,7 @@ struct FMZRemoteControl : IMZRemoteControl {
       FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
       FProperty* prop = rprop.GetProperty();
       MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), MZEntity::GetType(prop), entity->GetId(), entity);
+	  mzprop->category = preset->Layout.FindGroupFromField(entity->GetId())->Name;
       EntityCache.Add(entity->GetId(), mzprop);
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       return mzprop;
@@ -132,13 +133,14 @@ struct FMZRemoteControl : IMZRemoteControl {
       FRemoteControlEntity* entity = preset->GetExposedEntity(guid).Pin().Get();
       MZRemoteValue* mzrv;
       if (preset->GetFunction(entity->GetId()).IsSet())
-      {
+	  {
           MZFunction* mzf = RegisterExposedFunction(preset, entity);
           IMZClient::Get()->SendFunctionAdded(mzf);
           //return;
       }
       else if (preset->GetProperty(entity->GetId()).IsSet())
       {
+		  
           mzrv = RegisterExposedEntity(preset, entity);
           IMZClient::Get()->SendPinAdded(mzrv);
           //RegisterExposedEntity(preset, entity, mze)
@@ -245,6 +247,22 @@ struct FMZRemoteControl : IMZRemoteControl {
       preset->OnEntityUnexposed().AddRaw(this, &FMZRemoteControl::OnEntityUnexposed);
       preset->OnExposedPropertiesModified().AddRaw(this, &FMZRemoteControl::OnExposedPropertiesModified);
       preset->OnActorPropertyModified().AddRaw(this, &FMZRemoteControl::OnActorPropertyModified);
+	  preset->OnPresetLayoutModified().AddRaw(this, &FMZRemoteControl::OnPresetLayoutModified);
+  }
+
+  void OnPresetLayoutModified(URemoteControlPreset* preset)
+  {
+	  for (auto [id, mzrv] : EntityCache)
+	  {
+		  if (mzrv->GetAsProp())
+		  {
+			  mzrv->category = preset->Layout.FindGroupFromField(id)->Name;
+		  }
+	  }
+	  IMZClient::Get()->SendCategoryUpdate(EntityCache);
+
+
+	  //FMessageDialog::Debugf(FText::FromString("Preset layout changed " + preset->GetFName().ToString()), 0);
   }
 
   void OnPresetRemoved(URemoteControlPreset* preset)
