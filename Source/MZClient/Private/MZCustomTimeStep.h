@@ -1,6 +1,8 @@
 #pragma once
 
 #include "Engine/EngineCustomTimeStep.h"
+#include <IMZClient.h>
+
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
@@ -36,8 +38,11 @@ public:
 	virtual bool UpdateTimeStep(class UEngine* InEngine) override
 	{
 		//UpdateApplicationLastTime();
-		std::unique_lock lock(Mutex);
-		//CV.wait(lock);
+		if (IMZClient::Get()->IsConnected())
+		{
+			std::unique_lock lock(Mutex);
+			CV.wait(lock);
+		}
 		return true;
 	}
 

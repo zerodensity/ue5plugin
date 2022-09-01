@@ -31,6 +31,7 @@ class IMZClient : public IModuleInterface {
 
   virtual void Disconnect() = 0;
   virtual void NodeRemoved() = 0;
+  virtual bool IsConnected() = 0;
 
   virtual void QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex) = 0;
   virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) = 0;

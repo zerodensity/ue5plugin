@@ -47,11 +47,13 @@ public:
         IMZClient::Get()->Disconnect();
         nodeId = {};
         shutdown = true;
+        IMZClient::Get()->OnExecute();
     }
 
     virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
     {
         IMZClient::Get()->NodeRemoved();
+        IMZClient::Get()->OnExecute();
     }
 
     virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
@@ -84,10 +86,15 @@ public:
 
 FMZClient::FMZClient() {}
 
+bool FMZClient::IsConnected()
+{
+	return Client && Client->nodeId.IsValid() && !Client->shutdown;
+}
+
 void FMZClient::OnExecute()
 {
     //TODO add stuff for exectuing
-    //CustomTimeStepImpl->CV.notify_one();
+    CustomTimeStepImpl->CV.notify_one();
     //CustomTimeStepImpl->CV.notify_one();
     // FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
 }
