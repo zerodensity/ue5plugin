@@ -69,6 +69,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendFunctionRemoved(FGuid guid) override;
 	 virtual void SendPinValueChanged(MZRemoteValue*) override;
 	 virtual void SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
+	 virtual void SendNameUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
 	 
 	 virtual void Disconnect() override;
 	 virtual void NodeRemoved() override;

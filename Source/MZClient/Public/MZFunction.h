@@ -129,10 +129,10 @@ public:
 	flatbuffers::Offset<mz::fb::Pin> SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* GetProperty() override;
+	FName name;
 
 private:
 	TSharedPtr<IRemoteControlPropertyHandle> Property = 0;
-
 };
 
 class MZCLIENT_API MZValueUtils
