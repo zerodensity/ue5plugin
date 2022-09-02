@@ -94,7 +94,7 @@ bool FMZClient::IsConnected()
 void FMZClient::OnExecute()
 {
     //TODO add stuff for exectuing
-    CustomTimeStepImpl->CV.notify_one();
+    // CustomTimeStepImpl->CV.notify_one();
     //CustomTimeStepImpl->CV.notify_one();
     // FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
 }
@@ -405,18 +405,6 @@ void FMZClient::SendPinAdded(MZRemoteValue* mzrv)
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins)));
 }
 
-std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> SerPresetEntity(URemoteControlPreset* preset, FRemoteControlEntity* entity)
-{
-    MessageBuilder mbb;
-    std::vector<flatbuffers::Offset<mz::fb::NodeTemplate>> funcList;
-    auto rfunc = preset->GetFunction(entity->GetId()).GetValue();
-    auto func = rfunc.GetFunction();
-    
-    flatbuffers::Offset<mz::fb::NodeTemplate> nt = mz::fb::CreateNodeTemplateDirect(mbb, TCHAR_TO_ANSI(*func->GetName()), false, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), 0, 0);
-
-    funcList.push_back(nt);
-    return funcList;
-}
 
 void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
 {
@@ -610,8 +598,6 @@ bool FMZClient::Tick(float dt)
                     }
                 }
                         
-                
-                
                 if (mzrvtrt2d)
                 {
                     mz::fb::Texture* tex = (mz::fb::Texture*)val.data();

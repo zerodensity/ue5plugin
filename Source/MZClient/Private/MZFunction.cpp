@@ -142,7 +142,11 @@ bool MZProperty::SetValue(void* val)
     case EName::Vector4: Property->SetValue(*(FVector4*)val); break;
     case EName::Vector: Property->SetValue(*(FVector*)val); break;
     case EName::Vector2d: Property->SetValue(*(FVector2D*)val); break;
-    case EName::Rotator: Property->SetValue(*(FRotator*)val); break;
+	case EName::Rotator: {
+		f64* vals = (f64*)val;
+		Property->SetValue(FRotator(vals[2], vals[1], vals[0]));
+		break;
+	}
     case EName::FloatProperty:  Property->SetValue(*(float*)val); break;
     case EName::DoubleProperty: Property->SetValue(*(double*)val); break;
     case EName::Int32Property: Property->SetValue(*(int32_t*)val); break;

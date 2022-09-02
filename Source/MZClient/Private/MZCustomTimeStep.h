@@ -38,11 +38,11 @@ public:
 	virtual bool UpdateTimeStep(class UEngine* InEngine) override
 	{
 		//UpdateApplicationLastTime();
-		if (IMZClient::Get()->IsConnected())
-		{
-			std::unique_lock lock(Mutex);
-			CV.wait(lock);
-		}
+		//if (IMZClient::Get()->IsConnected())
+		//{
+		//	std::unique_lock lock(Mutex);
+		//	CV.wait(lock);
+		//}
 		return true;
 	}
 
