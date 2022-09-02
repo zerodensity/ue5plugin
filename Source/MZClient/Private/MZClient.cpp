@@ -153,7 +153,8 @@ void FMZClient::InitConnection()
 
 void FMZClient::InitRHI()
 {
-	if ("D3D12" != FHardwareInfo::GetHardwareInfo(NAME_RHI))
+	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
+	if ("D3D12" != hwinfo)
 	{
 		return;
 	}
@@ -245,10 +246,10 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
 
 void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
 {
+	std::vector<uint8> value((uint8*)val, (uint8*)val + sz);
     std::lock_guard lock(ValueUpdatesMutex);
-    ValueUpdates.Add(id, std::vector<uint8>((uint8*)val, (uint8*)val + sz));
+    ValueUpdates.Add(id, std::move(value));
 }
-
 
 
 void FMZClient::OnFunctionCall(FGuid nodeId, FGuid funcId)

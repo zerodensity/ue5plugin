@@ -137,25 +137,60 @@ MZProperty::MZProperty(TSharedPtr<IRemoteControlPropertyHandle> _Property,
 
 bool MZProperty::SetValue(void* val)
 {
-    switch (type)
-    {
-    case EName::Vector4: Property->SetValue(*(FVector4*)val); break;
-    case EName::Vector: Property->SetValue(*(FVector*)val); break;
-    case EName::Vector2d: Property->SetValue(*(FVector2D*)val); break;
+
+	switch (type)
+	{
+	case EName::Vector4:     *GetValuePtr<FVector4>()  = *(FVector4*)val;  break;
+	case EName::Vector:      *GetValuePtr<FVector>()   = *(FVector*)val;   break;
+	case EName::Vector2d:    *GetValuePtr<FVector2D>() = *(FVector2D*)val; break;
 	case EName::Rotator: {
 		f64* vals = (f64*)val;
-		Property->SetValue(FRotator(vals[2], vals[1], vals[0]));
+		*GetValuePtr<FRotator>() = (FRotator(vals[2], vals[1], vals[0]));
 		break;
 	}
-    case EName::FloatProperty:  Property->SetValue(*(float*)val); break;
-    case EName::DoubleProperty: Property->SetValue(*(double*)val); break;
-    case EName::Int32Property: Property->SetValue(*(int32_t*)val); break;
-    case EName::Int64Property: Property->SetValue(*(int64_t*)val); break;
-    case EName::BoolProperty: Property->SetValue(*(bool*)val); break;
-    case EName::StrProperty:  Property->SetValue(UTF8_TO_TCHAR(((char*)val))); break;
-    default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
-    }
+	case EName::FloatProperty:  *GetValuePtr<float>() = (*(float*)val); break;
+	case EName::DoubleProperty: *GetValuePtr<double>() = (*(double*)val); break;
+	case EName::Int32Property:  *GetValuePtr<int32_t>() = (*(int32_t*)val); break;
+	case EName::Int64Property:  *GetValuePtr<int64_t>() = (*(int64_t*)val); break;
+	case EName::BoolProperty:   *GetValuePtr<bool>() = (*(bool*)val); break;
+	case EName::StrProperty:    *GetValuePtr<FString>() = FString(UTF8_TO_TCHAR(((char*)val))); break;
+	default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
+	}
+
+	if (UActorComponent* Component = Cast<UActorComponent>(GetObject()))
+	{
+		Component->MarkRenderStateDirty();
+		Component->UpdateComponentToWorld();
+	}
+	//FProperty* prop = GetProperty();
+	//// UObject* owner0 = prop->Owner.Container.Object;
+	//if (UObject* owner = prop->GetOwner<UObject>())
+	//{
+	//	std::string a = "!23";
+	//	//owner->MarkRenderStateDirty();
+	//}
+
 	return true;
+
+ //   switch (type)
+ //   {
+ //   case EName::Vector4: Property->SetValue(*(FVector4*)val); break;
+ //   case EName::Vector: Property->SetValue(*(FVector*)val); break;
+ //   case EName::Vector2d: Property->SetValue(*(FVector2D*)val); break;
+	//case EName::Rotator: {
+	//	f64* vals = (f64*)val;
+	//	Property->SetValue(FRotator(vals[2], vals[1], vals[0]));
+	//	break;
+	//}
+ //   case EName::FloatProperty:  Property->SetValue(*(float*)val); break;
+ //   case EName::DoubleProperty: Property->SetValue(*(double*)val); break;
+ //   case EName::Int32Property: Property->SetValue(*(int32_t*)val); break;
+ //   case EName::Int64Property: Property->SetValue(*(int64_t*)val); break;
+ //   case EName::BoolProperty: Property->SetValue(*(bool*)val); break;
+ //   case EName::StrProperty:  Property->SetValue(UTF8_TO_TCHAR(((char*)val))); break;
+ //   default: UE_LOG(LogMZProto, Error, TEXT("Unknown Type")); break;
+ //   }
+	//return true;
 }
 
 

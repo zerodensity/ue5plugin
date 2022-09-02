@@ -76,6 +76,12 @@ public:
 		return type;
 	}
 
+	template<class T>
+	T* GetValuePtr()
+	{
+		return GetProperty()->ContainerPtrToValuePtr<T>(GetObject());
+	}
+
 	EName type = EName::None;
 	FGuid id;
 	FRemoteControlEntity* Entity = 0;
@@ -100,6 +106,7 @@ public:
 	{
 		return rFunction.GetFunction()->FindPropertyByName(name);
 	}
+
 
 	std::vector<uint8_t> GetValue(FString& TypeName);
 	bool SetValue(void* data);
