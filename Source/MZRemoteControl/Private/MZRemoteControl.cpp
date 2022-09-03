@@ -312,10 +312,11 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
   void OnPresetUnregistered(FName name)
   {
-      URemoteControlPreset* preset = IRemoteControlModule::Get().ResolvePreset(name);
-      for (auto& id : PresetEntities[preset])
+	  URemoteControlPreset* preset = IRemoteControlModule::Get().ResolvePreset(name);
+	  auto copyCat = PresetEntities[preset];
+      for (auto& id : copyCat)
       {
-          EntityCache.Remove(id);
+		  OnEntityUnexposed(preset, id);
       }
       PresetEntities.Remove(preset);
   }

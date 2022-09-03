@@ -329,6 +329,11 @@ MzTextureInfo MZValueUtils::GetResourceInfo(MZRemoteValue* mzrv)
     UObject* obj = mzrv->GetObject();
     FObjectProperty* prop = CastField<FObjectProperty>(mzrv->GetProperty());
 
+	if (!obj)
+	{
+		return MzTextureInfo{};
+	}
+
     UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 
     MzTextureInfo info = {
