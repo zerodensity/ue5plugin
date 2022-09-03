@@ -162,7 +162,12 @@ struct FMZRemoteControl : IMZRemoteControl {
   void OnEntityUnexposed(URemoteControlPreset* preset, FGuid const& guid)
   {
       //TrackedProperties.Remove(EntityCache[guid].fProperty);
-      
+
+	  if (ToBeResolved.Contains(preset))
+	  {
+		  ToBeResolved[preset].Remove(EntityCache[guid]->Entity);
+	  }
+
       if (FunctionCache.Contains(guid))
       {
           auto mzf = FunctionCache[guid];
@@ -179,6 +184,7 @@ struct FMZRemoteControl : IMZRemoteControl {
         IMZClient::Get()->SendPinRemoved(guid);
       }
       PresetEntities[preset].Remove(guid);
+
   }
 
   void OnActorPropertyModified(URemoteControlPreset* Preset, FRemoteControlActor& /*Actor*/, UObject* ModifiedObject, FProperty* /*MemberProperty*/)

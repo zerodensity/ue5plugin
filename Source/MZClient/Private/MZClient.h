@@ -139,6 +139,8 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 std::queue<FRemoteControlFunction> Functions;
 
 	 UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
+
+	 FGuid TimecodeID;
 };
 
 

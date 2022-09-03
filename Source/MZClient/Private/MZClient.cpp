@@ -11,6 +11,11 @@
 
 #pragma optimize("", off)
 
+template <class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
+static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::FlatBufferBuilder& b, flatbuffers::Offset<T> event)
+{
+	return mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union());
+}
 
 class MZCLIENT_API ClientImpl : public mz::app::AppClient
 {
@@ -95,7 +100,11 @@ void FMZClient::OnExecute()
 {
     //TODO add stuff for exectuing
     // CustomTimeStepImpl->CV.notify_one();
-    //CustomTimeStepImpl->CV.notify_one();
+	if (CustomTimeStepImpl)
+	{
+		CustomTimeStepImpl->CV.notify_one();
+	}
+
     // FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
 }
 
@@ -146,7 +155,7 @@ void FMZClient::InitConnection()
         }
         return;
     }
-
+	
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
     Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
 }
@@ -246,9 +255,15 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
 
 void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
 {
+	//if (id == TimecodeID )
+	//{
+	//	CustomTimeStepImpl->CV.notify_all();
+	//	return;
+	//}
+
 	std::vector<uint8> value((uint8*)val, (uint8*)val + sz);
-    std::lock_guard lock(ValueUpdatesMutex);
-    ValueUpdates.Add(id, std::move(value));
+	std::lock_guard lock(ValueUpdatesMutex);
+	ValueUpdates.Add(id, std::move(value));
 }
 
 
@@ -314,6 +329,11 @@ void FMZClient::SendPinValueChanged(MZRemoteValue* mzrv)
 
 void FMZClient::SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions)
 {
+	if (!Client || !Client->nodeId.IsValid())
+	{
+		return;
+	}
+
 	std::vector< flatbuffers::Offset<mz::app::PinCategory>> pinCategories;
 	MessageBuilder mb;
 	for (auto& [id, mzrv] : entities)
@@ -326,9 +346,7 @@ void FMZClient::SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, 
 	std::vector< flatbuffers::Offset<mz::app::FunctionCategory>> funcCategories;
 	for (auto& [id, mzf] : functions)
 	{
-		
 		funcCategories.push_back(mz::app::CreateFunctionCategoryDirect(mb, (mz::fb::UUID*)&mzf->id, TCHAR_TO_ANSI(*mzf->category.ToString())));
-		
 	}
 	auto msg = MakeAppEvent(mb, mz::app::CreateNodeCategoriesUpdateDirect(mb, (mz::fb::UUID*)&Client->nodeId, &pinCategories, &funcCategories));
 	Client->Write(msg);
@@ -336,6 +354,11 @@ void FMZClient::SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, 
 
 void FMZClient::SendNameUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions)
 {
+	if (!Client || !Client->nodeId.IsValid())
+	{
+		return;
+	}
+
 	std::vector< flatbuffers::Offset<mz::app::PinName>> pinNames;
 	MessageBuilder mb;
 	for (auto& [id, mzrv] : entities)
@@ -365,9 +388,14 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
     }
 
     MessageBuilder mbb;
-    std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-    std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;
+	TimecodeID = FGuid::NewGuid();
 
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = {
+		mz::fb::CreatePinDirect(mbb, (mz::fb::UUID*)&TimecodeID, TCHAR_TO_ANSI(TEXT("Timecode")), TCHAR_TO_ANSI(TEXT("mz.fb.Timecode")), mz::fb::ShowAs::INPUT_PIN, mz::fb::CanShowAs::INPUT_PIN_ONLY, "UE PROPERTY", mz::fb::Visualizer::NONE),
+	};
+
+    std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;
+	
     for (auto& [id, mzrv] : entities)
     {
         if (mzrv->GetAsProp())
@@ -389,14 +417,14 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
         nodeFunctions.push_back(node);
     }
     
-    auto msg = MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, &pins, 0, &nodeFunctions));
+    auto msg = MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, true, 0, &pins, 0, &nodeFunctions));
     
     Client->Write(msg);
 }
 
 void FMZClient::SendPinAdded(MZRemoteValue* mzrv)
 {
-    if (!Client || !Client->nodeId.IsValid())
+    if (!Client || Client->shutdown)
     {
         return;
     }
@@ -683,6 +711,8 @@ bool FMZClient::Tick(float dt)
             std::unique_lock lock(CopyOnTickMutex);
             WaitCommands();
             TArray<D3D12_RESOURCE_BARRIER> barriers;
+			MessageBuilder fbb;
+			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
             for (auto& [id, pin] : CopyOnTick)
             {
                 UObject* obj = pin.SrcMzrc->GetObject();
@@ -768,10 +798,23 @@ bool FMZClient::Tick(float dt)
                 CmdList->CopyResource(DstResource, SrcResource);
                 Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
                 barriers.Add(barrier);
+
+				tbl<mz::app::AppEvent> msg;
+				if(!pin.ReadOnly)
+				{
+					events.push_back(CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
+				}
             }
             CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
             ExecCommands();
+
+			if (!events.empty() && IsConnected())
+			{
+				
+				Client->Write(MakeAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+			}
         });
+
 
     return true;
 }
