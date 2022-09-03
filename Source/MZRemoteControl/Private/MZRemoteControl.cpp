@@ -68,21 +68,24 @@ struct FMZRemoteControl : IMZRemoteControl {
       return nullptr;
   }
 
-  void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
-  {
-	  for (auto [id, mzrv] : EntityCache)
-	  {
-		  if (mzrv->GetAsProp())
-		  {
-			  mzrv->GetAsProp()->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
-		  }
-	  }
-	  for (auto [id, mzf] : FunctionCache)
-	  {
-		  mzf->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
-	  }
-	  IMZClient::Get()->SendNameUpdate(EntityCache, FunctionCache);
-  }
+void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities)
+{
+	for (auto& id : entities)
+	{
+		auto** mzrv = EntityCache.Find(id);
+		if (mzrv && *mzrv)
+		{
+			(*mzrv)->GetAsProp()->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
+			continue;
+		}
+		auto** mzfn = FunctionCache.Find(id);
+		if (mzfn && *mzfn)
+		{
+			(*mzfn)->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
+		}
+	}
+	IMZClient::Get()->SendNameUpdate(EntityCache, FunctionCache);
+}
 
   void OnExposedPropertiesModified(URemoteControlPreset* preset, const TSet<FGuid>& entities)
   {
