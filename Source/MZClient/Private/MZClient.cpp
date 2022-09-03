@@ -52,13 +52,13 @@ public:
         IMZClient::Get()->Disconnect();
         nodeId = {};
         shutdown = true;
-        IMZClient::Get()->OnExecute();
+		IMZClient::Get()->OnExecute();
     }
 
     virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
     {
         IMZClient::Get()->NodeRemoved();
-        IMZClient::Get()->OnExecute();
+		IMZClient::Get()->OnExecute();
     }
 
     virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
@@ -104,7 +104,8 @@ void FMZClient::OnExecute()
 	{
 		CustomTimeStepImpl->CV.notify_one();
 	}
-
+	
+	// IMZRemoteControl::Get()->GetExposedEntities();
     // FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
 }
 
@@ -249,6 +250,7 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
     MZRemoteValue* mzrv = IMZRemoteControl::Get()->GetExposedEntity(id);
     if (mzrv)
     {
+		mzrv->showAs = showAs;
         mzrv->Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt((u32)showAs));
     }
 }
@@ -810,7 +812,6 @@ bool FMZClient::Tick(float dt)
 
 			if (!events.empty() && IsConnected())
 			{
-				
 				Client->Write(MakeAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
         });

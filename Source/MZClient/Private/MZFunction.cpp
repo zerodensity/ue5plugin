@@ -105,24 +105,10 @@ MZParam::MZParam(FRemoteControlFunction rFunction,
 
 flatbuffers::Offset<mz::fb::Pin> MZParam::SerializeToFlatBuffer(flatbuffers::FlatBufferBuilder& fbb)
 {
-   
 	FString label = name.ToString();
-	//FString label = Entity->GetLabel().ToString();
-    // FString label = GetProperty()->GetFullName();
-    mz::fb::ShowAs showAs = mz::fb::ShowAs::INPUT_PIN;
-
-    //if (auto showAsValue = Entity->GetMetadata().Find("MZ_PIN_SHOW_AS_VALUE"))
-    //{
-    //    showAs = (mz::fb::ShowAs)FCString::Atoi(**showAsValue);
-    //}
-    //else
-    //{
-    //    Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt((u32)showAs));
-    //}
-
     FString typeName = "mz.fb.Void";
     std::vector<uint8_t> data = GetValue(typeName);
-    return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), showAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, "UE PROPERTY", mz::fb::Visualizer::NONE, &data);
+    return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), mz::fb::ShowAs::INPUT_PIN, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, "UE PROPERTY", mz::fb::Visualizer::NONE, &data);
 }
 
 MZProperty::MZProperty(TSharedPtr<IRemoteControlPropertyHandle> _Property,
@@ -321,7 +307,6 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::SerializeToFlatBuffer(flatbuffers::
 {
     FGuid idx = Entity->GetId();
     FString label = Entity->GetLabel().ToString();
-    mz::fb::ShowAs showAs = mz::fb::ShowAs::PROPERTY;
 
     if (auto showAsValue = Entity->GetMetadata().Find("MZ_PIN_SHOW_AS_VALUE"))
     {

@@ -13,6 +13,7 @@
 #include "mediaz.h"
 
 #include <mzFlatBuffersCommon.h>
+#include <Common_generated.h>
 #include "MZType.h"
 #include <any>
 
@@ -86,6 +87,7 @@ public:
 	FGuid id;
 	FRemoteControlEntity* Entity = 0;
 	FName category;
+	mz::fb::ShowAs showAs = mz::fb::ShowAs::PROPERTY;
 };
 
 
