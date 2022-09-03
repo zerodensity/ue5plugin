@@ -130,6 +130,11 @@ struct FMZRemoteControl : IMZRemoteControl {
 
       FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
       FProperty* prop = rprop.GetProperty();
+	  if (!prop)
+	  {
+		  return nullptr;
+	  }
+
       MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), MZEntity::GetType(prop), entity->GetId(), entity);
 
 	  auto group = preset->Layout.FindGroupFromField(entity->GetId());
