@@ -81,6 +81,7 @@ public:
 
     virtual void OnExecute() override
     {
+		//TODO: Dogukan, crash when engine is closed
         IMZClient::Get()->OnExecute();
     }
 
@@ -415,7 +416,7 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
         {
             fpins.push_back(param->SerializeToFlatBuffer(mbb));
         }
-        flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzf->id), TCHAR_TO_ANSI(*mzf->name.ToString()), "UE5.UE5", false, &fpins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_ANSI(*mzf->category.ToString()));
+        flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzf->id), TCHAR_TO_ANSI(*mzf->name.ToString()), "UE5.UE5", false, true, &fpins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_ANSI(*mzf->category.ToString()));
         nodeFunctions.push_back(node);
     }
     
@@ -457,7 +458,7 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
     functionMap[uniqueName] = {mzFunc->GetObject(), rfunc};
     //TODO send pins 
     
-    flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzFunc->id), TCHAR_TO_ANSI(*mzFunc->name.ToString()), "UE5.UE5", false, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_ANSI(*mzFunc->category.ToString()));
+    flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzFunc->id), TCHAR_TO_ANSI(*mzFunc->name.ToString()), "UE5.UE5", false, true, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_ANSI(*mzFunc->category.ToString()));
 
     funcList.push_back(node);
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, 0, 0, &funcList)));
