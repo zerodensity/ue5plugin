@@ -8,7 +8,7 @@ using UnrealBuildTool;
 
 public class MZProto : ModuleRules
 {
-    private void CopyToBinaries(string Filepath)
+    private string CopyToBinaries(string Filepath)
     {
         string BinaryDir = Path.Combine(PluginDirectory, "Binaries", Target.Platform.ToString());
 
@@ -19,7 +19,8 @@ public class MZProto : ModuleRules
             Directory.CreateDirectory(BinaryDir);
         }   
 
-        try { File.Copy(Filepath, path, true); } catch { }
+        File.Copy(Filepath, path, true);
+        return path;
     }
 
     public MZProto(ReadOnlyTargetRules Target) : base(Target)
@@ -68,13 +69,6 @@ public class MZProto : ModuleRules
                 CopyToBinaries(pdb);
             }
 
-            foreach (string dll in Dlls)
-            {
-                // PublicDelayLoadDLLs.Add(Path.GetFileName(dll) + ".dll");
-                RuntimeDependencies.Add(dll);
-                CopyToBinaries(dll);
-            }
-
             string[] ShippingBlackList =
             {
                 "libssl",
@@ -97,7 +91,17 @@ public class MZProto : ModuleRules
 
             foreach (string lib in Libs)
             {
-                PublicAdditionalLibraries.Add(lib);
+                string copied = CopyToBinaries(lib);
+                Console.WriteLine("MZProto: Adding lib (" + copied + ")");
+                PublicAdditionalLibraries.Add(copied);
+            }
+
+            foreach (string dll in Dlls)
+            {
+                // PublicDelayLoadDLLs.Add(Path.GetFileName(dll) + ".dll");
+                string copied = CopyToBinaries(dll);
+                Console.WriteLine("MZProto: Adding runtime dependency (" + copied + ")");
+                RuntimeDependencies.Add(copied);
             }
 
             //PublicDefinitions.Add("GOOGLE_PROTOBUF_NO_RTTI");
