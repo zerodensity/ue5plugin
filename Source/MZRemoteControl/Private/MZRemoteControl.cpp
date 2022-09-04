@@ -19,8 +19,8 @@
 #include "GenericPlatform/GenericPlatformProcess.h"
 #include "Misc/MessageDialog.h"
 
-#include "Editor.h"
-#include "Factories/Factory.h"
+// #include "Editor.h"
+// #include "Factories/Factory.h"
 #include "AssetData.h"
 
 #include <thread>
@@ -321,7 +321,7 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
       PresetEntities.Remove(preset);
   }
 
-  void OnPresetImported(UFactory* factory, UObject* preset)
+  void OnPresetImported(class UFactory* factory, UObject* preset)
   {
       FMessageDialog::Debugf(FText::FromString("Preset imported " + preset->GetName()), 0);
   }

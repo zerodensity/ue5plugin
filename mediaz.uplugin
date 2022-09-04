@@ -25,13 +25,13 @@
 		},
 		{
 			"Name": "MZClient",
-			"Type": "Runtime",
+			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [ "Win64" ]
 		},
 		{
 			"Name": "MZRemoteControl",
-			"Type": "Runtime",
+			"Type": "Editor",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [ "Win64" ]
 		},

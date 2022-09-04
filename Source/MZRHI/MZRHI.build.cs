@@ -25,7 +25,7 @@ public class MZRHI : ModuleRules
                     "InputCore",
                     "RHI",
                     "RHICore",
-                    "RenderCore",
+                    "RenderCore"
                 }
             );
 
