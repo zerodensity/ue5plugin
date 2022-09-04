@@ -336,6 +336,11 @@ MzTextureInfo MZValueUtils::GetResourceInfo(MZRemoteValue* mzrv)
 
     UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 
+	if (!trt2d)
+	{
+		return MzTextureInfo{};
+	}
+
     MzTextureInfo info = {
         .width = (uint32_t)trt2d->GetSurfaceWidth(),
         .height = (uint32_t)trt2d->GetSurfaceHeight(),
