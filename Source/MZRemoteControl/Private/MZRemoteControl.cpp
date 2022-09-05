@@ -75,16 +75,37 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 		auto** mzrv = EntityCache.Find(id);
 		if (mzrv && *mzrv)
 		{
+			if (!(*mzrv)->Entity->IsBound())
+			{
+				if (EntityCache.Contains(id))
+				{
+					//TODO: SEND PIN REMOVEED.
+					EntityCache.Remove(id);
+					IMZClient::Get()->SendPinRemoved(id);
+				}
+			}
 			(*mzrv)->GetAsProp()->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
 			continue;
 		}
 		auto** mzfn = FunctionCache.Find(id);
 		if (mzfn && *mzfn)
 		{
+			if (!(*mzfn)->GetObject())
+			{
+				if (FunctionCache.Contains(id))
+				{
+					//TODO: SEND FUNCTION REMOVEED.
+					FunctionCache.Remove(id);
+					IMZClient::Get()->SendFunctionRemoved(id);
+				}
+			}
 			(*mzfn)->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
+			continue;
 		}
+		OnEntityExposed(preset, id);
 	}
 	IMZClient::Get()->SendNameUpdate(EntityCache, FunctionCache);
+	
 }
 
   void OnExposedPropertiesModified(URemoteControlPreset* preset, const TSet<FGuid>& entities)
@@ -222,7 +243,17 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
                   ToBeResolved.FindOrAdd(preset).Add(entity);
                   continue;
               }
-              RegisterExposedEntity(preset, entity);
+			  MZRemoteValue* mzrv;
+			  if (preset->GetFunction(entity->GetId()).IsSet())
+			  {
+				  MZFunction* mzf = RegisterExposedFunction(preset, entity);
+				  IMZClient::Get()->SendFunctionAdded(mzf);
+			  }
+			  else if (preset->GetProperty(entity->GetId()).IsSet())
+			  {
+				  mzrv = RegisterExposedEntity(preset, entity);
+				  IMZClient::Get()->SendPinAdded(mzrv);
+			  }
           }
       }
       return true;
