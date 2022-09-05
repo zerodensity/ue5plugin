@@ -176,14 +176,20 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
       if (preset->GetFunction(entity->GetId()).IsSet())
 	  {
           MZFunction* mzf = RegisterExposedFunction(preset, entity);
-          IMZClient::Get()->SendFunctionAdded(mzf);
+		  if (mzf)
+		  {
+			IMZClient::Get()->SendFunctionAdded(mzf);
+		  }
           //return;
       }
       else if (preset->GetProperty(entity->GetId()).IsSet())
       {
 		  
           mzrv = RegisterExposedEntity(preset, entity);
-          IMZClient::Get()->SendPinAdded(mzrv);
+		  if (mzrv)
+		  {
+			IMZClient::Get()->SendPinAdded(mzrv);
+		  }
           //RegisterExposedEntity(preset, entity, mze)
       }
   }
@@ -247,12 +253,18 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 			  if (preset->GetFunction(entity->GetId()).IsSet())
 			  {
 				  MZFunction* mzf = RegisterExposedFunction(preset, entity);
-				  IMZClient::Get()->SendFunctionAdded(mzf);
+				  if (mzf)
+				  {
+					  IMZClient::Get()->SendFunctionAdded(mzf);
+				  }
 			  }
 			  else if (preset->GetProperty(entity->GetId()).IsSet())
 			  {
 				  mzrv = RegisterExposedEntity(preset, entity);
-				  IMZClient::Get()->SendPinAdded(mzrv);
+				  if (mzrv)
+				  {
+					  IMZClient::Get()->SendPinAdded(mzrv);
+				  }
 			  }
           }
       }
