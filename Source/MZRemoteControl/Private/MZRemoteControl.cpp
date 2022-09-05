@@ -163,6 +163,7 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
 	  auto group = preset->Layout.FindGroupFromField(entity->GetId());
 	  mzprop->category = group ? group->Name : FName("Default");
+	  mzprop->name = entity->GetLabel();
       EntityCache.Add(entity->GetId(), mzprop);
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       return mzprop;
