@@ -201,7 +201,11 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
 	  if (ToBeResolved.Contains(preset))
 	  {
-		  ToBeResolved[preset].Remove(EntityCache[guid]->Entity);
+		  if (EntityCache.Contains(guid))
+		  {
+			ToBeResolved[preset].Remove(EntityCache[guid]->Entity);
+
+		  }
 	  }
 
       if (FunctionCache.Contains(guid))
