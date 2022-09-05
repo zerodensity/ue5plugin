@@ -152,7 +152,18 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
           return nullptr;
       }
 
-      FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
+	  auto UEprop = preset->GetProperty(entity->GetId());
+
+		FRemoteControlProperty rprop;
+		if (UEprop.IsSet())
+		{
+			rprop = UEprop.GetValue();
+		}
+		else
+		{
+			return nullptr;
+		}
+
       FProperty* prop = rprop.GetProperty();
 	  if (!prop)
 	  {
