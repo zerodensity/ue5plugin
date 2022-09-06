@@ -136,8 +136,9 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
       }
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       mzf->rFunction = rfunc;
-      mzf->id = entity->GetId();
-	  mzf->category = preset->Layout.FindGroupFromField(entity->GetId())->Name;
+      mzf->id = entity->GetId(); 
+	  auto group = preset->Layout.FindGroupFromField(entity->GetId());
+	  mzf->category = group ? group->Name : FName("Default");
 	  mzf->name = entity->GetLabel();
       FunctionCache.Add(mzf->id, mzf);
       return mzf;
@@ -340,7 +341,17 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
       for (auto& entity : preset->GetExposedEntities())
       {
-          MZRemoteValue* mzrv = RegisterExposedEntity(preset, entity.Pin().Get());
+
+		  if (preset->GetFunction(entity.Pin()->GetId()).IsSet())
+		  {
+			  MZFunction* mzf = RegisterExposedFunction(preset, entity.Pin().Get());
+			  //IMZClient::Get()->SendFunctionAdded(mzf);
+		  }
+		  else if (preset->GetProperty(entity.Pin()->GetId()).IsSet())
+		  {
+			  MZRemoteValue* mzrv = RegisterExposedEntity(preset, entity.Pin().Get());
+			  //IMZClient::Get()->SendPinAdded(mzrv);
+		  }
       }
   
       preset->OnEntitiesUpdated().AddRaw(this, &FMZRemoteControl::OnEntitiesUpdated);
