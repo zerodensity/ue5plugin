@@ -11,6 +11,11 @@
 
 bool MZParam::SetValue(void* val)
 {
+	if (!Entity->IsBound() || !val)
+	{
+		return false;
+	}
+
     switch (type)
     {
     case EName::Vector4: *(GetProperty()->ContainerPtrToValuePtr<FVector4>(rFunction.FunctionArguments->GetStructMemory())) = *(FVector4*)val; break;
@@ -123,6 +128,10 @@ MZProperty::MZProperty(TSharedPtr<IRemoteControlPropertyHandle> _Property,
 
 bool MZProperty::SetValue(void* val)
 {
+	if (!Entity->IsBound() || !val)
+	{
+		return false;
+	}
 
 	switch (type)
 	{
@@ -182,7 +191,8 @@ bool MZProperty::SetValue(void* val)
 
 void* MZParam::GetValue(EName _type)
 {
-    if (type != _type)
+
+    if (type != _type || !Entity->IsBound())
     {
         return nullptr;
     }
@@ -216,7 +226,8 @@ void* MZParam::GetValue(EName _type)
 
 void* MZProperty::GetValue(EName _type)
 {
-    if (type != _type)
+
+    if (type != _type || !Entity->IsBound())
     {
         return nullptr;
     }
@@ -261,7 +272,11 @@ std::vector<uint8_t> GetValueAsBytes(const TSharedPtr<IRemoteControlPropertyHand
 
 std::vector<uint8_t> MZProperty::GetValue(FString& TypeName)
 {
-    switch (type)
+	if (!Entity->IsBound())
+	{
+		return {};
+	}
+	switch (type)
     {
     case EName::Matrix:            TypeName = "mz.fb.mat4d";
     {

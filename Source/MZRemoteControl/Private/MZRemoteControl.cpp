@@ -75,16 +75,37 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 		auto** mzrv = EntityCache.Find(id);
 		if (mzrv && *mzrv)
 		{
+			if (!(*mzrv)->Entity->IsBound())
+			{
+				if (EntityCache.Contains(id))
+				{
+					//TODO: SEND PIN REMOVEED.
+					EntityCache.Remove(id);
+					IMZClient::Get()->SendPinRemoved(id);
+				}
+			}
 			(*mzrv)->GetAsProp()->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
 			continue;
 		}
 		auto** mzfn = FunctionCache.Find(id);
 		if (mzfn && *mzfn)
 		{
+			if (!(*mzfn)->GetObject())
+			{
+				if (FunctionCache.Contains(id))
+				{
+					//TODO: SEND FUNCTION REMOVEED.
+					FunctionCache.Remove(id);
+					IMZClient::Get()->SendFunctionRemoved(id);
+				}
+			}
 			(*mzfn)->name = preset->GetExposedEntity(id).Pin().Get()->GetLabel();
+			continue;
 		}
+		OnEntityExposed(preset, id);
 	}
 	IMZClient::Get()->SendNameUpdate(EntityCache, FunctionCache);
+	
 }
 
   void OnExposedPropertiesModified(URemoteControlPreset* preset, const TSet<FGuid>& entities)
@@ -131,7 +152,18 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
           return nullptr;
       }
 
-      FRemoteControlProperty rprop = preset->GetProperty(entity->GetId()).GetValue();
+	  auto UEprop = preset->GetProperty(entity->GetId());
+
+		FRemoteControlProperty rprop;
+		if (UEprop.IsSet())
+		{
+			rprop = UEprop.GetValue();
+		}
+		else
+		{
+			return nullptr;
+		}
+
       FProperty* prop = rprop.GetProperty();
 	  if (!prop)
 	  {
@@ -142,6 +174,7 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
 	  auto group = preset->Layout.FindGroupFromField(entity->GetId());
 	  mzprop->category = group ? group->Name : FName("Default");
+	  mzprop->name = entity->GetLabel();
       EntityCache.Add(entity->GetId(), mzprop);
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       return mzprop;
@@ -155,14 +188,20 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
       if (preset->GetFunction(entity->GetId()).IsSet())
 	  {
           MZFunction* mzf = RegisterExposedFunction(preset, entity);
-          IMZClient::Get()->SendFunctionAdded(mzf);
+		  if (mzf)
+		  {
+			IMZClient::Get()->SendFunctionAdded(mzf);
+		  }
           //return;
       }
       else if (preset->GetProperty(entity->GetId()).IsSet())
       {
 		  
           mzrv = RegisterExposedEntity(preset, entity);
-          IMZClient::Get()->SendPinAdded(mzrv);
+		  if (mzrv)
+		  {
+			IMZClient::Get()->SendPinAdded(mzrv);
+		  }
           //RegisterExposedEntity(preset, entity, mze)
       }
   }
@@ -173,7 +212,27 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
 	  if (ToBeResolved.Contains(preset))
 	  {
-		  ToBeResolved[preset].Remove(EntityCache[guid]->Entity);
+		  if (EntityCache.Contains(guid))
+		  {
+			ToBeResolved[preset].Remove(EntityCache[guid]->Entity);
+
+		  }
+		  else
+		  {
+			  auto tmp = ToBeResolved[preset];
+			  for (auto entity : tmp)
+			  {
+				  if (entity->GetId() == guid)
+				  {
+					  ToBeResolved[preset].Remove(entity);
+					  
+				  }
+			  }
+			  if (ToBeResolved[preset].IsEmpty())
+			  {
+				  ToBeResolved.Remove(preset);
+			  }
+		  }
 	  }
 
       if (FunctionCache.Contains(guid))
@@ -222,7 +281,23 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
                   ToBeResolved.FindOrAdd(preset).Add(entity);
                   continue;
               }
-              RegisterExposedEntity(preset, entity);
+			  MZRemoteValue* mzrv;
+			  if (preset->GetFunction(entity->GetId()).IsSet())
+			  {
+				  MZFunction* mzf = RegisterExposedFunction(preset, entity);
+				  if (mzf)
+				  {
+					  IMZClient::Get()->SendFunctionAdded(mzf);
+				  }
+			  }
+			  else if (preset->GetProperty(entity->GetId()).IsSet())
+			  {
+				  mzrv = RegisterExposedEntity(preset, entity);
+				  if (mzrv)
+				  {
+					  IMZClient::Get()->SendPinAdded(mzrv);
+				  }
+			  }
           }
       }
       return true;
