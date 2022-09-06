@@ -30,6 +30,15 @@
 #define LOCTEXT_NAMESPACE "FMZRemoteControl"
 #pragma optimize("", off)
 
+FName GetGroupNameFromPresetSafe(URemoteControlPreset* preset, FGuid const& id)
+{
+    if (auto group = preset->Layout.FindGroupFromField(id))
+    {
+        return group->Name;
+    }
+    return FName("Default");
+}
+
 struct FMZRemoteControl : IMZRemoteControl {
 
   TMap<FGuid, MZRemoteValue*> EntityCache;
@@ -137,8 +146,7 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
       mzf->rFunction = rfunc;
       mzf->id = entity->GetId(); 
-	  auto group = preset->Layout.FindGroupFromField(entity->GetId());
-	  mzf->category = group ? group->Name : FName("Default");
+	  mzf->category = GetGroupNameFromPresetSafe(preset, entity->GetId());
 	  mzf->name = entity->GetLabel();
       FunctionCache.Add(mzf->id, mzf);
       return mzf;
@@ -173,8 +181,7 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
       MZProperty* mzprop = new MZProperty(rprop.GetPropertyHandle(), MZEntity::GetType(prop), entity->GetId(), entity);
 
-	  auto group = preset->Layout.FindGroupFromField(entity->GetId());
-	  mzprop->category = group ? group->Name : FName("Default");
+	  mzprop->category = GetGroupNameFromPresetSafe(preset, entity->GetId());
 	  mzprop->name = entity->GetLabel();
       EntityCache.Add(entity->GetId(), mzprop);
       PresetEntities.FindOrAdd(preset).Add(entity->GetId());
@@ -368,15 +375,15 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 	  {
 		  if (mzrv->GetAsProp())
 		  {
-			  mzrv->category = preset->Layout.FindGroupFromField(id)->Name;
+			  mzrv->category = GetGroupNameFromPresetSafe(preset, id);
 		  }
 	  }
 	  for (auto [id, mzf] : FunctionCache)
 	  {
-		  mzf->category = preset->Layout.FindGroupFromField(id)->Name;
+		  mzf->category = GetGroupNameFromPresetSafe(preset, id);
 		  for (auto param : mzf->params)
 		  {
-			  param->category = preset->Layout.FindGroupFromField(id)->Name;
+			  param->category = GetGroupNameFromPresetSafe(preset, id);
 		  }
 	  }
 	  IMZClient::Get()->SendCategoryUpdate(EntityCache, FunctionCache);
