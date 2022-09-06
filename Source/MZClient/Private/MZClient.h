@@ -81,8 +81,8 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex) override;
 	 virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) override;
 	 virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) override;
-	 virtual void OnPinValueChanged(FGuid, const void*, size_t) override;
 	 virtual void OnExecute() override;
+	 virtual void OnUpdateAndExecute(mz::fb::Node const&) override;
 	 virtual void OnFunctionCall(FGuid nodeId, FGuid funcId) override;
 	 virtual bool IsConnected() override;
 

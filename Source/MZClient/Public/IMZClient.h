@@ -36,7 +36,7 @@ class IMZClient : public IModuleInterface {
   virtual void QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex) = 0;
   virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) = 0;
   virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) = 0;
-  virtual void OnPinValueChanged(FGuid, const void*, size_t) = 0;
   virtual void OnFunctionCall(FGuid nodeId, FGuid funcId) = 0;
   virtual void OnExecute() = 0;
+  virtual void OnUpdateAndExecute(mz::fb::Node const&) = 0;
 };
