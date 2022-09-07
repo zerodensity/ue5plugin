@@ -66,29 +66,32 @@ public:
         IMZClient::Get()->OnPinShowAsChanged(*(FGuid*)action.pin_id(), action.show_as());
     }
 
-    virtual void OnPinValueChanged(mz::PinValueChanged const& action) override
-    {
-        auto ptr = action.value()->Data();
-        auto sz = action.value()->size();
-
-        IMZClient::Get()->OnPinValueChanged(*(FGuid*)action.pin_id(), ptr, sz);
-    }
-
     virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
     {
         IMZClient::Get()->OnFunctionCall(*(FGuid*)action.node_id(), *(FGuid*)action.function_id());
     }
 
-    virtual void OnExecute() override
+	virtual void OnExecute(mz::app::AppExecute const& aE) override
     {
 		//TODO: Dogukan, crash when engine is closed
-        IMZClient::Get()->OnExecute();
+
+        IMZClient::Get()->OnUpdateAndExecute(*aE.node());
     }
 
     FGuid nodeId;
 
     std::atomic_bool shutdown = true;
 };
+
+TMap<FGuid, const mz::fb::Pin*> ParsePins(mz::fb::Node const& archive)
+{
+	TMap<FGuid, const mz::fb::Pin*> re;
+	for (auto pin : *archive.pins())
+	{
+		re.Add(*(FGuid*)pin->id()->bytes()->Data(), pin);
+	}
+	return re;
+}
 
 FMZClient::FMZClient() {}
 
@@ -99,15 +102,23 @@ bool FMZClient::IsConnected()
 
 void FMZClient::OnExecute()
 {
-    //TODO add stuff for exectuing
-    // CustomTimeStepImpl->CV.notify_one();
 	if (CustomTimeStepImpl)
 	{
 		CustomTimeStepImpl->CV.notify_one();
 	}
-	
-	// IMZRemoteControl::Get()->GetExposedEntities();
-    // FMessageDialog::Debugf(FText::FromString("APP NODE IS EXECUTED"), 0);
+}
+
+void FMZClient::OnUpdateAndExecute(mz::fb::Node const& node)
+{
+	std::lock_guard lock(ValueUpdatesMutex);
+	for (auto& [id, pin] : ParsePins(node))
+	{
+		auto val = pin->data()->Data();
+		std::vector<uint8> value((uint8*)val, (uint8*)val + pin->data()->size());
+		ValueUpdates.Add(id, value);
+	}
+
+	OnExecute();
 }
 
 void FMZClient::ClearResources()
@@ -181,17 +192,6 @@ void FMZClient::InitRHI()
     CmdList->Close();
 }
 
-
-TMap<FGuid, const mz::fb::Pin*> ParsePins(mz::fb::Node const& archive)
-{
-    TMap<FGuid, const mz::fb::Pin*> re;
-    for (auto pin : *archive.pins())
-    {
-        re.Add(*(FGuid*)pin->id()->bytes()->Data(), pin);
-    }
-    return re;
-}
-
 void FMZClient::OnNodeUpdateReceived(mz::fb::Node const& archive)
 {
     if (!Client->nodeId.IsValid())
@@ -255,20 +255,6 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
         mzrv->Entity->SetMetadataValue("MZ_PIN_SHOW_AS_VALUE", FString::FromInt((u32)showAs));
     }
 }
-
-void FMZClient::OnPinValueChanged(FGuid id, const void* val, size_t sz)
-{
-	//if (id == TimecodeID )
-	//{
-	//	CustomTimeStepImpl->CV.notify_all();
-	//	return;
-	//}
-
-	std::vector<uint8> value((uint8*)val, (uint8*)val + sz);
-	std::lock_guard lock(ValueUpdatesMutex);
-	ValueUpdates.Add(id, std::move(value));
-}
-
 
 void FMZClient::OnFunctionCall(FGuid nodeId, FGuid funcId)
 {    
@@ -672,40 +658,9 @@ bool FMZClient::Tick(float dt)
     
     }
 
-    //if (!ResourceChanged.IsEmpty()) //question : no one adds items to resource changed
-    //{
-    //    std::lock_guard lock(ResourceChangedMutex);
-    //    MessageBuilder mbb;
-    //    for (auto& [id, entity] : ResourceChanged)
-    //    {
-    //        // Client->Write(MakeAppEvent(mbb, mz::app::CreateRemoveTexture(mbb, (mz::fb::UUID*)&id)));
-    //    }
-    //    SendNodeUpdate(ResourceChanged);
-    //    ResourceChanged.Empty();
-    //}
-
     if (CopyOnTick.IsEmpty())
     {
         return true;
-    }
-
-    {
-        std::unique_lock lock(CopyOnTickMutex);
-        MessageBuilder mbb;
-        
-        std::vector<flatbuffers::Offset<mz::app::AppEvent>> batched;
-
-        for (auto& [id, pin] : CopyOnTick)
-        {
-            if(pin.ReadOnly)
-            {
-                // batched.push_back(mz::app::CreateAppEvent(mbb, mz::app::AppEventUnion::PinScheduleRequest, mz::app::CreatePinScheduleRequest(mbb, (mz::fb::UUID*)&id).Union()));
-            }
-        }
-        if (!batched.empty())
-        {
-            Client->Write(MakeAppEvent(mbb, mz::app::CreateBatchAppEventDirect(mbb, &batched)));
-        }
     }
 
     ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
