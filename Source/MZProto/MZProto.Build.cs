@@ -89,18 +89,20 @@ public class MZProto : ModuleRules
                 }
             }
 
+			Console.WriteLine("MZProto: Adding additional libs");
             foreach (string lib in Libs)
             {
                 string copied = CopyToBinaries(lib);
-                Console.WriteLine("MZProto: Adding lib (" + copied + ")");
+                Console.WriteLine("MZProto: " + copied);
                 PublicAdditionalLibraries.Add(copied);
             }
 
+            Console.WriteLine("MZProto: Adding runtime dependencies");
             foreach (string dll in Dlls)
             {
                 // PublicDelayLoadDLLs.Add(Path.GetFileName(dll) + ".dll");
                 string copied = CopyToBinaries(dll);
-                Console.WriteLine("MZProto: Adding runtime dependency (" + copied + ")");
+                Console.WriteLine("MZProto: " + copied);
                 RuntimeDependencies.Add(copied);
             }
 
