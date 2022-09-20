@@ -43,9 +43,14 @@ public class MZClient : ModuleRules
 					"D3D12RHI",
 					"VulkanRHI",
 					"MZProto",
-					"UnrealEd"
 				}
 				);
+
+			if (Target.bBuildEditor)
+			{
+				// we only want this to be included for editor builds
+				PublicDependencyModuleNames.Add("UnrealEd");
+			}
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
