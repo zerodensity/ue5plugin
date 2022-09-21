@@ -396,7 +396,6 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
     {
         auto rfunc = mzf->rFunction;
         auto func = rfunc.GetFunction();
-        std::string uniqueName = TCHAR_TO_UTF8(*func->GetDisplayNameText().ToString());
         std::vector<flatbuffers::Offset<mz::fb::Pin>> fpins;
         for (auto param : mzf->params)
         {
@@ -435,13 +434,11 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
     std::vector<flatbuffers::Offset<mz::fb::Node>> funcList;
     auto rfunc = mzFunc->rFunction;
     auto func = rfunc.GetFunction();
-    std::string uniqueName = TCHAR_TO_UTF8(*func->GetDisplayNameText().ToString());
     std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
     for (auto param : mzFunc->params)
     {
         pins.push_back(param->SerializeToFlatBuffer(mbb));
     }
-    functionMap[uniqueName] = {mzFunc->GetObject(), rfunc};
     //TODO send pins 
     
     flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzFunc->id), TCHAR_TO_ANSI(*mzFunc->name.ToString()), "UE5.UE5", false, true, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_ANSI(*mzFunc->category.ToString()));

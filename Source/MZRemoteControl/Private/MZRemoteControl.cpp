@@ -479,7 +479,9 @@ void OnEntitiesUpdated(URemoteControlPreset* preset, const TSet<FGuid>& entities
 
     // GEditor->GetEditorSubsystem<UAssetEditorSubsystem>()->OnAssetEditorOpened().AddRaw(this, &FMZRemoteControl::OnAssetEditorOpened);
     
+#if WITH_EDITOR
     FCoreUObjectDelegates::OnAssetLoaded.AddRaw(this, &FMZRemoteControl::OnAssetLoaded);
+#endif
     URemoteControlPreset::OnPostLoadRemoteControlPreset.AddRaw(this, &FMZRemoteControl::OnPresetLoaded);
     //TArray<TSoftObjectPtr<URemoteControlPreset>> presets;
     //IRemoteControlModule::Get().GetPresets(presets);
