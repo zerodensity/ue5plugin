@@ -69,27 +69,25 @@ public class MZProto : ModuleRules
                 CopyToBinaries(pdb);
             }
 
-            string[] ShippingBlackList =
-            {
-                "libssl",
-                "zlib",
-                "libcrypto",
-            };
-            
-  
-            if (Target.Configuration == UnrealTargetConfiguration.Shipping)
-            {
-                foreach (string lib in ShippingBlackList)
-                {
-                    Libs.Remove(Path.Combine(SDKLibdeps, "lib", lib + ".lib"));
-                    foreach(string dll in Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), lib + "*.dll")) 
-                    {
-                      Dlls.Remove(dll);
-                    }
-                }
-            }
+            //string[] ShippingBlackList =
+            //{
+            //    "libssl",
+            //    "zlib",
+            //    "libcrypto",
+            //};
+            //if (Target.Configuration == UnrealTargetConfiguration.Shipping)
+            //{
+            //    foreach (string lib in ShippingBlackList)
+            //    {
+            //        Libs.Remove(Path.Combine(SDKLibdeps, "lib", lib + ".lib"));
+            //        foreach (string dll in Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), lib + "*.dll"))
+            //        {
+            //            Dlls.Remove(dll);
+            //        }
+            //    }
+            //}
 
-			Console.WriteLine("MZProto: Adding additional libs");
+            Console.WriteLine("MZProto: Adding additional libs");
             foreach (string lib in Libs)
             {
                 string copied = CopyToBinaries(lib);
