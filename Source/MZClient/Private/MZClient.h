@@ -70,7 +70,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void SendPinValueChanged(MZRemoteValue*) override;
 	 virtual void SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
 	 virtual void SendNameUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
-	 
+	 virtual void SendAssetList() override;
 	 virtual void Disconnect() override;
 	 virtual void NodeRemoved() override;
 
@@ -132,6 +132,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 
 	 std::mutex ValueUpdatesMutex;
 	 TMap<FGuid, std::vector<uint8>> ValueUpdates;
+
 
 	 std::mutex FunctionsMutex;
 	 std::queue<FRemoteControlFunction> Functions;

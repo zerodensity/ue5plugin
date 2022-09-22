@@ -43,6 +43,7 @@ public class MZClient : ModuleRules
 					"D3D12RHI",
 					"VulkanRHI",
 					"MZProto",
+					"AssetRegistry",
 				}
 				);
 
@@ -67,6 +68,7 @@ public class MZClient : ModuleRules
 					"D3D12RHI",
 					"VulkanRHI",
 					"MZProto",
+					"AssetRegistry",
 				}
 				);
 

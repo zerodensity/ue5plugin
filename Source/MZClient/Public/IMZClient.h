@@ -25,6 +25,7 @@ class IMZClient : public IModuleInterface {
   virtual void SendFunctionAdded(MZFunction* mzFunc) = 0;
   virtual void SendFunctionRemoved(FGuid guid) = 0;
   virtual void SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) = 0;
+  virtual void SendAssetList() = 0;
   virtual void SendNameUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) = 0;
   virtual void OnNodeUpdateReceived(mz::fb::Node const&) = 0;
   virtual void FreezeTextures(TArray<FGuid>) = 0;

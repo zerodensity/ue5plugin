@@ -7,6 +7,10 @@
 #include "ScreenRendering.h"
 #include "HardwareInfo.h"
 
+#include "AssetRegistry/AssetRegistryModule.h"
+#include "AssetRegistry/ARFilter.h"
+
+
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 #pragma optimize("", off)
@@ -339,6 +343,12 @@ void FMZClient::SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, 
 	}
 	auto msg = MakeAppEvent(mb, mz::app::CreateNodeCategoriesUpdateDirect(mb, (mz::fb::UUID*)&Client->nodeId, &pinCategories, &funcCategories));
 	Client->Write(msg);
+
+	//MessageBuilder fb;
+	//mz::fb::String256List a;
+	//mz::fb::CreateString256List(fb, )
+	//auto msg2 = MakeAppEvent(fb, mz::app::CreateUpdateStringList(fb, (mz::fb::UUID*)&Client->nodeId, ));
+
 }
 
 void FMZClient::SendNameUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions)
@@ -410,12 +420,50 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
     Client->Write(msg);
 }
 
+
+void FMZClient::SendAssetList()
+{
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	TArray<FAssetData> AssetData;
+	FName BaseClassName = AActor::StaticClass()->GetFName();
+	// Use the asset registry to get the set of all class names deriving from Base
+	TSet< FName > DerivedNames;
+	{
+		TArray< FName > BaseNames;
+		BaseNames.Add(BaseClassName);
+
+		TSet< FName > Excluded;
+		AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
+	}
+
+	MessageBuilder mb;
+	std::vector<mz::fb::String256> NameList;
+	for (auto name : DerivedNames)
+	{
+		mz::fb::String256 str256;
+		auto val = str256.mutable_val();
+		auto size = name.GetStringLength() < 256 ? name.GetStringLength() : 256;
+		memcpy(val->data(), TCHAR_TO_UTF8(*name.ToString()), size);
+		NameList.push_back(str256);
+	}
+	mz::fb::String256 listName;
+	strcat((char*)listName.mutable_val()->data(), "UE5_ACTOR_LIST");
+	Client->Write(MakeAppEvent(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+	
+	return;
+}
+
+
 void FMZClient::SendPinAdded(MZRemoteValue* mzrv)
 {
+	
     if (!Client || Client->shutdown)
     {
         return;
     }
+
+	SendAssetList();
 
     MessageBuilder mbb;
     std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = { mzrv->SerializeToFlatBuffer(mbb) };
@@ -445,6 +493,8 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
 
     funcList.push_back(node);
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, 0, 0, 0, &funcList)));
+
+
 }
 
 void FMZClient::SendFunctionRemoved(FGuid guid) {
