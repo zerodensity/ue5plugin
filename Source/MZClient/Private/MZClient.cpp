@@ -390,7 +390,7 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
 	TimecodeID = FGuid::NewGuid();
 
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = {
-		mz::fb::CreatePinDirect(mbb, (mz::fb::UUID*)&TimecodeID, TCHAR_TO_ANSI(TEXT("Timecode")), TCHAR_TO_ANSI(TEXT("mz.fb.Timecode")), mz::fb::ShowAs::INPUT_PIN, mz::fb::CanShowAs::INPUT_PIN_ONLY, "UE PROPERTY", mz::fb::Visualizer::NONE),
+		mz::fb::CreatePinDirect(mbb, (mz::fb::UUID*)&TimecodeID, TCHAR_TO_ANSI(TEXT("Timecode")), TCHAR_TO_ANSI(TEXT("mz.fb.Timecode")), mz::fb::ShowAs::INPUT_PIN, mz::fb::CanShowAs::INPUT_PIN_ONLY, "UE PROPERTY", {}),
 	};
 
     std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;

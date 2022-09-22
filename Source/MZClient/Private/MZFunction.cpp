@@ -113,7 +113,7 @@ flatbuffers::Offset<mz::fb::Pin> MZParam::SerializeToFlatBuffer(flatbuffers::Fla
 	FString label = name.ToString();
     FString typeName = "mz.fb.Void";
     std::vector<uint8_t> data = GetValue(typeName);
-    return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), mz::fb::ShowAs::INPUT_PIN, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, "UE PROPERTY", mz::fb::Visualizer::NONE, &data);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), mz::fb::ShowAs::INPUT_PIN, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, "UE PROPERTY", {}, &data);
 }
 
 MZProperty::MZProperty(TSharedPtr<IRemoteControlPropertyHandle> _Property,
@@ -334,7 +334,7 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::SerializeToFlatBuffer(flatbuffers::
 
     FString typeName = "mz.fb.Void";
     std::vector<uint8_t> data = GetValue(typeName);
-    return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&idx, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), showAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_ANSI(*category.ToString()), mz::fb::Visualizer::NONE, &data);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&idx, TCHAR_TO_ANSI(*label), TCHAR_TO_ANSI(*typeName), showAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_ANSI(*category.ToString()), {}, &data);
 }
 
 
