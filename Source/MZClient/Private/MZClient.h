@@ -85,7 +85,7 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 virtual void OnUpdateAndExecute(mz::fb::Node const&) override;
 	 virtual void OnFunctionCall(FGuid nodeId, FGuid funcId) override;
 	 virtual bool IsConnected() override;
-
+	
 	 void WaitCommands();
 	 void ExecCommands();
 
@@ -140,6 +140,8 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
 
 	 FGuid TimecodeID;
+	 FGuid SpawnActorPinID;
+	 FGuid SpawnActorFunctionID;
 };
 
 

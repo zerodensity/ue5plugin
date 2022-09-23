@@ -386,6 +386,8 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
         return;
     }
 
+	SendAssetList();
+
     MessageBuilder mbb;
 	TimecodeID = FGuid::NewGuid();
 
@@ -395,6 +397,19 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
 
     std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;
 	
+	// prepare spawn function
+
+	SpawnActorPinID = FGuid::NewGuid();
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
+		mz::fb::CreatePinDirect(mbb, (mz::fb::UUID*)&SpawnActorPinID, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(mbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST")),
+	};
+	SpawnActorFunctionID = FGuid::NewGuid();
+	nodeFunctions.push_back(
+		mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&SpawnActorFunctionID, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS")
+	);
+
+
+
     for (auto& [id, mzrv] : entities)
     {
         if (mzrv->GetAsProp())
@@ -487,7 +502,6 @@ void FMZClient::SendFunctionAdded(MZFunction* mzFunc)
     {
         pins.push_back(param->SerializeToFlatBuffer(mbb));
     }
-    //TODO send pins 
     
     flatbuffers::Offset<mz::fb::Node> node = mz::fb::CreateNodeDirect(mbb, (mz::fb::UUID*)&(mzFunc->id), TCHAR_TO_ANSI(*mzFunc->name.ToString()), "UE5.UE5", false, true, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(mbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_ANSI(*mzFunc->category.ToString()));
 
@@ -563,6 +577,7 @@ void FMZClient::SendPinRemoved(FGuid guid)
     std::vector<mz::fb::UUID> pins_to_delete = { *(mz::fb::UUID*)&guid };
     Client->Write(MakeAppEvent(mbb, mz::CreateNodeUpdateDirect(mbb, (mz::fb::UUID*)&Client->nodeId, 0, &pins_to_delete)));
 }
+
 
 void FMZClient::WaitCommands()
 {
