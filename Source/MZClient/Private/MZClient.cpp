@@ -6,6 +6,8 @@
 #include "../../MZRemoteControl/Public/IMZRemoteControl.h"
 #include "ScreenRendering.h"
 #include "HardwareInfo.h"
+#include "CoreMinimal.h"
+#include "GameFramework/Actor.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/ARFilter.h"
@@ -151,6 +153,7 @@ void FMZClient::Disconnect() {
     PendingCopyQueue.Empty();
     CopyOnTick.Empty();
     ResourceChanged.Empty();
+	firstUpdate = false;
 }
 
 void FMZClient::InitConnection()
@@ -262,9 +265,13 @@ void FMZClient::OnPinShowAsChanged(FGuid id, mz::fb::ShowAs showAs)
 
 void FMZClient::OnFunctionCall(FGuid nodeId, FGuid funcId)
 {    
+	if (funcId == SpawnActorFunctionID)
+	{
+		//spawn function
+		GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor<AActor>();
+	}
     auto mzfunc = IMZRemoteControl::Get()->GetExposedFunction(funcId);
-
-    if (mzfunc->rFunction.FunctionArguments && mzfunc->rFunction.FunctionArguments->IsValid())
+    if (mzfunc && mzfunc->rFunction.FunctionArguments && mzfunc->rFunction.FunctionArguments->IsValid())
     {
         std::lock_guard lock(FunctionsMutex);
         Functions.push(mzfunc->rFunction);
@@ -386,7 +393,7 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
         return;
     }
 
-	SendAssetList();
+	//SendAssetList();
 
     MessageBuilder mbb;
 	TimecodeID = FGuid::NewGuid();
@@ -438,11 +445,11 @@ void FMZClient::SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap
 
 void FMZClient::SendAssetList()
 {
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	
+	AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
 
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	TArray<FAssetData> AssetData;
 	FName BaseClassName = AActor::StaticClass()->GetFName();
-	// Use the asset registry to get the set of all class names deriving from Base
 	TSet< FName > DerivedNames;
 	{
 		TArray< FName > BaseNames;
@@ -452,14 +459,48 @@ void FMZClient::SendAssetList()
 		AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
 	}
 
+	for (auto& className : DerivedNames)
+	{
+		FString nameString(className.ToString());
+		if (nameString.StartsWith(TEXT("SKEL_")))
+		{
+			continue;
+		}
+		nameString.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
+		SpawnableClasses.Add(nameString);
+	}
+
+	TArray<FAssetData> AllAssets;
+	AssetRegistryModule.Get().GetAllAssets(AllAssets);
+	TArray<FName> ShownNames;
+
+	for (auto asset : AllAssets)
+	{
+		FString assetNameString = asset.AssetName.ToString();
+		if (SpawnableClasses.Contains(assetNameString))
+		{
+			SpawnableClasses[assetNameString] = asset.GetAsset()->GetClass();
+		}
+	}
+
+	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+	{
+		UClass* const CurrentClass = *ClassIt;
+		FString classNameString = CurrentClass->GetFName().ToString();
+		if (SpawnableClasses.Contains(classNameString))
+		{
+			SpawnableClasses[classNameString] = CurrentClass;
+		}
+	}
+
 	MessageBuilder mb;
 	std::vector<mz::fb::String256> NameList;
-	for (auto name : DerivedNames)
+	for (auto [ name, _ ] : SpawnableClasses)
 	{
 		mz::fb::String256 str256;
 		auto val = str256.mutable_val();
-		auto size = name.GetStringLength() < 256 ? name.GetStringLength() : 256;
-		memcpy(val->data(), TCHAR_TO_UTF8(*name.ToString()), size);
+		auto size = name.Len() < 256 ? name.Len() : 256;
+		memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
 		NameList.push_back(str256);
 	}
 	mz::fb::String256 listName;
@@ -631,6 +672,13 @@ void FMZClient::FreezeTextures(TArray<FGuid> textures)
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
+	
+	if (!firstUpdate && Client && Client->nodeId.IsValid())
+	{
+		SendAssetList();
+		firstUpdate = true;
+	}
+	
 
     {
         FEditorScriptExecutionGuard ScriptGuard;
@@ -665,6 +713,11 @@ bool FMZClient::Tick(float dt)
 
         for (auto& [id, val] : updates)
         {
+			if (id == SpawnActorPinID)
+			{
+				SelectedActorToSpawn = std::string((char*)val.data());
+				continue;
+			}
             MZRemoteValue* mzrv = IMZRemoteControl::Get()->GetExposedEntity(id);
             if (mzrv)
             {

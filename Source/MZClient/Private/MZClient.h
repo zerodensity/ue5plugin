@@ -142,6 +142,11 @@ class MZCLIENT_API FMZClient : public IMZClient {
 	 FGuid TimecodeID;
 	 FGuid SpawnActorPinID;
 	 FGuid SpawnActorFunctionID;
+	 std::string SelectedActorToSpawn;
+	 TMap < FString, UClass* > SpawnableClasses;
+	 TMap<FString, FAssetData> AssetMap;
+	 bool firstUpdate = false;
 };
+
 
 
