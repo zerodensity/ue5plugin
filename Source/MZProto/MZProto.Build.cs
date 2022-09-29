@@ -50,42 +50,19 @@ public class MZProto : ModuleRules
                 throw new BuildException(errorMessage);
             }
 
-            string SDKIncdeps = Path.Combine(SDKdir, "installed", "x64-windows");
-            string SDKLibdeps = Path.Combine(SDKdir, "installed", "x64-windows");
+			var SDKParentDir = Path.Combine(SDKdir, "..");
 
-            // Add the import library
-            var Libs =  new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "lib"),"*.lib"));
-            Libs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "lib"),"*.lib")));
+			EnumerationOptions eo = new EnumerationOptions();
+			eo.RecurseSubdirectories = true;
 
-            var Dlls =  new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "bin"),"*.dll"));
-            // Dlls.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"),"*.dll")));
+			var Libs =  new HashSet<string>(Directory.GetFiles(SDKParentDir, "*.lib", eo));
+			var Dlls =  new HashSet<string>(Directory.GetFiles(SDKParentDir, "*.dll", eo));
+            var Pdbs = new HashSet<string>(Directory.GetFiles(SDKParentDir, "*.pdb", eo));
 
-            var Pdbs = new HashSet<string>(Directory.GetFiles(Path.Combine(SDKdir, "bin"), "*.pdb"));
-            // Pdbs.UnionWith(new HashSet<string>(Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), "*.pdb")));
-
-
-            foreach (string pdb in Pdbs)
+			foreach (string pdb in Pdbs)
             {
                 CopyToBinaries(pdb);
             }
-
-            //string[] ShippingBlackList =
-            //{
-            //    "libssl",
-            //    "zlib",
-            //    "libcrypto",
-            //};
-            //if (Target.Configuration == UnrealTargetConfiguration.Shipping)
-            //{
-            //    foreach (string lib in ShippingBlackList)
-            //    {
-            //        Libs.Remove(Path.Combine(SDKLibdeps, "lib", lib + ".lib"));
-            //        foreach (string dll in Directory.GetFiles(Path.Combine(SDKLibdeps, "bin"), lib + "*.dll"))
-            //        {
-            //            Dlls.Remove(dll);
-            //        }
-            //    }
-            //}
 
             Console.WriteLine("MZProto: Adding additional libs");
             foreach (string lib in Libs)
@@ -104,22 +81,9 @@ public class MZProto : ModuleRules
                 RuntimeDependencies.Add(copied);
             }
 
-            //PublicDefinitions.Add("GOOGLE_PROTOBUF_NO_RTTI");
-            //PublicDefinitions.Add("GPR_FORBID_UNREACHABLE_CODE");
-            //PublicDefinitions.Add("GRPC_ALLOW_EXCEPTIONS=0");
-            // PublicDefinitions.Add("GOOGLE_PROTOBUF_INTERNAL_DONATE_STEAL_INLINE");
-            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_DEFAULT_STRING");
-            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_RELEASE");
-            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_SWAP");
-            // PrivateDefinitions.Add("PROTOBUF_FORCE_COPY_IN_MOVE");
-
             PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
             PublicIncludePaths.Add(Path.Combine(SDKdir, "include"));
-            PublicIncludePaths.Add(Path.Combine(SDKIncdeps, "include"));
-            
-            // PublicDependencyModuleNames.AddRange(new string[] { "WebSockets" });
-            // AddEngineThirdPartyPrivateStaticDependencies(Target, "OpenSSL", "zlib");
-
+            PublicIncludePaths.Add(Path.Combine(SDKdir, "../include"));
         }
     }
 }
