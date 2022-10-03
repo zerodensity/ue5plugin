@@ -5,11 +5,7 @@
 #include "IMZClient.h"
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
-#include "RemoteControlPreset.h"
 #include "Engine/TextureRenderTarget2D.h"
-#include "IRemoteControlPropertyHandle.h"
-#include "RemoteControlPreset.h"
-
 #include <queue>
 #include <map>
 
@@ -18,10 +14,15 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "DispelUnrealMadnessPrelude.h"
+//#include "DispelUnrealMadnessPrelude.h"
+void MemoryBarrier();
+#include "Windows/AllowWindowsPlatformTypes.h"
+#pragma intrinsic(_InterlockedCompareExchange64)
+#define InterlockedCompareExchange64 _InterlockedCompareExchange64
 #include <d3d12.h>
 #include "AppClient.h"
-#include "DispelUnrealMadnessPostlude.h"
+#include "Windows/HideWindowsPlatformTypes.h"
+//#include "DispelUnrealMadnessPostlude.h"
 
 #include "D3D12RHIPrivate.h"
 #include "D3D12RHI.h"
@@ -52,100 +53,18 @@ class MZCLIENT_API FMZClient : public IMZClient {
  public:
 
 	 FMZClient();
-
 	 virtual void StartupModule() override;
 	 virtual void ShutdownModule() override;
-	 
 	 bool Connect();
-
 	 uint32 Run();
-
-	 virtual void OnNodeUpdateReceived(mz::fb::Node const&) override;
-
-	 virtual void SendNodeUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
-	 virtual void SendPinRemoved(FGuid) override;
-	 virtual void SendPinAdded(MZRemoteValue*) override;
-	 virtual void SendFunctionAdded(MZFunction* mzFunc) override;
-	 virtual void SendFunctionRemoved(FGuid guid) override;
-	 virtual void SendPinValueChanged(MZRemoteValue*) override;
-	 virtual void SendCategoryUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
-	 virtual void SendNameUpdate(TMap<FGuid, MZRemoteValue*> const& entities, TMap<FGuid, MZFunction*> const& functions) override;
-	 virtual void SendAssetList() override;
 	 virtual void Disconnect() override;
 	 virtual void NodeRemoved() override;
-
-	 virtual void FreezeTextures(TArray<FGuid>) override;
-
-	 void ClearResources();
-
-	 virtual void QueueTextureCopy(FGuid id, MZRemoteValue* mzrv, mz::fb::Texture* tex) override;
-	 virtual void OnTextureReceived(FGuid id, mz::fb::Texture const& texture) override;
-	 virtual void OnPinShowAsChanged(FGuid, mz::fb::ShowAs) override;
-	 virtual void OnExecute() override;
-	 virtual void OnUpdateAndExecute(mz::fb::Node const&) override;
-	 virtual void OnFunctionCall(FGuid nodeId, FGuid funcId) override;
 	 virtual bool IsConnected() override;
-	
-	 void WaitCommands();
-	 void ExecCommands();
-
-     void InitRHI();
-     
 	 void InitConnection();
-
 	 bool Tick(float dt);
-
-	 bool ctsBound = false;
-	 std::atomic_bool bClientShouldDisconnect = false;
-
-	 struct ResourceInfo
-	 {
-		 MZRemoteValue* SrcMzrc = 0;
-		 ID3D12Resource* DstResource = 0;
-		 bool ReadOnly = true;
-		 MzTextureShareInfo Info = {};
-		 void Release()
-		 {
-			 if(DstResource) DstResource->Release();
-			 memset(this, 0, sizeof(*this));
-		 }
-	 };
-
-	 struct ID3D12Device* Dev;
-	 struct ID3D12CommandAllocator* CmdAlloc;
-	 struct ID3D12CommandQueue* CmdQueue;
-	 struct ID3D12GraphicsCommandList* CmdList;
-	 struct ID3D12Fence* CmdFence;
-	 HANDLE CmdEvent;
-	 uint64_t CmdFenceValue = 0;
-
 	 class ClientImpl* Client = 0;
 
-	 std::mutex PendingCopyQueueMutex;
-	 TMap<FGuid, MZRemoteValue*> PendingCopyQueue;
-
-	 std::mutex CopyOnTickMutex;
-	 TMap<FGuid, ResourceInfo> CopyOnTick;
-
-	 std::mutex ResourceChangedMutex;
-	 TMap<FGuid, MZRemoteValue*> ResourceChanged;
 	 
-	 std::mutex ValueUpdatesMutex;
-	 TMap<FGuid, std::vector<uint8>> ValueUpdates;
-
-
-	 std::mutex FunctionsMutex;
-	 std::queue<FRemoteControlFunction> Functions;
-
-	 UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
-
-	 FGuid TimecodeID;
-	 FGuid SpawnActorPinID;
-	 FGuid SpawnActorFunctionID;
-	 std::string SelectedActorToSpawn;
-	 TMap < FString, UClass* > SpawnableClasses;
-	 TMap<FString, FAssetData> AssetMap;
-	 bool firstUpdate = false;
 };
 
 

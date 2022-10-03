@@ -18,34 +18,10 @@
 	"SupportedTargetPlatforms": [ "Win64" ],
 	"Modules": [
 		{
-			"Name": "MZProto",
-			"Type": "Runtime",
-			"LoadingPhase": "PostEngineInit",
-			"PlatformAllowList": [ "Win64" ]
-		},
-		{
 			"Name": "MZClient",
 			"Type": "Runtime",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [ "Win64" ]
-		},
-		{
-			"Name": "MZRemoteControl",
-			"Type": "Runtime",
-			"LoadingPhase": "PostEngineInit",
-			"PlatformAllowList": [ "Win64" ]
-		},
-		{
-			"Name": "MZRHI",
-			"Type": "Runtime",
-			"LoadingPhase": "PostEngineInit",
-			"PlatformAllowList": [ "Win64" ]
-		}
-	],
-	"Plugins": [
-		{
-			"Name": "RemoteControl",
-			"Enabled": true
 		}
 	]
 }

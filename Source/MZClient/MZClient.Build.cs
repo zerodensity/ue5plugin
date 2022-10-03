@@ -1,33 +1,80 @@
 // Copyright Epic Games, Inc. All Rights Reserved.
 
+
+using System;
 using System.IO;
+using System.Collections;
+using System.Collections.Generic;
 
 using UnrealBuildTool;
 
 public class MZClient : ModuleRules
 {
+	private string CopyToBinaries(string Filepath)
+	{
+		string BinaryDir = Path.Combine(PluginDirectory, "Binaries", Target.Platform.ToString());
+
+		string path = Path.Combine(BinaryDir, Path.GetFileName(Filepath));
+
+		if (!Directory.Exists(BinaryDir))
+		{
+			Directory.CreateDirectory(BinaryDir);
+		}
+
+		File.Copy(Filepath, path, true);
+		return path;
+	}
+
 	public MZClient(ReadOnlyTargetRules Target) : base(Target)
 	{
-		//PCHUsage = ModuleRules.PCHUsageMode.UseExplicitOrSharedPCHs;
+
 		if (Target.Platform == UnrealTargetPlatform.Win64)
         {
 			CppStandard = CppStandardVersion.Cpp20;
-		
 
-			PublicIncludePaths.AddRange(
-				new string[] {
-					// ... add public include paths required here ...
-				}
-				);
-				
+			string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
 
-			PrivateIncludePaths.AddRange(
-				new string[] {
-					// ... add other private include paths required here ...
-				}
-				);
-			
-		
+			if (String.IsNullOrEmpty(SDKdir))
+			{
+				string errorMessage = "Please update MZ_SDK_DIR environment variable";
+				System.Console.WriteLine(errorMessage);
+				throw new BuildException(errorMessage);
+			}
+
+			var SDKParentDir = Path.Combine(SDKdir, "..");
+
+			EnumerationOptions eo = new EnumerationOptions();
+			eo.RecurseSubdirectories = true;
+
+			var Libs = new HashSet<string>(Directory.GetFiles(SDKParentDir, "*.lib", eo));
+			var Dlls = new HashSet<string>(Directory.GetFiles(SDKParentDir, "*.dll", eo));
+			var Pdbs = new HashSet<string>(Directory.GetFiles(SDKParentDir, "*.pdb", eo));
+
+			foreach (string pdb in Pdbs)
+			{
+				CopyToBinaries(pdb);
+			}
+
+			Console.WriteLine("MZClient: Adding additional libs");
+			foreach (string lib in Libs)
+			{
+				string copied = CopyToBinaries(lib);
+				Console.WriteLine("MZClient: " + copied);
+				PublicAdditionalLibraries.Add(copied);
+			}
+
+			Console.WriteLine("MZClient: Adding runtime dependencies");
+			foreach (string dll in Dlls)
+			{
+				string copied = CopyToBinaries(dll);
+				Console.WriteLine("MZClient: " + copied);
+				RuntimeDependencies.Add(copied);
+			}
+
+			PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
+			PublicIncludePaths.Add(Path.Combine(SDKdir, "include"));
+			PublicIncludePaths.Add(Path.Combine(SDKdir, "../include"));
+
 			PublicDependencyModuleNames.AddRange(
 				new string[]
 				{
@@ -35,14 +82,12 @@ public class MZClient : ModuleRules
 					"CoreUObject",
 					"Engine",
 					"Projects",
-					"RemoteControl",
 					"RenderCore",
 					"RHI",
 					"RHICore",
 					"D3D11RHI",
 					"D3D12RHI",
 					"VulkanRHI",
-					"MZProto",
 					"AssetRegistry",
 				}
 				);
@@ -60,14 +105,12 @@ public class MZClient : ModuleRules
 					"CoreUObject",
 					"Engine",
 					"Projects",
-					"RemoteControl",
 					"RenderCore",
 					"RHI",
 					"RHICore",
 					"D3D11RHI",
 					"D3D12RHI",
 					"VulkanRHI",
-					"MZProto",
 					"AssetRegistry",
 				}
 				);
@@ -83,14 +126,9 @@ public class MZClient : ModuleRules
                 new string[]{
 						//required for "D3D12RHIPrivate.h"
 						Path.Combine(EngineDirectory, "Source/Runtime/D3D12RHI/Private"),
-                        // Path.Combine(EngineDirectory, "Source/Runtime/D3D12RHI/Private/Windows")
                 });
 
-            DynamicallyLoadedModuleNames.AddRange(
-				new string[] {
-					"MZRemoteControl"
-				}
-				);
+
         }
 		
 	}
