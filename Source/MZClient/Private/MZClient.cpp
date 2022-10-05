@@ -10,10 +10,49 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/ARFilter.h"
 
+#include "LevelEditor.h"
+#include "LevelEditorActions.h"
+#include "ToolMenus.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 #pragma optimize("", off)
+
+
+
+
+
+#include "SlateBasics.h"
+#include "EditorStyleSet.h"
+
+
+class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
+{
+public:
+	FMediaZPluginEditorCommands()
+		: TCommands<FMediaZPluginEditorCommands>
+		(
+			TEXT("MediaZPluginEditor"),
+			NSLOCTEXT("Contexts", "MediaZPluginEditor", "MediaZPluginEditor Plugin"),
+			NAME_None,
+			FEditorStyle::GetStyleSetName()
+			) {}
+
+	virtual void RegisterCommands() override;
+
+public:
+	TSharedPtr<FUICommandInfo> TestCommand;
+	TSharedPtr<FUICommandInfo> PopulateRootGraph;
+};
+
+void FMediaZPluginEditorCommands::RegisterCommands()
+{
+	UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
+}
+
+
+
 
 template <class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
 static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::FlatBufferBuilder& b, flatbuffers::Offset<T> event)
@@ -29,11 +68,14 @@ public:
     virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
     {
         FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
+		
+		UE_LOG(LogTemp, Warning, TEXT("Connected to mzEngine"));
 
         if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
         {
             nodeId = *(FGuid*)event.node()->id();
         }
+		PluginClient->Connected();
     }
 
     virtual void OnNodeUpdate(mz::NodeUpdated const& archive) override
@@ -50,6 +92,7 @@ public:
 
     virtual void Done(grpc::Status const& Status) override
     {
+		PluginClient->Disconnected();
     }
 
     virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
@@ -68,6 +111,7 @@ public:
     {
     }
 
+	FMZClient* PluginClient;
     FGuid nodeId;
     std::atomic_bool shutdown = true;
 };
@@ -89,14 +133,19 @@ bool FMZClient::IsConnected()
 	return Client && Client->nodeId.IsValid() && !Client->shutdown;
 }
 
-
+void FMZClient::Connected()
+{
+	PopulateRootGraph();
+	SendNodeUpdate(Client->nodeId);
+}
 
 void FMZClient::NodeRemoved() 
 {
     Client->nodeId = {};
 }
 
-void FMZClient::Disconnect() {
+void FMZClient::Disconnected() 
+{
     Client->nodeId = {};
 }
 
@@ -122,6 +171,7 @@ void FMZClient::InitConnection()
 	
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
     Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
+	Client->PluginClient = this;
 }
 
 void FMZClient::StartupModule() {
@@ -136,18 +186,52 @@ void FMZClient::StartupModule() {
         grpc::g_core_codegen_interface = g_core_codegen;
     }
     
-    //GEngine->SetCustomTimeStep(CustomTimeStepImpl);
-    // FMessageDialog::Debugf(FText::FromString("Loaded MZClient module"), 0);
     InitConnection();
     FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
+	PopulateRootGraph();
+
+
+#if WITH_EDITOR
+	FMediaZPluginEditorCommands::Register();
+
+	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
+
+	CommandList->MapAction(
+		FMediaZPluginEditorCommands::Get().TestCommand,
+		FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
+	CommandList->MapAction(
+		FMediaZPluginEditorCommands::Get().PopulateRootGraph,
+		FExecuteAction::CreateRaw(this, &FMZClient::PopulateRootGraph));
+
+	UToolMenus* ToolMenus = UToolMenus::Get();
+	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
+	UToolMenu* MediaZMenu = Menu->AddSubMenu(
+		ToolMenus->CurrentOwner(),
+		NAME_None,
+		TEXT("MediaZ Debug Actions"),
+		LOCTEXT("DragDropMenu_MediaZ", "MediaZ"),
+		LOCTEXT("DragDropMenu_MediaZ_ToolTip", "Debug actions for the MediaZ plugin")
+	);
+
+	FToolMenuSection& Section = MediaZMenu->AddSection("DebugActions", NSLOCTEXT("LevelViewportContextMenu", "DebugActions", "DebugActions Collection"));
+	{
+		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
+		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
+	}
+
+#endif //WITH_EDITOR
 }
 
 void FMZClient::ShutdownModule() 
 {
-
+	FMediaZPluginEditorCommands::Unregister();
 }
 
-
+void FMZClient::TestAction()
+{
+	UE_LOG(LogTemp, Warning, TEXT("It Works!!!"));
+}
 
 bool FMZClient::Tick(float dt)
 {
@@ -155,14 +239,54 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
+void FMZClient::PopulateRootGraph() //Runs in game thread
+{
+	flatbuffers::FlatBufferBuilder fbb;
+	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
 
-bool FMZClient::Connect() {
-    return true;
+	std::vector<std::string> actors = { "camera", "sample_actor" };
+	for (auto actor : actors)
+	{
+		FGuid actorId = FGuid::NewGuid();
+		actorNodes.push_back(
+			mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, actor.c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE NODES")
+		);
+	}
+
+	fbb.Finish(mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Client->nodeId, "UE5", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &actorNodes).Union(), "UE5", 0, 0));
+	RootGraph = fbb.Release();
+
+	//a->UnPackTo(&RootGraph);
 }
 
-uint32 FMZClient::Run() {
-  return 0;
+void FMZClient::SendNodeUpdate(FGuid nodeId)
+{
+	if (!Client || !Client->nodeId.IsValid())
+	{
+		return;
+	}
+	
+	if (nodeId == *(FGuid*)RootGraph->id())
+	{
+		MessageBuilder mb;
+		std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;
+		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes;
+		std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
+
+		for(auto child : *(RootGraph->contents_as_Graph()->nodes()))
+		{
+			graphNodes.push_back(mz::fb::CreateNode(mb, child->UnPack()));
+		}
+
+		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, 0, 0, 0, 0, &graphNodes));
+		Client->Write(msg);
+	}
+	
+
+	//Send list actors on the scene 
 }
+
+
 #pragma optimize("", on)
 #undef LOCTEXT_NAMESPACE
 

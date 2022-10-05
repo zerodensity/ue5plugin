@@ -2,7 +2,6 @@
 
 #include "Engine/EngineCustomTimeStep.h"
 
-#include "IMZClient.h"
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
 #include "Engine/TextureRenderTarget2D.h"
@@ -46,25 +45,57 @@ static flatbuffers::grpc::Message<mz::app::AppEvent> MakeAppEvent(MessageBuilder
 
 
 /**
- * Implements communication with the MediaZ server
+ * Implements communication with the MediaZ Engine
  */
-class MZCLIENT_API FMZClient : public IMZClient {
+class MZCLIENT_API FMZClient : public IModuleInterface {
 
  public:
-
+	 
+	 //Empty constructor
 	 FMZClient();
+
+	 //Called on startup of the module on Unreal Engine start
 	 virtual void StartupModule() override;
+
+	 //Called on shutdown of the module on Unreal Engine exit
 	 virtual void ShutdownModule() override;
-	 bool Connect();
-	 uint32 Run();
-	 virtual void Disconnect() override;
-	 virtual void NodeRemoved() override;
-	 virtual bool IsConnected() override;
+
+	 //This function is called when the connection with the MediaZ Engine is started
+	 virtual void Connected();
+
+	 //This function is called when the connection with the MediaZ Engine is finished
+	 virtual void Disconnected();
+	 
+	 /// @return Connection status with MediaZ Engine 
+	 virtual bool IsConnected();
+
+	 //This function is called when the Unreal Engine node is removed from the MediaZ engine
+	 virtual void NodeRemoved();
+
+	 //Tries to initialize connection with the MediaZ engine
 	 void InitConnection();
+
+	 //Sends node updates to the MediaZ
+	 void SendNodeUpdate(FGuid nodeId); 
+	 
+	 //Fills the root graph with first level information (Only the names of the actors without parents) 
+	 void PopulateRootGraph();
+
+	 //Tick is called every frame once and handles the tasks queued from grpc threads
 	 bool Tick(float dt);
+
+	 //Test action to test wheter debug menu works
+	 void TestAction();
+	 
+
+protected: 
+	 //Carries the actor information of the scene
+	 //It is not guaranteed to have all the information at any time
+	 tbl<mz::fb::Node> RootGraph;
+
+	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
 
-	 
 };
 
 

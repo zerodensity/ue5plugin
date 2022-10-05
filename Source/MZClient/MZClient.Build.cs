@@ -95,7 +95,11 @@ public class MZClient : ModuleRules
 			if (Target.bBuildEditor)
 			{
 				// we only want this to be included for editor builds
-				PublicDependencyModuleNames.Add("UnrealEd");
+				//PublicDependencyModuleNames.Add("UnrealEd");
+				PrivateDependencyModuleNames.Add("SlateCore");
+				PrivateDependencyModuleNames.Add("Slate");
+				PrivateDependencyModuleNames.Add("EditorStyle");
+				PrivateDependencyModuleNames.Add("ToolMenus");
 			}
 
 			PrivateDependencyModuleNames.AddRange(
