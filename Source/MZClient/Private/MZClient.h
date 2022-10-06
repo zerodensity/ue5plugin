@@ -87,9 +87,11 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Test action to test wheter debug menu works
 	 void TestAction();
 	 
+	 //Populate root graph using sceneTree 
 	 void PopulateRootGraphWithSceneTree(SceneTree sceneTree);
 
-protected: 
+	 void OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues);
+
 	 //Carries the actor information of the scene
 	 //It is not guaranteed to have all the information at any time
 	 tbl<mz::fb::Node> RootGraph;
@@ -97,6 +99,7 @@ protected:
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
+protected: 
 
 };
 

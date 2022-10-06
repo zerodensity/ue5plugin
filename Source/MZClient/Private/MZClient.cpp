@@ -77,6 +77,7 @@ public:
         {
             nodeId = *(FGuid*)event.node()->id();
         }
+		memcpy(PluginClient->RootGraph->mutable_id()->mutable_bytes()->Data(), event.node()->id()->bytes()->Data(), event.node()->id()->bytes()->size());
 		PluginClient->Connected();
     }
 
@@ -95,6 +96,8 @@ public:
     virtual void Done(grpc::Status const& Status) override
     {
 		PluginClient->Disconnected();
+		shutdown = true;
+		nodeId = {};
     }
 
     virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
@@ -138,7 +141,7 @@ bool FMZClient::IsConnected()
 void FMZClient::Connected()
 {
 	//PopulateRootGraph();
-	//SendNodeUpdate(Client->nodeId);
+	SendNodeUpdate(Client->nodeId);
 }
 
 void FMZClient::NodeRemoved() 
@@ -149,6 +152,7 @@ void FMZClient::NodeRemoved()
 void FMZClient::Disconnected() 
 {
     Client->nodeId = {};
+
 }
 
 void FMZClient::InitConnection()
@@ -174,58 +178,76 @@ void FMZClient::InitConnection()
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
     Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
 	Client->PluginClient = this;
+	//SendNodeUpdate(Client->nodeId);
+}
+
+void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
+{
+	PopulateRootGraph();
+	if (Client)
+	{
+		SendNodeUpdate(Client->nodeId);
+	}
 }
 
 void FMZClient::StartupModule() {
-    using namespace grpc;
-    using namespace grpc::internal;
-    if (grpc::g_glip == nullptr) {
-        static auto* const g_gli = new GrpcLibrary();
-        grpc::g_glip = g_gli;
-    }
-    if (grpc::g_core_codegen_interface == nullptr) {
-        static auto* const g_core_codegen = new CoreCodegen();
-        grpc::g_core_codegen_interface = g_core_codegen;
-    }
-    
-    InitConnection();
-    FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
+	using namespace grpc;
+	using namespace grpc::internal;
+	if (grpc::g_glip == nullptr) {
+		static auto* const g_gli = new GrpcLibrary();
+		grpc::g_glip = g_gli;
+	}
+	if (grpc::g_core_codegen_interface == nullptr) {
+		static auto* const g_core_codegen = new CoreCodegen();
+		grpc::g_core_codegen_interface = g_core_codegen;
+	}
+
+	InitConnection();
+
+	//Add Delegates
+	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
+	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
+
 	//PopulateRootGraph();
 
 
 #if WITH_EDITOR
-	FMediaZPluginEditorCommands::Register();
-
-	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
-
-	CommandList->MapAction(
-		FMediaZPluginEditorCommands::Get().TestCommand,
-		FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
-	CommandList->MapAction(
-		FMediaZPluginEditorCommands::Get().PopulateRootGraph,
-		FExecuteAction::CreateRaw(this, &FMZClient::PopulateRootGraph));
-	CommandList->MapAction(
-		FMediaZPluginEditorCommands::Get().SendRootUpdate,
-		FExecuteAction::CreateLambda([=](){
-				SendNodeUpdate(Client->nodeId);
-			}));
-
-	UToolMenus* ToolMenus = UToolMenus::Get();
-	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
-	UToolMenu* MediaZMenu = Menu->AddSubMenu(
-		ToolMenus->CurrentOwner(),
-		NAME_None,
-		TEXT("MediaZ Debug Actions"),
-		LOCTEXT("DragDropMenu_MediaZ", "MediaZ"),
-		LOCTEXT("DragDropMenu_MediaZ_ToolTip", "Debug actions for the MediaZ plugin")
-	);
-
-	FToolMenuSection& Section = MediaZMenu->AddSection("DebugActions", NSLOCTEXT("LevelViewportContextMenu", "DebugActions", "DebugActions Collection"));
+	
+	if(GEditor)
 	{
-		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
-		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
-		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
+		FMediaZPluginEditorCommands::Register();
+
+		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+		TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
+
+		CommandList->MapAction(
+			FMediaZPluginEditorCommands::Get().TestCommand,
+			FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
+		CommandList->MapAction(
+			FMediaZPluginEditorCommands::Get().PopulateRootGraph,
+			FExecuteAction::CreateRaw(this, &FMZClient::PopulateRootGraph));
+		CommandList->MapAction(
+			FMediaZPluginEditorCommands::Get().SendRootUpdate,
+			FExecuteAction::CreateLambda([=](){
+					SendNodeUpdate(Client->nodeId);
+				}));
+
+		UToolMenus* ToolMenus = UToolMenus::Get();
+		UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
+		UToolMenu* MediaZMenu = Menu->AddSubMenu(
+			ToolMenus->CurrentOwner(),
+			NAME_None,
+			TEXT("MediaZ Debug Actions"),
+			LOCTEXT("DragDropMenu_MediaZ", "MediaZ"),
+			LOCTEXT("DragDropMenu_MediaZ_ToolTip", "Debug actions for the MediaZ plugin")
+		);
+
+		FToolMenuSection& Section = MediaZMenu->AddSection("DebugActions", NSLOCTEXT("LevelViewportContextMenu", "DebugActions", "DebugActions Collection"));
+		{
+			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
+			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
+			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
+		}
 	}
 
 #endif //WITH_EDITOR
@@ -299,18 +321,17 @@ void FMZClient::PopulateRootGraph() //Runs in game thread
 	SceneTree sceneTree;
 
 	TArray<FString> names_experiment;
-	FActorFolders::Get().ForEachFolder(*World, [this, &World, &names_experiment, &sceneTree](const FFolder& Folder)
-	{
-			names_experiment.Add(Folder.GetPath().ToString());
-			sceneTree.AddItem(Folder.GetPath().ToString());
-			//if (FSceneOutlinerTreeItemPtr FolderItem = Mode->CreateItemFor<FActorFolderTreeItem>(FActorFolderTreeItem(Folder, World)))
-			//{
-			//	OutItems.Add(FolderItem);
-			//}
-			return true;
-	});
 
-
+	//FActorFolders::Get().ForEachFolder(*World, [this, &World, &names_experiment, &sceneTree](const FFolder& Folder)
+	//{
+	//		names_experiment.Add(Folder.GetPath().ToString());
+	//		sceneTree.AddItem(Folder.GetPath().ToString());
+	//		//if (FSceneOutlinerTreeItemPtr FolderItem = Mode->CreateItemFor<FActorFolderTreeItem>(FActorFolderTreeItem(Folder, World)))
+	//		//{
+	//		//	OutItems.Add(FolderItem);
+	//		//}
+	//		return true;
+	//});
 
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
@@ -331,32 +352,9 @@ void FMZClient::PopulateRootGraph() //Runs in game thread
 			sceneTree.AddItem(ActorItr->GetFolder().GetPath().ToString() + TEXT("/") + ActorItr->GetActorLabel());
 			++ActorItr;
 		}
-
-		//UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), ActorsInScene);
 	}
 
-	PopulateRootGraphWithSceneTree(sceneTree);
-	return;
-
-	std::vector<std::string> actors; // = { "camera", "sample_actor" };
-
-	for (auto actor : ActorsInScene)
-	{
-		actors.push_back(TCHAR_TO_UTF8(*actor->GetActorLabel()));
-	}
-
-	for (auto actor : actors)
-	{
-		FGuid actorId = FGuid::NewGuid();
-		actorNodes.push_back(
-			mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, actor.c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb).Union(), "UE5", 0, "ENGINE NODES")
-		);
-	}
-
-	fbb.Finish(mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Client->nodeId, "UE5", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &actorNodes).Union(), "UE5", 0, 0));
-	RootGraph = fbb.Release();
-
-	//a->UnPackTo(&RootGraph);
+ 	PopulateRootGraphWithSceneTree(sceneTree);
 }
 
 void FMZClient::SendNodeUpdate(FGuid nodeId)
