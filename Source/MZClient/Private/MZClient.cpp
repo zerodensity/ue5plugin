@@ -10,21 +10,21 @@
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/ARFilter.h"
 
+#include "EngineUtils.h"
+
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
 #include "ToolMenus.h"
+#include "EditorActorFolders.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 #pragma optimize("", off)
 
-
-
-
-
 #include "SlateBasics.h"
 #include "EditorStyleSet.h"
 
+#include "SceneTree.h"
 
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
 {
@@ -43,12 +43,14 @@ public:
 public:
 	TSharedPtr<FUICommandInfo> TestCommand;
 	TSharedPtr<FUICommandInfo> PopulateRootGraph;
+	TSharedPtr<FUICommandInfo> SendRootUpdate;
 };
 
 void FMediaZPluginEditorCommands::RegisterCommands()
 {
 	UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
 	UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
+	UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
 }
 
 
@@ -135,8 +137,8 @@ bool FMZClient::IsConnected()
 
 void FMZClient::Connected()
 {
-	PopulateRootGraph();
-	SendNodeUpdate(Client->nodeId);
+	//PopulateRootGraph();
+	//SendNodeUpdate(Client->nodeId);
 }
 
 void FMZClient::NodeRemoved() 
@@ -188,7 +190,7 @@ void FMZClient::StartupModule() {
     
     InitConnection();
     FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
-	PopulateRootGraph();
+	//PopulateRootGraph();
 
 
 #if WITH_EDITOR
@@ -203,6 +205,11 @@ void FMZClient::StartupModule() {
 	CommandList->MapAction(
 		FMediaZPluginEditorCommands::Get().PopulateRootGraph,
 		FExecuteAction::CreateRaw(this, &FMZClient::PopulateRootGraph));
+	CommandList->MapAction(
+		FMediaZPluginEditorCommands::Get().SendRootUpdate,
+		FExecuteAction::CreateLambda([=](){
+				SendNodeUpdate(Client->nodeId);
+			}));
 
 	UToolMenus* ToolMenus = UToolMenus::Get();
 	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
@@ -218,6 +225,7 @@ void FMZClient::StartupModule() {
 	{
 		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
 		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
+		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
 	}
 
 #endif //WITH_EDITOR
@@ -239,17 +247,109 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
+bool IsActorDisplayable(const AActor* Actor)
+{
+	static const FName SequencerActorTag(TEXT("SequencerActor"));
+
+	return Actor &&
+		Actor->IsEditable() &&																	// Only show actors that are allowed to be selected and drawn in editor
+		Actor->IsListedInSceneOutliner() &&
+		(((Actor->GetWorld() && Actor->GetWorld()->IsPlayInEditor()) || !Actor->HasAnyFlags(RF_Transient)) ||
+			(Actor->ActorHasTag(SequencerActorTag))) &&
+		!Actor->IsTemplate() &&																	// Should never happen, but we never want CDOs displayed
+		!Actor->IsA(AWorldSettings::StaticClass()) &&											// Don't show the WorldSettings actor, even though it is technically editable
+		IsValidChecked(Actor);																// We don't want to show actors that are about to go away
+}
+
+flatbuffers::Offset<mz::fb::Node> CreateFBGraphRecursive(flatbuffers::FlatBufferBuilder& fbb, TreeNode* treeNode)
+{
+	if (treeNode->Children.empty())
+	{
+		FGuid actorId = FGuid::NewGuid();
+		return 	mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, std::string(TCHAR_TO_UTF8(*treeNode->Name)).c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb).Union(), "UE5", 0, "ENGINE NODES");
+	}
+
+	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes;
+
+	for (auto child : treeNode->Children)
+	{
+		childNodes.push_back(CreateFBGraphRecursive(fbb, child));
+	}
+
+	FGuid actorId = FGuid::NewGuid();
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, std::string(TCHAR_TO_UTF8(*treeNode->Name)).c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, "ENGINE NODES");
+}
+
+void FMZClient::PopulateRootGraphWithSceneTree(SceneTree sceneTree)
+{
+	flatbuffers::FlatBufferBuilder fbb;
+	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes;
+	childNodes.push_back(CreateFBGraphRecursive(fbb, sceneTree.Root));
+
+	fbb.Finish(mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Client->nodeId, "UE5", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0));
+	RootGraph = fbb.Release();
+
+	TRootGraph = RootGraph->UnPack();
+}
+
 void FMZClient::PopulateRootGraph() //Runs in game thread
 {
+	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	
+	SceneTree sceneTree;
+
+	TArray<FString> names_experiment;
+	FActorFolders::Get().ForEachFolder(*World, [this, &World, &names_experiment, &sceneTree](const FFolder& Folder)
+	{
+			names_experiment.Add(Folder.GetPath().ToString());
+			sceneTree.AddItem(Folder.GetPath().ToString());
+			//if (FSceneOutlinerTreeItemPtr FolderItem = Mode->CreateItemFor<FActorFolderTreeItem>(FActorFolderTreeItem(Folder, World)))
+			//{
+			//	OutItems.Add(FolderItem);
+			//}
+			return true;
+	});
+
+
+
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
 
-	std::vector<std::string> actors = { "camera", "sample_actor" };
+	TArray<AActor*> ActorsInScene;
+	if (World)
+	{
+		TActorIterator< AActor > ActorItr = TActorIterator< AActor >(World);
+		while (ActorItr)
+		{
+			if (!IsActorDisplayable(*ActorItr))
+			{
+				++ActorItr;
+				continue;
+			}
+			ActorsInScene.Add(*ActorItr);
+			names_experiment.Add(ActorItr->GetFolder().GetPath().ToString() + TEXT("/") + ActorItr->GetActorLabel());
+			sceneTree.AddItem(ActorItr->GetFolder().GetPath().ToString() + TEXT("/") + ActorItr->GetActorLabel());
+			++ActorItr;
+		}
+
+		//UGameplayStatics::GetAllActorsOfClass(World, AActor::StaticClass(), ActorsInScene);
+	}
+
+	PopulateRootGraphWithSceneTree(sceneTree);
+	return;
+
+	std::vector<std::string> actors; // = { "camera", "sample_actor" };
+
+	for (auto actor : ActorsInScene)
+	{
+		actors.push_back(TCHAR_TO_UTF8(*actor->GetActorLabel()));
+	}
+
 	for (auto actor : actors)
 	{
 		FGuid actorId = FGuid::NewGuid();
 		actorNodes.push_back(
-			mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, actor.c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE NODES")
+			mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, actor.c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb).Union(), "UE5", 0, "ENGINE NODES")
 		);
 	}
 

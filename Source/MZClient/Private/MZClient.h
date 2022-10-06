@@ -30,7 +30,7 @@ void MemoryBarrier();
 #include "MZCustomTimeStep.h"
 
 #include <mzFlatBuffersCommon.h>
-
+#include "SceneTree.h"
 
 using MessageBuilder = flatbuffers::grpc::MessageBuilder;
 
@@ -87,11 +87,13 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Test action to test wheter debug menu works
 	 void TestAction();
 	 
+	 void PopulateRootGraphWithSceneTree(SceneTree sceneTree);
 
 protected: 
 	 //Carries the actor information of the scene
 	 //It is not guaranteed to have all the information at any time
 	 tbl<mz::fb::Node> RootGraph;
+	 mz::fb::TNode* TRootGraph;
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
