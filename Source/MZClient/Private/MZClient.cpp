@@ -116,6 +116,10 @@ public:
     {
     }
 
+	virtual void OnChildNodeSelected(mz::ChildNodeSelected const& nodeSelected) override
+	{
+	}
+
 	FMZClient* PluginClient;
     FGuid nodeId;
     std::atomic_bool shutdown = true;
