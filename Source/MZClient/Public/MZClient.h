@@ -6,7 +6,9 @@
 #include "Misc/MessageDialog.h"
 #include "Engine/TextureRenderTarget2D.h"
 #include <queue>
+#include "Containers/Queue.h"
 #include <map>
+#include "SceneTree.h"
 
 #include "mediaz.h"
 
@@ -43,6 +45,8 @@ static flatbuffers::grpc::Message<mz::app::AppEvent> MakeAppEvent(MessageBuilder
 	return msg;
 }
 
+#include <functional> 
+typedef std::function<void()> Task;
 
 /**
  * Implements communication with the MediaZ Engine
@@ -79,7 +83,10 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void SendNodeUpdate(FGuid nodeId); 
 	 
 	 //Fills the root graph with first level information (Only the names of the actors without parents) 
-	 void PopulateRootGraph();
+	 void PopulateSceneTree();
+
+	 //Fills the specified node information to the root graph
+	 void PopulateNode(FGuid nodeId);
 
 	 //Tick is called every frame once and handles the tasks queued from grpc threads
 	 bool Tick(float dt);
@@ -88,17 +95,26 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void TestAction();
 	 
 	 //Populate root graph using sceneTree 
-	 void PopulateRootGraphWithSceneTree(SceneTree sceneTree);
+	 //void PopulateRootGraphWithSceneTree();
 
+	 //Called when the level is initiated
 	 void OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues);
+
+	 //Called when the actor is selected on the mediaZ hierarchy pane
+	 void OnNodeSelected(FGuid nodeId);
 
 	 //Carries the actor information of the scene
 	 //It is not guaranteed to have all the information at any time
-	 tbl<mz::fb::Node> RootGraph;
-	 mz::fb::TNode* TRootGraph;
+	 //mz::fb::TNode* TRootGraph;
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
+
+	 //Task queue
+	 TQueue<Task, EQueueMode::Mpsc> TaskQueue;
+
+	 SceneTree sceneTree;
+
 protected: 
 
 };

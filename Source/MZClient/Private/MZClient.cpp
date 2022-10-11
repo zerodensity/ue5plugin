@@ -77,7 +77,7 @@ public:
         {
             nodeId = *(FGuid*)event.node()->id();
         }
-		memcpy(PluginClient->RootGraph->mutable_id()->mutable_bytes()->Data(), event.node()->id()->bytes()->Data(), event.node()->id()->bytes()->size());
+		PluginClient->sceneTree.Root->id = *(FGuid*)event.node()->id();
 		PluginClient->Connected();
     }
 
@@ -116,8 +116,12 @@ public:
     {
     }
 
-	virtual void OnChildNodeSelected(mz::ChildNodeSelected const& nodeSelected) override
+	virtual void OnChildNodeSelected(mz::ChildNodeSelected const& action) override
 	{
+		if (PluginClient)
+		{
+			PluginClient->OnNodeSelected(*(FGuid*)action.node_id());
+		}
 	}
 
 	FMZClient* PluginClient;
@@ -144,8 +148,11 @@ bool FMZClient::IsConnected()
 
 void FMZClient::Connected()
 {
-	//PopulateRootGraph();
-	SendNodeUpdate(Client->nodeId);
+	TaskQueue.Enqueue([&]()
+		{
+			PopulateSceneTree();
+			SendNodeUpdate(Client->nodeId);
+		});
 }
 
 void FMZClient::NodeRemoved() 
@@ -187,7 +194,7 @@ void FMZClient::InitConnection()
 
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
 {
-	PopulateRootGraph();
+	PopulateSceneTree();
 	if (Client)
 	{
 		SendNodeUpdate(Client->nodeId);
@@ -229,7 +236,7 @@ void FMZClient::StartupModule() {
 			FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().PopulateRootGraph,
-			FExecuteAction::CreateRaw(this, &FMZClient::PopulateRootGraph));
+			FExecuteAction::CreateRaw(this, &FMZClient::PopulateSceneTree));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().SendRootUpdate,
 			FExecuteAction::CreateLambda([=](){
@@ -270,6 +277,13 @@ void FMZClient::TestAction()
 bool FMZClient::Tick(float dt)
 {
     InitConnection();
+
+	while (!TaskQueue.IsEmpty()) {
+		Task task;
+		TaskQueue.Dequeue(task);
+		task();
+	}
+
 	return true;
 }
 
@@ -287,42 +301,11 @@ bool IsActorDisplayable(const AActor* Actor)
 		IsValidChecked(Actor);																// We don't want to show actors that are about to go away
 }
 
-flatbuffers::Offset<mz::fb::Node> CreateFBGraphRecursive(flatbuffers::FlatBufferBuilder& fbb, TreeNode* treeNode)
+void FMZClient::PopulateSceneTree() //Runs in game thread
 {
-	if (treeNode->Children.empty())
-	{
-		FGuid actorId = FGuid::NewGuid();
-		return 	mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, std::string(TCHAR_TO_UTF8(*treeNode->Name)).c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb).Union(), "UE5", 0, "ENGINE NODES");
-	}
+	sceneTree.Clear();
 
-	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes;
-
-	for (auto child : treeNode->Children)
-	{
-		childNodes.push_back(CreateFBGraphRecursive(fbb, child));
-	}
-
-	FGuid actorId = FGuid::NewGuid();
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&actorId, std::string(TCHAR_TO_UTF8(*treeNode->Name)).c_str(), "UE5.Actor", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, "ENGINE NODES");
-}
-
-void FMZClient::PopulateRootGraphWithSceneTree(SceneTree sceneTree)
-{
-	flatbuffers::FlatBufferBuilder fbb;
-	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes;
-	childNodes.push_back(CreateFBGraphRecursive(fbb, sceneTree.Root));
-
-	fbb.Finish(mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Client->nodeId, "UE5", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0));
-	RootGraph = fbb.Release();
-
-	TRootGraph = RootGraph->UnPack();
-}
-
-void FMZClient::PopulateRootGraph() //Runs in game thread
-{
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
-	
-	SceneTree sceneTree;
 
 	TArray<FString> names_experiment;
 
@@ -351,14 +334,22 @@ void FMZClient::PopulateRootGraph() //Runs in game thread
 				++ActorItr;
 				continue;
 			}
+			if (ActorItr->GetParentActor() || ActorItr->GetOwner() || ActorItr->GetAttachParentActor())
+			{
+				++ActorItr;
+				continue;
+			}
+
 			ActorsInScene.Add(*ActorItr);
 			names_experiment.Add(ActorItr->GetFolder().GetPath().ToString() + TEXT("/") + ActorItr->GetActorLabel());
-			sceneTree.AddItem(ActorItr->GetFolder().GetPath().ToString() + TEXT("/") + ActorItr->GetActorLabel());
+			ActorNode* newNode = sceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
+			if (newNode)
+			{
+				newNode->actor = *ActorItr;
+			}
 			++ActorItr;
 		}
 	}
-
- 	PopulateRootGraphWithSceneTree(sceneTree);
 }
 
 void FMZClient::SendNodeUpdate(FGuid nodeId)
@@ -368,24 +359,66 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		return;
 	}
 	
-	if (nodeId == *(FGuid*)RootGraph->id())
+	if (nodeId == sceneTree.Root->id)
 	{
 		MessageBuilder mb;
-		std::vector<flatbuffers::Offset<mz::fb::Node>> nodeFunctions;
-		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes;
-		std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-
-		for(auto child : *(RootGraph->contents_as_Graph()->nodes()))
-		{
-			graphNodes.push_back(mz::fb::CreateNode(mb, child->UnPack()));
-		}
+		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = sceneTree.Root->SerializeChildren(mb);
 
 		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, 0, 0, 0, 0, &graphNodes));
 		Client->Write(msg);
 	}
-	
 
+	auto val = sceneTree.nodeMap.Find(nodeId);
+	TreeNode* treeNode = val ? *val : nullptr;
+	if (!treeNode || treeNode->GetType() != FString("Actor"))
+	{
+		return;
+	}
+
+	MessageBuilder mb;
+	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = treeNode->SerializeChildren(mb);
+
+	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, 0, 0, 0, 0, &graphNodes));
+	Client->Write(msg);
+
+	
 	//Send list actors on the scene 
+}
+
+void FMZClient::OnNodeSelected(FGuid nodeId)
+{
+	//Enqueue a task that will update the selected node
+	TaskQueue.Enqueue([id = nodeId, client = this]()
+		{
+			client->PopulateNode(id);
+			client->SendNodeUpdate(id);
+		});
+}
+
+void FMZClient::PopulateNode(FGuid nodeId)
+{
+	auto val = sceneTree.nodeMap.Find(nodeId);
+	TreeNode* treeNode = val ? *val : nullptr;
+
+	if (!treeNode || treeNode->GetType() != FString("Actor"))
+	{
+		return;
+	}
+	ActorNode* actorNode = (ActorNode*)treeNode;
+
+	actorNode->Children.clear();
+
+	USceneComponent* rootComponent = actorNode->actor->GetRootComponent();
+	
+	ActorComponentNode* newComponentNode = new ActorComponentNode;
+	newComponentNode->actorComponent = rootComponent;
+	newComponentNode->id = FGuid::NewGuid();
+	newComponentNode->Name = rootComponent->GetFName().ToString();
+	newComponentNode->Parent = actorNode;
+	actorNode->Children.push_back(newComponentNode);
+	sceneTree.nodeMap.Add(newComponentNode->id, newComponentNode);
+
+	//actorNode->actor->GetComponents();
 }
 
 
