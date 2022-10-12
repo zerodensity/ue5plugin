@@ -218,7 +218,8 @@ void FMZClient::StartupModule() {
 	//Add Delegates
 	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
-
+	//actor spawn
+	//actor kill
 	//PopulateRootGraph();
 
 
@@ -298,7 +299,8 @@ bool IsActorDisplayable(const AActor* Actor)
 			(Actor->ActorHasTag(SequencerActorTag))) &&
 		!Actor->IsTemplate() &&																	// Should never happen, but we never want CDOs displayed
 		!Actor->IsA(AWorldSettings::StaticClass()) &&											// Don't show the WorldSettings actor, even though it is technically editable
-		IsValidChecked(Actor);																// We don't want to show actors that are about to go away
+		IsValidChecked(Actor);// &&																// We don't want to show actors that are about to go away
+		//!Actor->IsHidden();
 }
 
 void FMZClient::PopulateSceneTree() //Runs in game thread
@@ -334,7 +336,7 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 				++ActorItr;
 				continue;
 			}
-			if (ActorItr->GetParentActor() || ActorItr->GetOwner() || ActorItr->GetAttachParentActor())
+			if (ActorItr->GetParentActor() || ActorItr->GetSceneOutlinerParent())
 			{
 				++ActorItr;
 				continue;
@@ -409,6 +411,11 @@ void FMZClient::PopulateNode(FGuid nodeId)
 	actorNode->Children.clear();
 
 	USceneComponent* rootComponent = actorNode->actor->GetRootComponent();
+	
+	if (!rootComponent)
+	{
+		return;
+	}
 	
 	ActorComponentNode* newComponentNode = new ActorComponentNode;
 	newComponentNode->actorComponent = rootComponent;
