@@ -51,6 +51,7 @@ void SceneTree::ClearRecursive(TreeNode* node)
 
 ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
 {
+#if WITH_EDITOR
 	if (!actor)
 	{
 		return nullptr;
@@ -86,6 +87,9 @@ ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
 	}
 
 	return newChild;
+#else
+	return nullptr;
+#endif // WITH_EDITOR
 }
 
 ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)

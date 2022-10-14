@@ -30,6 +30,7 @@
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
 
+#if WITH_EDITOR
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
 {
 public:
@@ -42,23 +43,19 @@ public:
 			FEditorStyle::GetStyleSetName()
 			) {}
 
-	virtual void RegisterCommands() override;
+	virtual void RegisterCommands() override
+	{
+		UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
+	}
 
 public:
 	TSharedPtr<FUICommandInfo> TestCommand;
 	TSharedPtr<FUICommandInfo> PopulateRootGraph;
 	TSharedPtr<FUICommandInfo> SendRootUpdate;
 };
-
-void FMediaZPluginEditorCommands::RegisterCommands()
-{
-	UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
-	UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
-}
-
-
-
+#endif // WITH_EDITOR
 
 template <class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
 static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::FlatBufferBuilder& b, flatbuffers::Offset<T> event)
@@ -296,8 +293,10 @@ bool IsActorDisplayable(const AActor* Actor)
 	static const FName SequencerActorTag(TEXT("SequencerActor"));
 
 	return Actor &&
+#if WITH_EDITOR
 		Actor->IsEditable() &&																	// Only show actors that are allowed to be selected and drawn in editor
 		Actor->IsListedInSceneOutliner() &&
+#endif
 		(((Actor->GetWorld() && Actor->GetWorld()->IsPlayInEditor()) || !Actor->HasAnyFlags(RF_Transient)) ||
 			(Actor->ActorHasTag(SequencerActorTag))) &&
 		!Actor->IsTemplate() &&																	// Should never happen, but we never want CDOs displayed
@@ -308,6 +307,7 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZClient::PopulateSceneTree() //Runs in game thread
 {
+#if WITH_EDITOR
 	sceneTree.Clear();
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
@@ -363,6 +363,7 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 			}
 		}
 	}
+#endif //WITH_EDITOR
 }
 
 void FMZClient::SendNodeUpdate(FGuid nodeId)
@@ -440,7 +441,9 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 		{
 			// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
 			return (ActorComp != nullptr
+#if WITH_EDITOR
 				&& (!ActorComp->IsVisualizationComponent())
+#endif
 				&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !bHideConstructionScriptComponentsInDetailsView)
 				&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
 				&& (ActorComp->CreationMethod != EComponentCreationMethod::Native); //|| FComponentEditorUtils::GetPropertyForEditableNativeComponent(ActorComp));
