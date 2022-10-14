@@ -12,19 +12,23 @@
 
 #include "EngineUtils.h"
 
+#if WITH_EDITOR
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
 #include "ToolMenus.h"
 #include "EditorActorFolders.h"
+#include "SlateBasics.h"
+#include "EditorStyleSet.h"
+#endif //WITH_EDITOR
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 #pragma optimize("", off)
 
-#include "SlateBasics.h"
-#include "EditorStyleSet.h"
 
 #include "SceneTree.h"
+
+DEFINE_LOG_CATEGORY(LogMediaZ);
 
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
 {
@@ -71,8 +75,7 @@ public:
     {
         FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
 		
-		UE_LOG(LogTemp, Warning, TEXT("Connected to mzEngine"));
-
+		UE_LOG(LogMediaZ, Warning, TEXT("Connected to mzEngine"));
         if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
         {
             nodeId = *(FGuid*)event.node()->id();
@@ -311,6 +314,8 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 
 	TArray<FString> names_experiment;
 
+	// This code is commented out beacuse looks like folders does not exist in standalone mode || need further investigation
+	// 
 	//FActorFolders::Get().ForEachFolder(*World, [this, &World, &names_experiment, &sceneTree](const FFolder& Folder)
 	//{
 	//		names_experiment.Add(Folder.GetPath().ToString());
@@ -328,17 +333,24 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 	TArray<AActor*> ActorsInScene;
 	if (World)
 	{
-		TActorIterator< AActor > ActorItr = TActorIterator< AActor >(World);
-		while (ActorItr)
+		for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
 		{
-			if (!IsActorDisplayable(*ActorItr))
+			if (!IsActorDisplayable(*ActorItr) || ActorItr->GetParentActor())
 			{
-				++ActorItr;
 				continue;
 			}
-			if (ActorItr->GetParentActor() || ActorItr->GetSceneOutlinerParent())
+			AActor* parent = ActorItr->GetSceneOutlinerParent();
+
+			if (parent)
 			{
-				++ActorItr;
+				if (sceneTree.childMap.Contains(parent->GetActorGuid()))
+				{
+					sceneTree.childMap.Find(parent->GetActorGuid())->Add(*ActorItr);
+				}
+				else
+				{
+					sceneTree.childMap.FindOrAdd(parent->GetActorGuid()).Add(*ActorItr);
+				}
 				continue;
 			}
 
@@ -349,7 +361,6 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 			{
 				newNode->actor = *ActorItr;
 			}
-			++ActorItr;
 		}
 	}
 }
@@ -372,7 +383,7 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 
 	auto val = sceneTree.nodeMap.Find(nodeId);
 	TreeNode* treeNode = val ? *val : nullptr;
-	if (!treeNode || treeNode->GetType() != FString("Actor"))
+	if (!(treeNode))
 	{
 		return;
 	}
@@ -392,40 +403,141 @@ void FMZClient::OnNodeSelected(FGuid nodeId)
 	//Enqueue a task that will update the selected node
 	TaskQueue.Enqueue([id = nodeId, client = this]()
 		{
-			client->PopulateNode(id);
-			client->SendNodeUpdate(id);
+			if (client->PopulateNode(id))
+			{
+				client->SendNodeUpdate(id);
+			}
 		});
 }
 
-void FMZClient::PopulateNode(FGuid nodeId)
+bool FMZClient::PopulateNode(FGuid nodeId)
 {
 	auto val = sceneTree.nodeMap.Find(nodeId);
 	TreeNode* treeNode = val ? *val : nullptr;
 
-	if (!treeNode || treeNode->GetType() != FString("Actor"))
+	if (!treeNode || !treeNode->needsReload)
 	{
-		return;
+		return false;
 	}
-	ActorNode* actorNode = (ActorNode*)treeNode;
-
-	actorNode->Children.clear();
-
-	USceneComponent* rootComponent = actorNode->actor->GetRootComponent();
-	
-	if (!rootComponent)
+	if (treeNode->GetAsActorNode())
 	{
-		return;
-	}
-	
-	ActorComponentNode* newComponentNode = new ActorComponentNode;
-	newComponentNode->actorComponent = rootComponent;
-	newComponentNode->id = FGuid::NewGuid();
-	newComponentNode->Name = rootComponent->GetFName().ToString();
-	newComponentNode->Parent = actorNode;
-	actorNode->Children.push_back(newComponentNode);
-	sceneTree.nodeMap.Add(newComponentNode->id, newComponentNode);
+		ActorNode* actorNode = (ActorNode*)treeNode;
+		actorNode->Children.clear();
+		USceneComponent* rootComponent = actorNode->actor->GetRootComponent();
 
-	//actorNode->actor->GetComponents();
+		auto unattachedChildsPtr = sceneTree.childMap.Find(actorNode->id);
+		TSet<AActor*> unattachedChilds = unattachedChildsPtr ? *unattachedChildsPtr : TSet<AActor*>();
+		for (auto child : unattachedChilds)
+		{
+			sceneTree.AddActor(actorNode, child);
+		}
+
+		AActor* ActorContext = actorNode->actor;
+		TSet<UActorComponent*> ComponentsToAdd(ActorContext->GetComponents());
+
+		const bool bHideConstructionScriptComponentsInDetailsView = false; //GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView;
+		auto ShouldAddInstancedActorComponent = [bHideConstructionScriptComponentsInDetailsView](UActorComponent* ActorComp, USceneComponent* ParentSceneComp)
+		{
+			// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
+			return (ActorComp != nullptr
+				&& (!ActorComp->IsVisualizationComponent())
+				&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !bHideConstructionScriptComponentsInDetailsView)
+				&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
+				&& (ActorComp->CreationMethod != EComponentCreationMethod::Native); //|| FComponentEditorUtils::GetPropertyForEditableNativeComponent(ActorComp));
+		};
+
+		// Filter the components by their visibility
+		for (TSet<UActorComponent*>::TIterator It(ComponentsToAdd.CreateIterator()); It; ++It)
+		{
+			UActorComponent* ActorComp = *It;
+			USceneComponent* SceneComp = Cast<USceneComponent>(ActorComp);
+			USceneComponent* ParentSceneComp = SceneComp != nullptr ? SceneComp->GetAttachParent() : nullptr;
+			if (!ShouldAddInstancedActorComponent(ActorComp, ParentSceneComp))
+			{
+				It.RemoveCurrent();
+			}
+		}
+
+		TArray<SceneComponentNode*> OutArray;
+
+
+		TFunction<void(USceneComponent*, TreeNode*)> AddInstancedComponentsRecursive = [&, this](USceneComponent* Component, TreeNode* ParentHandle)
+		{
+			if (Component != nullptr)
+			{
+				for (USceneComponent* ChildComponent : Component->GetAttachChildren())
+				{
+					if (ComponentsToAdd.Contains(ChildComponent) && ChildComponent->GetOwner() == Component->GetOwner())
+					{
+						ComponentsToAdd.Remove(ChildComponent);
+						SceneComponentNode* NewParentHandle = nullptr;
+						if (ParentHandle->GetAsActorNode())
+						{
+							NewParentHandle = this->sceneTree.AddSceneComponent(ParentHandle->GetAsActorNode(), ChildComponent);
+						}
+						else if (ParentHandle->GetAsSceneComponentNode())
+						{
+							NewParentHandle = this->sceneTree.AddSceneComponent(ParentHandle->GetAsSceneComponentNode(), ChildComponent);
+						}
+						if (!NewParentHandle)
+						{
+							UE_LOG(LogMediaZ, Error, TEXT("A Child node other than actor or component is present!"));
+							continue;
+						}
+						NewParentHandle->Children.clear();
+						OutArray.Add(NewParentHandle);
+
+						AddInstancedComponentsRecursive(ChildComponent, NewParentHandle);
+					}
+				}
+			}
+		};
+
+		USceneComponent* RootComponent = ActorContext->GetRootComponent();
+
+		// Add the root component first
+		if (RootComponent != nullptr)
+		{
+			// We want this to be first every time, so remove it from the set of components that will be added later
+			ComponentsToAdd.Remove(RootComponent);
+
+			// Add the root component first
+			SceneComponentNode* RootHandle = sceneTree.AddSceneComponent(actorNode, RootComponent);
+			// Clear the loading child
+			RootHandle->Children.clear();
+			
+			OutArray.Add(RootHandle);
+
+			// Recursively add
+			AddInstancedComponentsRecursive(RootComponent, RootHandle);
+		}
+
+		// Sort components by type (always put scene components first in the tree)
+		ComponentsToAdd.Sort([](const UActorComponent& A, const UActorComponent& /* B */)
+			{
+				return A.IsA<USceneComponent>();
+			});
+
+		// Now add any remaining instanced owned components not already added above. This will first add any
+		// unattached scene components followed by any instanced non-scene components owned by the Actor instance.
+		for (UActorComponent* ActorComp : ComponentsToAdd)
+		{
+			// Create new subobject data with the original data as their parent.
+			//OutArray.Add(sceneTree.AddSceneComponent(componentNode, ActorComp)); //TODO scene tree add actor components
+		}
+
+		treeNode->needsReload = false;
+		return true;
+	}
+	else if (treeNode->GetAsSceneComponentNode())
+	{
+
+		treeNode->needsReload = false;
+		return true;
+	}
+
+	
+	return false;
 }
 
 

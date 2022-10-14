@@ -12,9 +12,9 @@ FolderNode* SceneTree::FindOrAddChildFolder(TreeNode* node, FString name)
 {
 	for (auto child : node->Children)
 	{
-		if (child->Name == name && child->GetType() == FString("Folder"))
+		if (child->Name == name && child->GetAsFolderNode())
 		{
-			return (FolderNode*)child;
+			return child->GetAsFolderNode();
 		}
 	}
 	FolderNode* newChild = new FolderNode;
@@ -72,23 +72,99 @@ ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
 	newChild->Name = actor->GetActorLabel();
 	newChild->id = actor->GetActorGuid();
 	newChild->actor = actor;
+	newChild->needsReload = true;
 	ptr->Children.push_back(newChild);
 	nodeMap.Add(newChild->id, newChild);
 
-	ActorComponentNode* loadingChild = new ActorComponentNode;
-	loadingChild->Name = "Loading...";
-	loadingChild->id = FGuid::NewGuid();
-	loadingChild->Parent = newChild;
-	newChild->Children.push_back(loadingChild);
+	if (actor->GetRootComponent())
+	{
+		SceneComponentNode* loadingChild = new SceneComponentNode;
+		loadingChild->Name = "Loading...";
+		loadingChild->id = FGuid::NewGuid();
+		loadingChild->Parent = newChild;
+		newChild->Children.push_back(loadingChild);
+	}
 
 	return newChild;
+}
+
+ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)
+{
+	if (!actor)
+	{
+		return nullptr;
+	}
+	if (!parent)
+	{
+		parent = Root;
+	}
+
+	ActorNode* newChild = new ActorNode;
+	newChild->Parent = parent;
+	newChild->Name = actor->GetActorLabel();
+	newChild->id = actor->GetActorGuid();
+	newChild->actor = actor;
+	newChild->needsReload = true;
+	parent->Children.push_back(newChild);
+	nodeMap.Add(newChild->id, newChild);
+
+	if (actor->GetRootComponent())
+	{
+		SceneComponentNode* loadingChild = new SceneComponentNode;
+		loadingChild->Name = "Loading...";
+		loadingChild->id = FGuid::NewGuid();
+		loadingChild->Parent = newChild;
+		newChild->Children.push_back(loadingChild);
+	}
+
+	return newChild;
+}
+
+SceneComponentNode* SceneTree::AddSceneComponent(ActorNode* parent, USceneComponent* sceneComponent)
+{
+	SceneComponentNode* newComponentNode = new SceneComponentNode;
+	newComponentNode->sceneComponent = sceneComponent;
+	newComponentNode->id = FGuid::NewGuid();
+	newComponentNode->Name = sceneComponent->GetFName().ToString();
+	newComponentNode->Parent = parent;
+	newComponentNode->needsReload = true;
+	parent->Children.push_back(newComponentNode);
+	nodeMap.Add(newComponentNode->id, newComponentNode);
+
+	SceneComponentNode* loadingChild = new SceneComponentNode;
+	loadingChild->Name = "Loading...";
+	loadingChild->id = FGuid::NewGuid();
+	loadingChild->Parent = newComponentNode;
+	newComponentNode->Children.push_back(loadingChild);
+
+	return newComponentNode;
+}
+
+SceneComponentNode* SceneTree::AddSceneComponent(SceneComponentNode* parent, USceneComponent* sceneComponent)
+{
+	SceneComponentNode* newComponentNode = new SceneComponentNode;
+	newComponentNode->sceneComponent = sceneComponent;
+	newComponentNode->id = FGuid::NewGuid();
+	newComponentNode->Name = sceneComponent->GetFName().ToString();
+	newComponentNode->Parent = parent;
+	newComponentNode->needsReload = true;
+	parent->Children.push_back(newComponentNode);
+	nodeMap.Add(newComponentNode->id, newComponentNode);
+
+	SceneComponentNode* loadingChild = new SceneComponentNode;
+	loadingChild->Name = "Loading...";
+	loadingChild->id = FGuid::NewGuid();
+	loadingChild->Parent = newComponentNode;
+	newComponentNode->Children.push_back(loadingChild);
+
+	return newComponentNode;
 }
 
 
 flatbuffers::Offset<mz::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetType()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
 }
 
 std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatbuffers::FlatBufferBuilder& fbb)

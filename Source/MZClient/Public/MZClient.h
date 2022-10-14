@@ -7,6 +7,7 @@
 #include "Engine/TextureRenderTarget2D.h"
 #include <queue>
 #include "Containers/Queue.h"
+#include "Logging/LogMacros.h"
 #include <map>
 #include "SceneTree.h"
 
@@ -48,6 +49,7 @@ static flatbuffers::grpc::Message<mz::app::AppEvent> MakeAppEvent(MessageBuilder
 #include <functional> 
 typedef std::function<void()> Task;
 
+DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
 /**
  * Implements communication with the MediaZ Engine
  */
@@ -86,7 +88,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void PopulateSceneTree();
 
 	 //Fills the specified node information to the root graph
-	 void PopulateNode(FGuid nodeId);
+	 bool PopulateNode(FGuid nodeId);
 
 	 //Tick is called every frame once and handles the tasks queued from grpc threads
 	 bool Tick(float dt);
