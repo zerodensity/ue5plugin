@@ -116,7 +116,7 @@ public:
     {
     }
 
-	virtual void OnChildNodeSelected(mz::ChildNodeSelected const& action) override
+	virtual void OnNodeSelected(mz::NodeSelected const& action) override
 	{
 		if (PluginClient)
 		{
