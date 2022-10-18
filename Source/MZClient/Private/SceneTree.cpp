@@ -171,6 +171,25 @@ flatbuffers::Offset<mz::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBui
 	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
 }
 
+flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+{
+	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
+}
+
+std::vector<flatbuffers::Offset<mz::fb::Pin>> ActorNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
+{
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
+	for (auto mzprop : Properties)
+	{
+		pins.push_back(mzprop->Serialize(fbb));
+	}
+	return pins;
+}
+
+
+
 std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes;

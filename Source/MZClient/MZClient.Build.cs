@@ -100,11 +100,14 @@ public class MZClient : ModuleRules
 				PrivateDependencyModuleNames.Add("Slate");
 				PrivateDependencyModuleNames.Add("EditorStyle");
 				PrivateDependencyModuleNames.Add("ToolMenus");
+				//PublicDependencyModuleNames.Add("PropertyEditor");
+
 			}
 
 			PrivateDependencyModuleNames.AddRange(
 				new string[]
 				{
+					
 					"Core",
 					"CoreUObject",
 					"Engine",
@@ -116,6 +119,8 @@ public class MZClient : ModuleRules
 					"D3D12RHI",
 					"VulkanRHI",
 					"AssetRegistry",
+					"Slate",
+					"SlateCore",
 				}
 				);
 
@@ -130,7 +135,8 @@ public class MZClient : ModuleRules
                 new string[]{
 						//required for "D3D12RHIPrivate.h"
 						Path.Combine(EngineDirectory, "Source/Runtime/D3D12RHI/Private"),
-                });
+						System.IO.Path.Combine(EngineDirectory,"Source/Editor/PropertyEditor/Private"),
+				});
 
 
         }

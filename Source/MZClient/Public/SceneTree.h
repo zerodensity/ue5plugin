@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "MZActorProperties.h"
 #include <vector>
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
@@ -27,7 +28,7 @@ struct TreeNode {
 	bool needsReload = true;
 	std::vector<TreeNode*> Children;
 
-	flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
+	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Node>> SerializeChildren(flatbuffers::FlatBufferBuilder& fbb);
 
 };
@@ -35,8 +36,11 @@ struct TreeNode {
 struct ActorNode : TreeNode
 {
 	AActor* actor = nullptr;
+	std::vector<MZProperty*> Properties;
 	virtual FString GetClassDisplayName() override { return actor ? actor->GetClass()->GetFName().ToString() : "Actor"; };
 	virtual ActorNode* GetAsActorNode() override { return this; };
+	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
 
 };
 

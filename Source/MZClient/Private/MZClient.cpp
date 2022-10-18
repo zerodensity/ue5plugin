@@ -25,10 +25,16 @@
 
 #pragma optimize("", off)
 
+#include "ObjectEditorUtils.h"
+#include "EditorCategoryUtils.h"
+
 
 #include "SceneTree.h"
+#include "MZActorProperties.h"
+#include "MZActorFunctions.h"
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
+#define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
 
 #if WITH_EDITOR
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
@@ -76,25 +82,41 @@ public:
         if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
         {
             nodeId = *(FGuid*)event.node()->id();
+			PluginClient->sceneTree.Root->id = *(FGuid*)event.node()->id();
+			PluginClient->Connected();
         }
-		PluginClient->sceneTree.Root->id = *(FGuid*)event.node()->id();
-		PluginClient->Connected();
     }
 
     virtual void OnNodeUpdate(mz::NodeUpdated const& archive) override
     {
+		LOG("Node update from mediaz");
+		if (!nodeId.IsValid())
+		{
+			if (flatbuffers::IsFieldPresent(&archive, mz::NodeUpdated::VT_NODE))
+			{
+				nodeId = *(FGuid*)archive.node()->id();
+				PluginClient->sceneTree.Root->id = *(FGuid*)archive.node()->id();
+				PluginClient->Connected();
+			}
+		}
     }
 
     virtual void OnMenuFired(mz::ContextMenuRequest const& request) override
     {
+		LOG("Menu fired from mediaz");
+
     }
 
     void OnTextureCreated(mz::fb::Texture const& texture)
     {
+		LOG("Texture created from mediaz");
+
     }
 
     virtual void Done(grpc::Status const& Status) override
     {
+		LOG("Connection with mediaz is finished.");
+
 		PluginClient->Disconnected();
 		shutdown = true;
 		nodeId = {};
@@ -102,14 +124,18 @@ public:
 
     virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
     {
+		LOG("Plugin node removed from mediaz");
+		nodeId = {};
     }
 
     virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
     {
+		LOG("Pin show as changed from mediaz");
     }
 
     virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
     {
+		LOG("Function called from mediaz");
     }
 
 	virtual void OnExecute(mz::app::AppExecute const& aE) override
@@ -118,6 +144,7 @@ public:
 
 	virtual void OnNodeSelected(mz::NodeSelected const& action) override
 	{
+		LOG("Node selected from mediaz");
 		if (PluginClient)
 		{
 			PluginClient->OnNodeSelected(*(FGuid*)action.node_id());
@@ -189,7 +216,7 @@ void FMZClient::InitConnection()
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
     Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
 	Client->PluginClient = this;
-	//SendNodeUpdate(Client->nodeId);
+	LOG("AppClient instance is created");
 }
 
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
@@ -314,7 +341,7 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 
 	TArray<FString> names_experiment;
 
-	// This code is commented out beacuse looks like folders does not exist in standalone mode || need further investigation
+	// This code is commented out beacuse looks like folders does not exist in standalone mode || needs further investigation
 	// 
 	//FActorFolders::Get().ForEachFolder(*World, [this, &World, &names_experiment, &sceneTree](const FFolder& Folder)
 	//{
@@ -391,8 +418,13 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 
 	MessageBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = treeNode->SerializeChildren(mb);
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+	if (treeNode->GetAsActorNode())
+	{
+		graphPins = treeNode->GetAsActorNode()->SerializePins(mb);
+	}
 
-	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, 0, 0, 0, 0, &graphNodes));
+	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, &graphPins, 0, 0, 0, &graphNodes));
 	Client->Write(msg);
 
 	
@@ -423,6 +455,59 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 	if (treeNode->GetAsActorNode())
 	{
 		ActorNode* actorNode = (ActorNode*)treeNode;
+
+		//experiment
+
+		auto ActorClass = actorNode->actor->GetClass();
+		class FProperty* Sroperty = ActorClass->PropertyLink;
+		TArray<FName> PropertyNames;
+		while (Sroperty != nullptr)
+		{
+			FName CategoryName = FObjectEditorUtils::GetCategoryFName(Sroperty);
+
+			UClass* Class = ActorClass;
+
+			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()))
+			{
+				Sroperty = Sroperty->PropertyLinkNext;
+				continue;
+			}
+
+			PropertyNames.Add(Sroperty->GetFName());
+			MZProperty* mzprop = new MZProperty(actorNode->actor, Sroperty);
+			actorNode->Properties.push_back(mzprop);
+			Sroperty = Sroperty->PropertyLinkNext;
+		}
+
+		auto Components = actorNode->actor->GetComponents();
+		for (auto Component : Components)
+		{
+			auto ComponentClass = Component->GetClass();
+
+			if (Component->IsEditorOnly())
+			{
+				continue;
+			}
+
+			for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
+			{
+				FName CategoryName = FObjectEditorUtils::GetCategoryFName(Property);
+
+				UClass* Class = ActorClass;
+				
+				if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()))
+				{
+					continue;
+				}
+				
+				MZProperty* mzprop = new MZProperty(actorNode->actor, Property);
+				actorNode->Properties.push_back(mzprop);
+				PropertyNames.Add(Property->GetFName());
+			}
+		}
+		LOG("Getting property experiment is over.");
+		//end experiment
+
 		actorNode->Children.clear();
 		USceneComponent* rootComponent = actorNode->actor->GetRootComponent();
 
@@ -482,6 +567,8 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 						{
 							NewParentHandle = this->sceneTree.AddSceneComponent(ParentHandle->GetAsSceneComponentNode(), ChildComponent);
 						}
+
+
 						if (!NewParentHandle)
 						{
 							UE_LOG(LogMediaZ, Error, TEXT("A Child node other than actor or component is present!"));
