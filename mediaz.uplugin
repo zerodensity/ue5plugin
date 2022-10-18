@@ -19,7 +19,7 @@
 	"Modules": [
 		{
 			"Name": "MZClient",
-			"Type": "Editor",
+			"Type": "Runtime",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [ "Win64" ]
 		}
