@@ -83,6 +83,8 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Sends node updates to the MediaZ
 	 void SendNodeUpdate(FGuid nodeId); 
+
+	 void SendPinUpdate();
 	 
 	 //Fills the root graph with first level information (Only the names of the actors without parents) 
 	 void PopulateSceneTree();
@@ -107,6 +109,8 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Called when the actor is selected on the mediaZ hierarchy pane
 	 void OnNodeSelected(FGuid nodeId);
 
+	 void OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs);
+
 	 //Carries the actor information of the scene
 	 //It is not guaranteed to have all the information at any time
 	 //mz::fb::TNode* TRootGraph;
@@ -120,7 +124,11 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Scene tree holds the information to mimic the outliner in mediaz
 	 SceneTree sceneTree;
 
+	 //all the properties registered 
 	 TMap<FGuid, MZProperty*> RegisteredProperties;
+
+	 //in/out pins of the mediaz node
+	 TMap<FGuid, MZProperty*> Pins;
 
 protected: 
 

@@ -140,6 +140,10 @@ public:
     virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
     {
 		LOG("Pin show as changed from mediaz");
+		if (PluginClient)
+		{
+			PluginClient->OnPinShowAsChanged(*(FGuid*)action.pin_id(), action.show_as());
+		}
     }
 
     virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
@@ -431,7 +435,7 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		MessageBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = sceneTree.Root->SerializeChildren(mb);
 
-		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, 0, 0, 0, 0, &graphNodes));
+		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, 0, 0, 0, 0, &graphNodes));
 		Client->Write(msg);
 	}
 
@@ -450,11 +454,32 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		graphPins = treeNode->GetAsActorNode()->SerializePins(mb);
 	}
 
-	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, true, 0, &graphPins, 0, 0, 0, &graphNodes));
+	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, 0, 0, &graphNodes));
 	Client->Write(msg);
 
 	
 	//Send list actors on the scene 
+}
+
+void FMZClient::SendPinUpdate() //runs in game thread
+{
+	if (!Client || !Client->nodeId.IsValid())
+	{
+		return;
+	}
+
+	auto nodeId = Client->nodeId;
+
+	MessageBuilder mb;
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+	for (auto [_, pin] : Pins)
+	{
+		graphPins.push_back(pin->Serialize(mb));
+	}
+
+	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0));
+	Client->Write(msg);
+	
 }
 
 void FMZClient::OnNodeSelected(FGuid nodeId)
@@ -465,6 +490,31 @@ void FMZClient::OnNodeSelected(FGuid nodeId)
 			if (client->PopulateNode(id))
 			{
 				client->SendNodeUpdate(id);
+			}
+		});
+}
+
+void FMZClient::OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs)
+{
+	TaskQueue.Enqueue([this, nodeId, newShowAs]()
+		{
+			if (Pins.Contains(nodeId))
+			{
+				auto mzprop = Pins.FindRef(nodeId);
+				mzprop->PinShowAs = newShowAs;
+				SendPinUpdate();
+			}
+			else if(RegisteredProperties.Contains(nodeId))
+			{
+				
+				auto mzprop = RegisteredProperties.FindRef(nodeId);
+				mzprop->PinShowAs = newShowAs;
+				Pins.Add(mzprop->id, mzprop);
+				SendPinUpdate();
+			}
+			else
+			{
+				LOG("Property with given id is not found.");
 			}
 		});
 }

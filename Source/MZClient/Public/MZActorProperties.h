@@ -25,6 +25,7 @@ struct MZProperty {
 	std::string TypeName;
 	FGuid id;
 	std::vector<uint8_t> data;
+	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
 
 
 
