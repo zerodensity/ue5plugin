@@ -10,6 +10,8 @@
 struct MZProperty {
 
 	MZProperty(UObject* container, FProperty* uproperty);
+
+	void SetValue(void* val, size_t size);
 	flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;

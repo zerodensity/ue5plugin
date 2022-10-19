@@ -95,6 +95,8 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Test action to test wheter debug menu works
 	 void TestAction();
+
+	 void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 	 
 	 //Populate root graph using sceneTree 
 	 //void PopulateRootGraphWithSceneTree();
@@ -115,7 +117,10 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Task queue
 	 TQueue<Task, EQueueMode::Mpsc> TaskQueue;
 
+	 //Scene tree holds the information to mimic the outliner in mediaz
 	 SceneTree sceneTree;
+
+	 TMap<FGuid, MZProperty*> RegisteredProperties;
 
 protected: 
 

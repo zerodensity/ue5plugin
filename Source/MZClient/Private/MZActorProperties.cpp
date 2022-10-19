@@ -33,6 +33,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty)
 
 	IsAdvanced = uproperty->HasAllPropertyFlags(CPF_AdvancedDisplay);
 
+	
 
 	if (uproperty->IsA(FFloatProperty::StaticClass())){ //todo data
 		data = std::vector<uint8_t>(4, 0);
@@ -79,15 +80,23 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty)
 		TypeName = "bool";
 	}
 	else if (uproperty->IsA(FEnumProperty::StaticClass())) { //todo data
-		data = std::vector<uint8_t>(1, 0);
+		// how to iterate enums__??
 		TypeName = "string";
 	}
 	else if (uproperty->IsA(FTextProperty::StaticClass())) { //todo data
-		data = std::vector<uint8_t>(1, 0);
+		FString val = Property->ContainerPtrToValuePtr<FText>(container)->ToString();
+		auto s = StringCast<ANSICHAR>(*val);
+		data = std::vector<uint8_t>(s.Length() + 1, 0);
+		memcpy(data.data(), s.Get(), s.Length());
+
 		TypeName = "string";
 	}
 	else if (uproperty->IsA(FNameProperty::StaticClass())) { //todo data
-		data = std::vector<uint8_t>(1, 0);
+		FString val = Property->ContainerPtrToValuePtr<FName>(container)->ToString();
+		auto s = StringCast<ANSICHAR>(*val);
+		data = std::vector<uint8_t>(s.Length() + 1, 0);
+		memcpy(data.data(), s.Get(), s.Length());
+
 		TypeName = "string";
 	}
 	//else if (uproperty->IsA(FArrayProperty::StaticClass())) { //Not supported by mediaz
@@ -99,18 +108,18 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty)
 
 		if (StructProp->Struct == TBaseStructure<FVector>::Get() || StructProp->Struct == TBaseStructure<FRotator>::Get()) //todo data
 		{
-			data = std::vector<uint8_t>(12, 0);
-			TypeName = "vec3";
+			data = std::vector<uint8_t>(sizeof(FVector), 0);
+			TypeName = "mz.fb.vec3d";
 		}
-		else if (StructProp->Struct == TBaseStructure<FVector4>::Get() || StructProp->Struct == TBaseStructure<FVector4>::Get()) //todo data
+		else if (StructProp->Struct == TBaseStructure<FVector4>::Get() || StructProp->Struct == TBaseStructure<FQuat>::Get()) //todo data
 		{
-			data = std::vector<uint8_t>(16, 0);
-			TypeName = "vec4";
+			data = std::vector<uint8_t>(sizeof(FVector4), 0);
+			TypeName = "mz.fb.vec4d";
 		}
 		else if (StructProp->Struct == TBaseStructure<FVector2D>::Get()) //todo data
 		{
-			data = std::vector<uint8_t>(8, 0);
-			TypeName = "vec42";
+			data = std::vector<uint8_t>(sizeof(FVector2D), 0);
+			TypeName = "mz.fb.vec2d";
 		}
 		else if (StructProp->Struct == TBaseStructure<FTransform>::Get()) //todo everything
 		{
@@ -125,6 +134,28 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty)
 	else{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "mz.fb.Void";
+	}
+
+	if (TypeName != "mz.fb.Void" && TypeName != "string")
+	{
+		void* val = Property->ContainerPtrToValuePtr< void >(container);
+		memcpy(data.data(), val, data.size());
+	}
+
+}
+
+void MZProperty::SetValue(void* newval, size_t size) //called from game thread*
+{
+	if (TypeName != "mz.fb.Void" && TypeName != "string")
+	{
+		void* val = Property->ContainerPtrToValuePtr< void >(Container);
+		memcpy(val, newval, size);
+	}
+
+	if (UActorComponent* Component = Cast<UActorComponent>(Container))
+	{
+		Component->MarkRenderStateDirty();
+		Component->UpdateComponentToWorld();
 	}
 }
 

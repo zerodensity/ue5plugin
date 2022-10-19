@@ -128,6 +128,15 @@ public:
 		nodeId = {};
     }
 
+	virtual void OnPinValueChanged(mz::PinValueChanged const& action) override
+	{
+		LOG("Pin value changed from mediaz editor");
+		if (PluginClient)
+		{
+			PluginClient->SetPropertyValue(*(FGuid*)action.pin_id(), (void*)action.value()->data(), action.value()->size());
+		}
+	}
+
     virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
     {
 		LOG("Pin show as changed from mediaz");
@@ -167,6 +176,23 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(mz::fb::Node const& archive)
 }
 
 FMZClient::FMZClient() {}
+
+void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
+{
+	if (!RegisteredProperties.Contains(pinId))
+	{
+		LOG("The property with given id is not found.");
+		return;
+	}
+
+	MZProperty* mzprop = RegisteredProperties.FindRef(pinId);
+	
+	TaskQueue.Enqueue([mzprop, newval, size]()
+		{
+			mzprop->SetValue(newval, size);
+		});
+}
+
 
 bool FMZClient::IsConnected()
 {
@@ -475,6 +501,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 			PropertyNames.Add(Sroperty->GetFName());
 			MZProperty* mzprop = new MZProperty(actorNode->actor, Sroperty);
+			RegisteredProperties.Add(mzprop->id, mzprop);
 			actorNode->Properties.push_back(mzprop);
 			Sroperty = Sroperty->PropertyLinkNext;
 		}
@@ -500,7 +527,8 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 					continue;
 				}
 				
-				MZProperty* mzprop = new MZProperty(actorNode->actor, Property);
+				MZProperty* mzprop = new MZProperty(Component, Property);
+				RegisteredProperties.Add(mzprop->id, mzprop);
 				actorNode->Properties.push_back(mzprop);
 				PropertyNames.Add(Property->GetFName());
 			}
