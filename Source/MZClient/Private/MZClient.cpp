@@ -212,11 +212,6 @@ void FMZClient::Connected()
 		});
 }
 
-void FMZClient::NodeRemoved() 
-{
-    Client->nodeId = {};
-}
-
 void FMZClient::Disconnected() 
 {
     Client->nodeId = {};
@@ -434,9 +429,15 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 	{
 		MessageBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = sceneTree.Root->SerializeChildren(mb);
+		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+		for (auto [_, pin] : Pins)
+		{
+			graphPins.push_back(pin->Serialize(mb));
+		}
 
-		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, 0, 0, 0, 0, &graphNodes));
+		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, 0, 0, &graphNodes));
 		Client->Write(msg);
+		return;
 	}
 
 	auto val = sceneTree.nodeMap.Find(nodeId);

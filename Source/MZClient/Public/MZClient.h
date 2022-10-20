@@ -76,7 +76,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 virtual bool IsConnected();
 
 	 //This function is called when the Unreal Engine node is removed from the MediaZ engine
-	 virtual void NodeRemoved();
+	 //virtual void NodeRemoved();
 
 	 //Tries to initialize connection with the MediaZ engine
 	 void InitConnection();
