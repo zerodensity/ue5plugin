@@ -319,7 +319,11 @@ void FMZClient::StartupModule() {
 
 void FMZClient::ShutdownModule() 
 {
+
+#if WITH_EDITOR
 	FMediaZPluginEditorCommands::Unregister();
+#endif //WITH_EDITOR
+
 }
 
 void FMZClient::TestAction()
