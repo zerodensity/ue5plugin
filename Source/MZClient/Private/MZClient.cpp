@@ -11,6 +11,7 @@
 #include "AssetRegistry/ARFilter.h"
 
 #include "EngineUtils.h"
+#include "GenericPlatform/GenericPlatformMemory.h"
 
 #if WITH_EDITOR
 #include "LevelEditor.h"
@@ -149,6 +150,10 @@ public:
     virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
     {
 		LOG("Function called from mediaz");
+		if (PluginClient)
+		{
+			//PluginClient->OnFunctionCall(*(FGuid*)action.function()->id(), ParsePins(action.function()));
+		}
     }
 
 	virtual void OnExecute(mz::app::AppExecute const& aE) override
@@ -317,7 +322,7 @@ void FMZClient::StartupModule() {
 #endif //WITH_EDITOR
 }
 
-void FMZClient::ShutdownModule() 
+void FMZClient::ShutdownModule()  
 {
 
 #if WITH_EDITOR
@@ -368,21 +373,6 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
-	TArray<FString> names_experiment;
-
-	// This code is commented out beacuse looks like folders does not exist in standalone mode || needs further investigation
-	// 
-	//FActorFolders::Get().ForEachFolder(*World, [this, &World, &names_experiment, &sceneTree](const FFolder& Folder)
-	//{
-	//		names_experiment.Add(Folder.GetPath().ToString());
-	//		sceneTree.AddItem(Folder.GetPath().ToString());
-	//		//if (FSceneOutlinerTreeItemPtr FolderItem = Mode->CreateItemFor<FActorFolderTreeItem>(FActorFolderTreeItem(Folder, World)))
-	//		//{
-	//		//	OutItems.Add(FolderItem);
-	//		//}
-	//		return true;
-	//});
-
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
 
@@ -411,7 +401,6 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 			}
 
 			ActorsInScene.Add(*ActorItr);
-			names_experiment.Add(ActorItr->GetFolder().GetPath().ToString() + TEXT("/") + ActorItr->GetActorLabel());
 			ActorNode* newNode = sceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
 			if (newNode)
 			{
@@ -438,7 +427,6 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		{
 			graphPins.push_back(pin->Serialize(mb));
 		}
-
 		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, 0, 0, &graphNodes));
 		Client->Write(msg);
 		return;
@@ -458,11 +446,17 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 	{
 		graphPins = treeNode->GetAsActorNode()->SerializePins(mb);
 	}
-
-	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, 0, 0, &graphNodes));
+	std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions; 
+	if (treeNode->GetAsActorNode())
+	{
+		for (auto mzfunc : treeNode->GetAsActorNode()->Functions)
+		{
+			graphFunctions.push_back(mzfunc->Serialize(mb));
+		}
+	}
+	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
 	Client->Write(msg);
 
-	
 	//Send list actors on the scene 
 }
 
@@ -481,7 +475,6 @@ void FMZClient::SendPinUpdate() //runs in game thread
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
-
 	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0));
 	Client->Write(msg);
 	
@@ -524,6 +517,52 @@ void FMZClient::OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs)
 		});
 }
 
+void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, const mz::fb::Pin*>& properties)
+{
+	TaskQueue.Enqueue([this, funcId, properties]()
+		{
+			if (RegisteredFunctions.Contains(funcId))
+			{
+				auto mzfunc = RegisteredFunctions.FindRef(funcId);
+				uint8* Parms = (uint8*)FMemory_Alloca_Aligned(mzfunc->Function->ParmsSize, mzfunc->Function->GetMinAlignment());
+				mzfunc->Parameters = Parms;
+				FMemory::Memzero(Parms, mzfunc->Function->ParmsSize);
+
+				for (TFieldIterator<FProperty> It(mzfunc->Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+				{
+					FProperty* LocalProp = *It;
+					checkSlow(LocalProp);
+					if (!LocalProp->HasAnyPropertyFlags(CPF_ZeroConstructor))
+					{
+						LocalProp->InitializeValue_InContainer(Parms);
+					}
+				}
+
+				for (auto [id, pin] : properties)
+				{
+					if (RegisteredProperties.Contains(id))
+					{
+						auto mzprop = RegisteredProperties.FindRef(id);
+						mzprop->SetValue((void*)pin->data(),pin->data()->size(),Parms);
+					}
+				}
+
+				mzfunc->Invoke();
+				mzfunc->Parameters = nullptr;
+			}
+		});
+}
+
+bool PropertyVisible(FProperty* ueproperty)
+{
+	return !ueproperty->HasAllPropertyFlags(CPF_DisableEditOnInstance) &&
+		!ueproperty->HasAllPropertyFlags(CPF_Deprecated) &&
+		//!ueproperty->HasAllPropertyFlags(CPF_EditorOnly) && //? dont know what this flag does but it hides more than necessary
+		ueproperty->HasAllPropertyFlags(CPF_Edit) &&
+		//ueproperty->HasAllPropertyFlags(CPF_BlueprintVisible) && //? dont know what this flag does but it hides more than necessary
+		ueproperty->HasAllFlags(RF_Public);
+}
+
 bool FMZClient::PopulateNode(FGuid nodeId)
 {
 	auto val = sceneTree.nodeMap.Find(nodeId);
@@ -536,29 +575,27 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 	if (treeNode->GetAsActorNode())
 	{
 		ActorNode* actorNode = (ActorNode*)treeNode;
-
-		//experiment
-
 		auto ActorClass = actorNode->actor->GetClass();
-		class FProperty* Sroperty = ActorClass->PropertyLink;
-		TArray<FName> PropertyNames;
-		while (Sroperty != nullptr)
+
+		//ITERATE PROPERTIES BEGIN
+		class FProperty* AProperty = ActorClass->PropertyLink;
+
+		while (AProperty != nullptr)
 		{
-			FName CategoryName = FObjectEditorUtils::GetCategoryFName(Sroperty);
+			FName CategoryName = FObjectEditorUtils::GetCategoryFName(AProperty);
 
 			UClass* Class = ActorClass;
 
-			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()))
+			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(AProperty))
 			{
-				Sroperty = Sroperty->PropertyLinkNext;
+				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
 
-			PropertyNames.Add(Sroperty->GetFName());
-			MZProperty* mzprop = new MZProperty(actorNode->actor, Sroperty);
+			MZProperty* mzprop = new MZProperty(actorNode->actor, AProperty);
 			RegisteredProperties.Add(mzprop->id, mzprop);
 			actorNode->Properties.push_back(mzprop);
-			Sroperty = Sroperty->PropertyLinkNext;
+			AProperty = AProperty->PropertyLinkNext;
 		}
 
 		auto Components = actorNode->actor->GetComponents();
@@ -577,7 +614,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 				UClass* Class = ActorClass;
 				
-				if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()))
+				if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(Property))
 				{
 					continue;
 				}
@@ -585,14 +622,71 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				MZProperty* mzprop = new MZProperty(Component, Property);
 				RegisteredProperties.Add(mzprop->id, mzprop);
 				actorNode->Properties.push_back(mzprop);
-				PropertyNames.Add(Property->GetFName());
 			}
 		}
-		LOG("Getting property experiment is over.");
-		//end experiment
+		//ITERATE PROPERTIES END
 
+		//ITERATE FUNCTIONS BEGIN
+		
+
+		auto ActorComponent = actorNode->actor->GetRootComponent();
+		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
+		{
+			UFunction* UEFunction = *FuncIt;
+			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable | FUNC_Public) &&
+				!UEFunction->HasAllFunctionFlags(FUNC_Event))
+			{
+				auto UEFunctionName = UEFunction->GetFName().ToString();
+
+				if (UEFunctionName.StartsWith("OnChanged_") || UEFunctionName.StartsWith("OnLengthChanged_"))
+				{
+					continue; // do not export user's changed handler functions
+				}
+
+				auto OwnerClass = UEFunction->GetOwnerClass();
+				if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
+				{
+					//continue; // export only BP functions //? what we will show in mediaz
+				}
+				
+				MZFunction* mzfunc = new MZFunction(actorNode->actor, UEFunction);
+				
+				// Parse all function parameters.
+				
+				//uint8* Parms = (uint8*)FMemory_Alloca_Aligned(UEFunction->ParmsSize, UEFunction->GetMinAlignment());
+				//mzfunc->StructMemory = Parms;
+				//FMemory::Memzero(Parms, UEFunction->ParmsSize);
+
+				//for (TFieldIterator<FProperty> It(UEFunction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+				//{
+				//	FProperty* LocalProp = *It;
+				//	checkSlow(LocalProp);
+				//	if (!LocalProp->HasAnyPropertyFlags(CPF_ZeroConstructor))
+				//	{
+				//		LocalProp->InitializeValue_InContainer(Parms);
+				//	}
+				//}
+
+				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
+				{
+
+					MZProperty* mzprop = new MZProperty(nullptr, *PropIt);
+					mzfunc->Properties.push_back(mzprop);
+					RegisteredProperties.Add(mzprop->id, mzprop);
+					
+				}
+				
+				actorNode->Functions.push_back(mzfunc);
+				RegisteredFunctions.Add(mzfunc->id, mzfunc);
+			}
+		}
+
+		 
+		//ITERATE FUNCTIONS END
+		
+
+		//ITERATE CHILD COMPONENTS TO SHOW BEGIN
 		actorNode->Children.clear();
-		USceneComponent* rootComponent = actorNode->actor->GetRootComponent();
 
 		auto unattachedChildsPtr = sceneTree.childMap.Find(actorNode->id);
 		TSet<AActor*> unattachedChilds = unattachedChildsPtr ? *unattachedChildsPtr : TSet<AActor*>();
@@ -698,6 +792,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 			// Create new subobject data with the original data as their parent.
 			//OutArray.Add(sceneTree.AddSceneComponent(componentNode, ActorComp)); //TODO scene tree add actor components
 		}
+		//ITERATE CHILD COMPONENTS TO SHOW END
 
 		treeNode->needsReload = false;
 		return true;

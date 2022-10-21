@@ -9,13 +9,15 @@
 
 struct MZProperty {
 
-	MZProperty(UObject* container, FProperty* uproperty);
+	MZProperty(UObject* container, FProperty* uproperty, uint8* StructPtr = nullptr);
 
-	void SetValue(void* val, size_t size);
+	void SetValue(void* val, size_t size, uint8* customContainer = nullptr);
 	flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;
 	UObject* Container;
+	uint8* StructPtr = nullptr;
+
 	FString PropertyName;
 	FString DisplayName;
 	FString CategoryName;

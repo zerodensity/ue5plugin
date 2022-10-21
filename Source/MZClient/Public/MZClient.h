@@ -75,15 +75,13 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 /// @return Connection status with MediaZ Engine 
 	 virtual bool IsConnected();
 
-	 //This function is called when the Unreal Engine node is removed from the MediaZ engine
-	 //virtual void NodeRemoved();
-
 	 //Tries to initialize connection with the MediaZ engine
 	 void InitConnection();
 
 	 //Sends node updates to the MediaZ
 	 void SendNodeUpdate(FGuid nodeId); 
 
+	 //Sends pin updates to the root node 
 	 void SendPinUpdate();
 	 
 	 //Fills the root graph with first level information (Only the names of the actors without parents) 
@@ -98,6 +96,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Test action to test wheter debug menu works
 	 void TestAction();
 
+	 //Set a properties value
 	 void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 	 
 	 //Populate root graph using sceneTree 
@@ -109,11 +108,12 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Called when the actor is selected on the mediaZ hierarchy pane
 	 void OnNodeSelected(FGuid nodeId);
 
+	 //Called when a pin show as change action is fired from mediaZ 
+	 //We make that property a pin in the root node with the same GUID
 	 void OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs);
 
-	 //Carries the actor information of the scene
-	 //It is not guaranteed to have all the information at any time
-	 //mz::fb::TNode* TRootGraph;
+	 //Called when a function is called from mediaZ
+	 void OnFunctionCall(FGuid funcId, TMap<FGuid, const mz::fb::Pin*>& properties);
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
@@ -126,9 +126,14 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //all the properties registered 
 	 TMap<FGuid, MZProperty*> RegisteredProperties;
-
+	 
+	 //all the functions registered
+	 TMap<FGuid, MZFunction*> RegisteredFunctions;
+	 
 	 //in/out pins of the mediaz node
 	 TMap<FGuid, MZProperty*> Pins;
+
+
 
 protected: 
 
