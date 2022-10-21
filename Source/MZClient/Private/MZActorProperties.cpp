@@ -164,7 +164,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 
 void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //called from game thread*
 {
-	if (!customContainer)
+	if (Container)
 	{
 		if (TypeName != "mz.fb.Void" && TypeName != "string")
 		{
@@ -178,7 +178,7 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 			Component->UpdateComponentToWorld();
 		}
 	}
-	else
+	else if(customContainer)
 	{
 		if (TypeName != "mz.fb.Void" && TypeName != "string")
 		{

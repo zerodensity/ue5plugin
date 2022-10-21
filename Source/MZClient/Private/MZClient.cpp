@@ -70,6 +70,18 @@ static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::
 	return mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union());
 }
 
+TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
+{
+	TMap<FGuid, std::vector<uint8>> re;
+	for (auto pin : *archive.pins())
+	{
+		std::vector<uint8> data(pin->data()->size(), 0);
+		memcpy(data.data(), pin->data()->data(), data.size());
+		re.Add(*(FGuid*)pin->id()->bytes()->Data(), data);
+	}
+	return re;
+}
+
 class MZCLIENT_API ClientImpl : public mz::app::AppClient
 {
 public:
@@ -152,7 +164,8 @@ public:
 		LOG("Function called from mediaz");
 		if (PluginClient)
 		{
-			//PluginClient->OnFunctionCall(*(FGuid*)action.function()->id(), ParsePins(action.function()));
+
+			PluginClient->OnFunctionCall(*(FGuid*)action.function()->id(), ParsePins(*action.function()));
 		}
     }
 
@@ -174,15 +187,7 @@ public:
     std::atomic_bool shutdown = true;
 };
 
-TMap<FGuid, const mz::fb::Pin*> ParsePins(mz::fb::Node const& archive)
-{
-	TMap<FGuid, const mz::fb::Pin*> re;
-	for (auto pin : *archive.pins())
-	{
-		re.Add(*(FGuid*)pin->id()->bytes()->Data(), pin);
-	}
-	return re;
-}
+
 
 FMZClient::FMZClient() {}
 
@@ -517,7 +522,7 @@ void FMZClient::OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs)
 		});
 }
 
-void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, const mz::fb::Pin*>& properties)
+void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> properties)
 {
 	TaskQueue.Enqueue([this, funcId, properties]()
 		{
@@ -538,12 +543,12 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, const mz::fb::Pin*>& pr
 					}
 				}
 
-				for (auto [id, pin] : properties)
+				for (auto [id, val] : properties)
 				{
 					if (RegisteredProperties.Contains(id))
 					{
 						auto mzprop = RegisteredProperties.FindRef(id);
-						mzprop->SetValue((void*)pin->data(),pin->data()->size(),Parms);
+						mzprop->SetValue((void*)val.data(), val.size(),Parms);
 					}
 				}
 

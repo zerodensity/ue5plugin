@@ -113,7 +113,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs);
 
 	 //Called when a function is called from mediaZ
-	 void OnFunctionCall(FGuid funcId, TMap<FGuid, const mz::fb::Pin*>& properties);
+	 void OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> properties);
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
