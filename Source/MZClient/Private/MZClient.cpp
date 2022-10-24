@@ -568,6 +568,10 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 
 				mzfunc->Invoke();
 
+				for (auto mzprop : mzfunc->OutProperties)
+				{
+					SendPinValueChanged(mzprop->id, mzprop->GetValue(Parms));
+				}
 				//for (TFieldIterator<FProperty> It(mzfunc->Function); It && It->HasAnyPropertyFlags(CPF_OutParm); ++It)
 				//{
 				//	SendPinValueChanged(It->)
@@ -706,6 +710,10 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 					MZProperty* mzprop = new MZProperty(nullptr, *PropIt);
 					mzfunc->Properties.push_back(mzprop);
 					RegisteredProperties.Add(mzprop->id, mzprop);			
+					if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
+					{
+						mzfunc->OutProperties.push_back(mzprop);
+					}
 				}
 				
 				actorNode->Functions.push_back(mzfunc);

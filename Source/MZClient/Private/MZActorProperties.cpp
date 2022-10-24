@@ -200,6 +200,34 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 	}
 }
 
+std::vector<uint8> MZProperty::GetValue(uint8* customContainer)
+{
+	if (Container)
+	{
+		if (TypeName != "mz.fb.Void" && TypeName != "string")
+		{
+			void* val = Property->ContainerPtrToValuePtr< void >(Container);
+			auto size = Property->GetSize();
+			std::vector<uint8> value(size, 0);
+			memcpy(value.data(), val, size);
+			return value;
+		}
+
+	}
+	else if (customContainer)
+	{
+		if (TypeName != "mz.fb.Void" && TypeName != "string")
+		{
+			void* val = Property->ContainerPtrToValuePtr< void >(customContainer);
+			auto size = Property->GetSize();
+			std::vector<uint8> value(size, 0);
+			memcpy(value.data(), val, size);
+			return value;
+		}
+	}
+	return std::vector<uint8>();
+}
+
 flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);

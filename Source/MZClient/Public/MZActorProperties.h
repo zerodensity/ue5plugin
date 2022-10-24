@@ -12,6 +12,8 @@ struct MZProperty {
 	MZProperty(UObject* container, FProperty* uproperty, uint8* StructPtr = nullptr);
 
 	void SetValue(void* val, size_t size, uint8* customContainer = nullptr);
+	std::vector<uint8> GetValue(uint8* customContainer = nullptr);
+
 	flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;

@@ -13,6 +13,7 @@ struct MZFunction {
 	FGuid id;
 	uint8* Parameters = nullptr;
 	std::vector<MZProperty*> Properties;
+	std::vector<MZProperty*> OutProperties;
 
 	flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
