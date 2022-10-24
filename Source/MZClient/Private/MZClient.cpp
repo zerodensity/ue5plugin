@@ -20,6 +20,7 @@
 #include "EditorActorFolders.h"
 #include "SlateBasics.h"
 #include "EditorStyleSet.h"
+#include "EditorCategoryUtils.h"
 #endif //WITH_EDITOR
 
 #define LOCTEXT_NAMESPACE "FMZClient"
@@ -27,7 +28,8 @@
 #pragma optimize("", off)
 
 #include "ObjectEditorUtils.h"
-#include "EditorCategoryUtils.h"
+
+
 
 
 #include "SceneTree.h"
@@ -554,6 +556,8 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 
 				mzfunc->Invoke();
 				mzfunc->Parameters = nullptr;
+
+
 			}
 		});
 }
@@ -591,12 +595,13 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 			UClass* Class = ActorClass;
 
+#if WITH_EDITOR
 			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(AProperty))
 			{
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-
+#endif
 			MZProperty* mzprop = new MZProperty(actorNode->actor, AProperty);
 			RegisteredProperties.Add(mzprop->id, mzprop);
 			actorNode->Properties.push_back(mzprop);
@@ -618,12 +623,12 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				FName CategoryName = FObjectEditorUtils::GetCategoryFName(Property);
 
 				UClass* Class = ActorClass;
-				
+#if WITH_EDITOR				
 				if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(Property))
 				{
 					continue;
 				}
-				
+#endif				
 				MZProperty* mzprop = new MZProperty(Component, Property);
 				RegisteredProperties.Add(mzprop->id, mzprop);
 				actorNode->Properties.push_back(mzprop);
@@ -632,8 +637,6 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 		//ITERATE PROPERTIES END
 
 		//ITERATE FUNCTIONS BEGIN
-		
-
 		auto ActorComponent = actorNode->actor->GetRootComponent();
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
@@ -674,11 +677,9 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
-
 					MZProperty* mzprop = new MZProperty(nullptr, *PropIt);
 					mzfunc->Properties.push_back(mzprop);
-					RegisteredProperties.Add(mzprop->id, mzprop);
-					
+					RegisteredProperties.Add(mzprop->id, mzprop);			
 				}
 				
 				actorNode->Functions.push_back(mzfunc);

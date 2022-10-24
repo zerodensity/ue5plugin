@@ -24,6 +24,7 @@ struct MZProperty {
 	FString UIMaxString;
 	FString UIMinString;
 	bool IsAdvanced = false;
+	bool ReadOnly = false;
 	std::string TypeName;
 	FGuid id;
 	std::vector<uint8_t> data;

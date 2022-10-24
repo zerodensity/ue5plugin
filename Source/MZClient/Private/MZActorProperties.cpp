@@ -5,6 +5,12 @@
 MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPtr)
 {
 	Property = uproperty;
+	
+	if (Property->HasAnyPropertyFlags(CPF_OutParm))
+	{
+		ReadOnly = true;
+	}
+
 	Container = container;
 	StructPtr = structPtr;
 	id = FGuid::NewGuid();
@@ -196,5 +202,5 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 
 flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, 0, IsAdvanced);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
 }
