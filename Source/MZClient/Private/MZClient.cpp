@@ -467,6 +467,18 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 	//Send list actors on the scene 
 }
 
+void FMZClient::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
+{
+	if (!Client || !Client->nodeId.IsValid())
+	{
+		return;
+	}
+
+	MessageBuilder mb;
+	auto msg = MakeAppEvent(mb, mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data));
+	Client->Write(msg);
+}
+
 void FMZClient::SendPinUpdate() //runs in game thread
 {
 	if (!Client || !Client->nodeId.IsValid())
@@ -555,6 +567,12 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 				}
 
 				mzfunc->Invoke();
+
+				//for (TFieldIterator<FProperty> It(mzfunc->Function); It && It->HasAnyPropertyFlags(CPF_OutParm); ++It)
+				//{
+				//	SendPinValueChanged(It->)
+				//}
+
 				mzfunc->Parameters = nullptr;
 
 
@@ -591,7 +609,11 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 		while (AProperty != nullptr)
 		{
+#if WITH_EDITOR
 			FName CategoryName = FObjectEditorUtils::GetCategoryFName(AProperty);
+#else
+			FName CategoryName = "Default";
+#endif
 
 			UClass* Class = ActorClass;
 
@@ -620,7 +642,11 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 			for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
 			{
+#if WITH_EDITOR
 				FName CategoryName = FObjectEditorUtils::GetCategoryFName(Property);
+#else
+				FName CategoryName = "Default";
+#endif
 
 				UClass* Class = ActorClass;
 #if WITH_EDITOR				
@@ -651,11 +677,11 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 					continue; // do not export user's changed handler functions
 				}
 
-				auto OwnerClass = UEFunction->GetOwnerClass();
-				if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
-				{
-					//continue; // export only BP functions //? what we will show in mediaz
-				}
+				//auto OwnerClass = UEFunction->GetOwnerClass();
+				//if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
+				//{
+				//	//continue; // export only BP functions //? what we will show in mediaz
+				//}
 				
 				MZFunction* mzfunc = new MZFunction(actorNode->actor, UEFunction);
 				

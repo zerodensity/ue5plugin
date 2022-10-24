@@ -105,8 +105,13 @@ ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)
 
 	ActorNode* newChild = new ActorNode;
 	newChild->Parent = parent;
+#if WITH_EDITOR
 	newChild->Name = actor->GetActorLabel();
 	newChild->id = actor->GetActorGuid();
+#else
+	newChild->Name = actor->GetFName().ToString();
+	newChild->id = FGuid::NewGuid();
+#endif
 	newChild->actor = actor;
 	newChild->needsReload = true;
 	parent->Children.push_back(newChild);

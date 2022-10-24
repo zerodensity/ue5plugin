@@ -79,7 +79,10 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void InitConnection();
 
 	 //Sends node updates to the MediaZ
-	 void SendNodeUpdate(FGuid nodeId); 
+	 void SendNodeUpdate(FGuid nodeId);
+
+	 //Sends pin value changed event to MediaZ (now only used for function return values)
+	 void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
 
 	 //Sends pin updates to the root node 
 	 void SendPinUpdate();
