@@ -11,8 +11,13 @@ MZFunction::MZFunction(UObject* container, UFunction* function)
 	static const FName NAME_DisplayName("DisplayName");
 	static const FName NAME_Category("Category");
 	FunctionName = function->GetFName().ToString();
+#if WITH_EDITOR
 	DisplayName = function->GetDisplayNameText().ToString();
 	CategoryName = function->HasMetaData(NAME_Category) ? function->GetMetaData(NAME_Category) : "Default";
+#else
+	DisplayName = FunctionName;
+	CategoryName = "Default"
+#endif
 
 }
 

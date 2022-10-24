@@ -13,7 +13,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 	{
 		PropertyName = *FString(Container->GetFName().ToString() + "" + PropertyName);
 	}
-	
+#if WITH_EDITOR
 	auto metaDataMap = uproperty->GetMetaDataMap();
 	if (metaDataMap)
 	{
@@ -37,7 +37,13 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 		UIMaxString = "";
 	}
 	IsAdvanced = uproperty->HasAllPropertyFlags(CPF_AdvancedDisplay);
-
+#else
+	DisplayName = uproperty->GetFName().ToString();
+	CategoryName = "Default";
+	UIMinString = "";
+	UIMaxString = "";
+	IsAdvanced = false;
+#endif
 	
 
 	if (uproperty->IsA(FFloatProperty::StaticClass())){ 
