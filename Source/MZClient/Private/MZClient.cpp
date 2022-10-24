@@ -221,6 +221,7 @@ void FMZClient::Connected()
 		{
 			PopulateSceneTree();
 			SendNodeUpdate(Client->nodeId);
+			SendAssetList();
 		});
 }
 
@@ -261,6 +262,7 @@ void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValue
 	PopulateSceneTree();
 	if (Client)
 	{
+		//SendAssetList();
 		SendNodeUpdate(Client->nodeId);
 	}
 }
@@ -286,6 +288,34 @@ void FMZClient::StartupModule() {
 	//actor kill
 	//PopulateRootGraph();
 
+	//ADD CUSTOM FUNCTIONS
+
+	MZCustomFunction* mzcf = new MZCustomFunction;
+	mzcf->id = FGuid::NewGuid();
+	FGuid actorPinId = FGuid::NewGuid();
+	mzcf->params.Add(actorPinId, "Spawn Actor");
+	mzcf->serialize = [funcid = mzcf->id, actorPinId](flatbuffers::FlatBufferBuilder& fbb) -> flatbuffers::Offset<mz::fb::Node>
+		{
+			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
+				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST")),
+			};
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
+		};
+	mzcf->function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
+		{
+			FString actorName((char*)properties.FindRef(actorPinId).data());
+			if (mzclient->SpawnableClasses.Contains(actorName))
+			{
+				auto actorClass = mzclient->SpawnableClasses.FindRef(actorName);
+				if (actorClass)
+				{
+					GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(actorClass);
+				}
+			}
+			mzclient->PopulateSceneTree();
+			mzclient->SendNodeUpdate(mzclient->Client->nodeId);
+		};
+	CustomFunctions.Add(mzcf->id, mzcf);
 
 #if WITH_EDITOR
 	
@@ -434,7 +464,14 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		{
 			graphPins.push_back(pin->Serialize(mb));
 		}
-		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, 0, 0, &graphNodes));
+		std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+		for (auto [_, cfunc] : CustomFunctions)
+		{
+			graphFunctions.push_back(cfunc->serialize(mb));
+		}
+
+
+		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
 		Client->Write(msg);
 		return;
 	}
@@ -540,6 +577,11 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 {
 	TaskQueue.Enqueue([this, funcId, properties]()
 		{
+			if (CustomFunctions.Contains(funcId))
+			{
+				auto mzcf = CustomFunctions.FindRef(funcId);
+				mzcf->function(properties);
+			}
 			if (RegisteredFunctions.Contains(funcId))
 			{
 				auto mzfunc = RegisteredFunctions.FindRef(funcId);
@@ -846,6 +888,73 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 	
 	return false;
+}
+
+void FMZClient::SendAssetList()
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
+
+	FName BaseClassName = AActor::StaticClass()->GetFName();
+	TSet< FName > DerivedNames;
+	{
+		TArray< FName > BaseNames;
+		BaseNames.Add(BaseClassName);
+
+		TSet< FName > Excluded;
+		AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
+	}
+
+	for (auto& className : DerivedNames)
+	{
+		FString nameString(className.ToString());
+		if (nameString.StartsWith(TEXT("SKEL_")))
+		{
+			continue;
+		}
+		nameString.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
+		SpawnableClasses.Add(nameString);
+	}
+
+	TArray<FAssetData> AllAssets;
+	AssetRegistryModule.Get().GetAllAssets(AllAssets);
+	TArray<FName> ShownNames;
+
+	for (auto asset : AllAssets)
+	{
+		FString assetNameString = asset.AssetName.ToString();
+		if (SpawnableClasses.Contains(assetNameString))
+		{
+			SpawnableClasses[assetNameString] = asset.GetAsset()->GetClass();
+		}
+	}
+
+	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
+	{
+		UClass* const CurrentClass = *ClassIt;
+		FString classNameString = CurrentClass->GetFName().ToString();
+		if (SpawnableClasses.Contains(classNameString))
+		{
+			SpawnableClasses[classNameString] = CurrentClass;
+		}
+	}
+
+	MessageBuilder mb;
+	std::vector<mz::fb::String256> NameList;
+	for (auto [name, _] : SpawnableClasses)
+	{
+		mz::fb::String256 str256;
+		auto val = str256.mutable_val();
+		auto size = name.Len() < 256 ? name.Len() : 256;
+		memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
+		NameList.push_back(str256);
+	}
+	mz::fb::String256 listName;
+	strcat((char*)listName.mutable_val()->data(), "UE5_ACTOR_LIST");
+	Client->Write(MakeAppEvent(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+
+	return;
 }
 
 

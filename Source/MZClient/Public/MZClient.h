@@ -81,6 +81,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Sends node updates to the MediaZ
 	 void SendNodeUpdate(FGuid nodeId);
 
+	 //Sends the spawnable actor list to MediaZ
+	 void SendAssetList();
+
 	 //Sends pin value changed event to MediaZ (now only used for function return values)
 	 void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
 
@@ -135,6 +138,13 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 
 	 //in/out pins of the mediaz node
 	 TMap<FGuid, MZProperty*> Pins;
+
+	 //custom functions like spawn actor
+	 TMap<FGuid, MZCustomFunction*> CustomFunctions;
+
+	 //Spawnable class list to spawn them from mediaZ
+	 TMap<FString, UClass*> SpawnableClasses;
+
 
 
 
