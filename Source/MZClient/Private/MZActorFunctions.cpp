@@ -16,7 +16,7 @@ MZFunction::MZFunction(UObject* container, UFunction* function)
 	CategoryName = function->HasMetaData(NAME_Category) ? function->GetMetaData(NAME_Category) : "Default";
 #else
 	DisplayName = FunctionName;
-	CategoryName = "Default"
+	CategoryName = "Default";
 #endif
 
 }
