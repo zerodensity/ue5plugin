@@ -1,5 +1,5 @@
 #pragma once
-
+#if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
 
 #if WITH_EDITOR
@@ -62,3 +62,9 @@ private:
 			return true;
 	}
 };
+
+
+
+
+
+#endif

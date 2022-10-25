@@ -1,3 +1,4 @@
+#if WITH_EDITOR
 #include "MZActorFunctions.h"
 
 //TODO make a class for functionsss
@@ -42,3 +43,11 @@ void MZFunction::Invoke() // runs in game thread
 	Container->Modify();
 	Container->ProcessEvent(Function, Parameters);
 }
+
+
+
+
+
+
+
+#endif

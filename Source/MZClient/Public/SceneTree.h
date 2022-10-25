@@ -1,5 +1,5 @@
 #pragma once
-
+#if WITH_EDITOR
 #include "CoreMinimal.h"
 #include "MZActorProperties.h"
 #include <vector>
@@ -82,4 +82,10 @@ private:
 	void ClearRecursive(TreeNode* node);
 };
 
+
+
+
+
+
+#endif
 

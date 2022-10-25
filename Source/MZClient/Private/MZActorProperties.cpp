@@ -1,3 +1,4 @@
+#if WITH_EDITOR
 #include "MZActorProperties.h"
 #include "UObject/UnrealType.h"
 #include "UObject/UnrealTypePrivate.h"
@@ -232,3 +233,11 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBu
 {
 	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
 }
+
+
+
+
+
+
+
+#endif

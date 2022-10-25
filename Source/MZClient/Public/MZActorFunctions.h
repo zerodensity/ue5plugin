@@ -1,4 +1,5 @@
 #pragma once
+#if WITH_EDITOR
 #include "MZActorProperties.h"
 
 struct MZFunction {
@@ -27,3 +28,9 @@ struct MZCustomFunction {
 	TMap<FGuid, std::string> params;
 	std::function<flatbuffers::Offset<mz::fb::Node>(flatbuffers::FlatBufferBuilder& fbb)> serialize;
 };
+
+
+
+
+
+#endif

@@ -1,4 +1,4 @@
-
+#if WITH_EDITOR
 
 #include "MZClient.h"
 
@@ -966,3 +966,6 @@ IMPLEMENT_MODULE(FMZClient, MZClient)
 //
 //#include "DispelUnrealMadnessPostlude.h"
 
+
+
+#endif

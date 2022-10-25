@@ -1,4 +1,5 @@
 #pragma once
+#if WITH_EDITOR
 #include "CoreMinimal.h"
 #include <vector>
 #pragma warning (disable : 4800)
@@ -35,3 +36,9 @@ struct MZProperty {
 
 
 };
+
+
+
+
+
+#endif

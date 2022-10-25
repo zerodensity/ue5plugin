@@ -1,3 +1,4 @@
+#if WITH_EDITOR
 #include "SceneTree.h"
 
 
@@ -211,3 +212,10 @@ std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatb
 
 	return childNodes;
 }
+
+
+
+
+
+
+#endif

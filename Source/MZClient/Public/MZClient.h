@@ -1,5 +1,5 @@
 #pragma once
-
+#if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
 
 #include "CoreMinimal.h"
@@ -151,6 +151,13 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 protected: 
 
 };
+
+
+
+
+
+
+#endif
 
 
 
