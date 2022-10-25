@@ -31,6 +31,7 @@ struct TreeNode {
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Node>> SerializeChildren(flatbuffers::FlatBufferBuilder& fbb);
 
+	virtual ~TreeNode();
 };
 
 struct ActorNode : TreeNode
@@ -42,7 +43,8 @@ struct ActorNode : TreeNode
 	virtual ActorNode* GetAsActorNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
-
+	
+	virtual ~ActorNode();
 };
 
 struct SceneComponentNode : TreeNode
@@ -50,13 +52,16 @@ struct SceneComponentNode : TreeNode
 	USceneComponent* sceneComponent = nullptr;
 	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
 	virtual SceneComponentNode* GetAsSceneComponentNode() override { return this; };
-
+	
+	virtual ~SceneComponentNode();
 };
 
 struct FolderNode : TreeNode
 {
 	virtual FString GetClassDisplayName() override { return FString("Folder"); };
 	virtual FolderNode* GetAsFolderNode() override { return this; };
+
+	virtual ~FolderNode();
 };
 
 class SceneTree {

@@ -194,7 +194,9 @@ std::vector<flatbuffers::Offset<mz::fb::Pin>> ActorNode::SerializePins(flatbuffe
 	return pins;
 }
 
-
+ActorNode::~ActorNode()
+{
+}
 
 std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatbuffers::FlatBufferBuilder& fbb)
 {
@@ -213,9 +215,19 @@ std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatb
 	return childNodes;
 }
 
+TreeNode::~TreeNode()
+{
+}
 
 
+SceneComponentNode::~SceneComponentNode()
+{
+}
 
+FolderNode::~FolderNode()
+{
+}
 
 
 #endif
+

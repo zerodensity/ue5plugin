@@ -137,5 +137,9 @@ public class MZClient : ModuleRules
 
 			}
 		}
+		else 
+		{
+			PrivateDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine" });
+		}
 	}
 }
