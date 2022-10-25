@@ -1,5 +1,4 @@
 #pragma once
-#if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
 
 #if WITH_EDITOR
@@ -17,8 +16,10 @@ class UMZCustomTimeStep : public UEngineCustomTimeStep
 	GENERATED_BODY()
 public:
 
+#if WITH_EDITOR
 	std::mutex Mutex;
 	std::condition_variable CV;
+#endif
 	//std::atomic<bool> wait = false;
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
 	virtual bool Initialize(class UEngine* InEngine) override
@@ -63,8 +64,3 @@ private:
 	}
 };
 
-
-
-
-
-#endif

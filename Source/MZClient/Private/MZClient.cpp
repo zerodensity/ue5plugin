@@ -18,7 +18,6 @@
 #include "LevelEditorActions.h"
 #include "ToolMenus.h"
 #include "EditorActorFolders.h"
-#include "SlateBasics.h"
 #include "EditorStyleSet.h"
 #include "EditorCategoryUtils.h"
 #endif //WITH_EDITOR
@@ -49,7 +48,7 @@ public:
 			TEXT("MediaZPluginEditor"),
 			NSLOCTEXT("Contexts", "MediaZPluginEditor", "MediaZPluginEditor Plugin"),
 			NAME_None,
-			FEditorStyle::GetStyleSetName()
+			FAppStyle::GetAppStyleSetName()
 			) {}
 
 	virtual void RegisterCommands() override
@@ -122,7 +121,7 @@ public:
 
     }
 
-    void OnTextureCreated(mz::fb::Texture const& texture)
+    void OnTextureCreated(mz::app::TextureCreated const& texture) override
     {
 		LOG("Texture created from mediaz");
 
