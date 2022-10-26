@@ -5,8 +5,6 @@
 #include <vector>
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
-#include <mzFlatBuffersCommon.h>
-#include "mediaz.h"
 #include "AppClient.h"
 
 using MessageBuilder = flatbuffers::grpc::MessageBuilder;

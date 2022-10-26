@@ -2,34 +2,27 @@
 
 #include "MZClient.h"
 
-#include "ScreenRendering.h"
-#include "HardwareInfo.h"
-#include "CoreMinimal.h"
-#include "GameFramework/Actor.h"
+//#include "ScreenRendering.h"
+//#include "HardwareInfo.h"//
 
+#include "CoreMinimal.h"
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetRegistry/ARFilter.h"
-
 #include "EngineUtils.h"
 #include "GenericPlatform/GenericPlatformMemory.h"
 
-#if WITH_EDITOR
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
 #include "ToolMenus.h"
-#include "EditorActorFolders.h"
 #include "EditorStyleSet.h"
 #include "EditorCategoryUtils.h"
-#endif //WITH_EDITOR
+
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
 #pragma optimize("", off)
 
 #include "ObjectEditorUtils.h"
-
-
-
 
 #include "SceneTree.h"
 #include "MZActorProperties.h"
@@ -38,7 +31,7 @@
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
 
-#if WITH_EDITOR
+
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
 {
 public:
@@ -63,7 +56,7 @@ public:
 	TSharedPtr<FUICommandInfo> PopulateRootGraph;
 	TSharedPtr<FUICommandInfo> SendRootUpdate;
 };
-#endif // WITH_EDITOR
+
 
 template <class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
 static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::FlatBufferBuilder& b, flatbuffers::Offset<T> event)

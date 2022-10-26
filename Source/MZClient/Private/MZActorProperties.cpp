@@ -1,7 +1,5 @@
 #if WITH_EDITOR
 #include "MZActorProperties.h"
-#include "UObject/UnrealType.h"
-#include "UObject/UnrealTypePrivate.h"
 
 MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPtr)
 {
@@ -130,6 +128,13 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 		}
 		TypeName = "string";
 	}
+	else if (uproperty->IsA(FObjectProperty::StaticClass()))
+	{
+		TypeName = "mz.fb.Texture";
+		data = std::vector<uint8_t>(sizeof(mz::fb::Texture), 0);
+		mz::fb::Texture tex = {};
+		memcpy(data.data(), &tex, sizeof(tex));
+	}
 	//else if (uproperty->IsA(FArrayProperty::StaticClass())) { //Not supported by mediaz
 	//	data = std::vector<uint8_t>(1, 0);
 	//	TypeName = "bool";
@@ -167,7 +172,9 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 		TypeName = "mz.fb.Void";
 	}
 
-	if (container && TypeName != "mz.fb.Void" && TypeName != "string")
+
+	//init data
+	if (container && TypeName != "mz.fb.Void" && TypeName != "string" && TypeName != "mz.fb.Texture")
 	{
 		void* val = Property->ContainerPtrToValuePtr< void >(container); //: Property->ContainerPtrToValuePtr<void>(StructPtr);
 		memcpy(data.data(), val, data.size());

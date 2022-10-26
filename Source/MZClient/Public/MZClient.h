@@ -1,39 +1,38 @@
 #pragma once
+
 #if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
-#include "Engine/TextureRenderTarget2D.h"
 #include <queue>
+#include <map>
 #include "Containers/Queue.h"
 #include "Logging/LogMacros.h"
-#include <map>
 #include "SceneTree.h"
 
-#include "mediaz.h"
-
+//#include "mediaz.h"
+//#include "Engine/TextureRenderTarget2D.h"
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-//#include "DispelUnrealMadnessPrelude.h"
-void MemoryBarrier();
-#include "Windows/AllowWindowsPlatformTypes.h"
-#pragma intrinsic(_InterlockedCompareExchange64)
-#define InterlockedCompareExchange64 _InterlockedCompareExchange64
-#include <d3d12.h>
-#include "AppClient.h"
-#include "Windows/HideWindowsPlatformTypes.h"
-//#include "DispelUnrealMadnessPostlude.h"
 
-#include "D3D12RHIPrivate.h"
-#include "D3D12RHI.h"
-#include "D3D12Resources.h"
+//void MemoryBarrier();
+//#include "Windows/AllowWindowsPlatformTypes.h"
+//#pragma intrinsic(_InterlockedCompareExchange64)
+//#define InterlockedCompareExchange64 _InterlockedCompareExchange64
+//#include <d3d12.h>
+//#include "Windows/HideWindowsPlatformTypes.h"
+
+//#include "D3D12RHIPrivate.h"
+//#include "D3D12RHI.h"
+//#include "D3D12Resources.h"
 
 #include "MZCustomTimeStep.h"
-
-#include <mzFlatBuffersCommon.h>
 #include "SceneTree.h"
+
+#include "AppClient.h"
+#include <mzFlatBuffersCommon.h>
 
 using MessageBuilder = flatbuffers::grpc::MessageBuilder;
 
