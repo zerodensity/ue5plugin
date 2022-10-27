@@ -10,7 +10,7 @@
 #include "Containers/Queue.h"
 #include "Logging/LogMacros.h"
 #include "SceneTree.h"
-
+#include "Subsystems/PlacementSubsystem.h"
 //#include "mediaz.h"
 //#include "Engine/TextureRenderTarget2D.h"
 #pragma warning (disable : 4800)
@@ -47,6 +47,8 @@ static flatbuffers::grpc::Message<mz::app::AppEvent> MakeAppEvent(MessageBuilder
 
 #include <functional> 
 typedef std::function<void()> Task;
+
+
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
 /**
@@ -142,7 +144,8 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 TMap<FGuid, MZCustomFunction*> CustomFunctions;
 
 	 //Spawnable class list to spawn them from mediaZ
-	 TMap<FString, UClass*> SpawnableClasses;
+	 TMap<FString, UObject*> SpawnableClasses;
+	 TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
 
 
 

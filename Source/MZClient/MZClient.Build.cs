@@ -90,6 +90,8 @@ public class MZClient : ModuleRules
 					"D3D12RHI",
 					"VulkanRHI",
 					"AssetRegistry",
+					"EditorFramework",
+                    "TypedElementFramework",
 					}
 					);
 
@@ -118,6 +120,8 @@ public class MZClient : ModuleRules
 					"D3D12RHI",
 					"VulkanRHI",
 					"AssetRegistry",
+					"EditorFramework",
+                    "TypedElementFramework",
 					}
 					);
 

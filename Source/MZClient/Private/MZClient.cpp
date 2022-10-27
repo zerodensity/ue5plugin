@@ -11,6 +11,12 @@
 #include "EngineUtils.h"
 #include "GenericPlatform/GenericPlatformMemory.h"
 
+
+//exp
+#include "ActorFactories/ActorFactory.h"
+#include "ActorFactories/ActorFactoryBasicShape.h"
+//end exp
+
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
 #include "ToolMenus.h"
@@ -27,6 +33,8 @@
 #include "SceneTree.h"
 #include "MZActorProperties.h"
 #include "MZActorFunctions.h"
+
+
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
@@ -49,12 +57,14 @@ public:
 		UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
 		UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
 		UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
+		UI_COMMAND(SendAssetList, "SendAssetList", "Call SendAssetList", EUserInterfaceActionType::Button, FInputGesture());
 	}
 
 public:
 	TSharedPtr<FUICommandInfo> TestCommand;
 	TSharedPtr<FUICommandInfo> PopulateRootGraph;
 	TSharedPtr<FUICommandInfo> SendRootUpdate;
+	TSharedPtr<FUICommandInfo> SendAssetList;
 };
 
 
@@ -296,13 +306,28 @@ void FMZClient::StartupModule() {
 	mzcf->function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString actorName((char*)properties.FindRef(actorPinId).data());
-			if (mzclient->SpawnableClasses.Contains(actorName))
+			if (mzclient->ActorPlacementParamMap.Contains(actorName))
 			{
-				auto actorClass = mzclient->SpawnableClasses.FindRef(actorName);
-				if (actorClass)
+				auto placementInfo = mzclient->ActorPlacementParamMap.FindRef(actorName);
+				UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
+				if (PlacementSubsystem)
 				{
-					GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(actorClass);
+					PlacementSubsystem->PlaceAsset(placementInfo, FPlacementOptions());
 				}
+			}
+			else if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
+			{
+				if (GEngine)
+				{
+					UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
+					UClass* NativeClass = Cast<UClass>(ClassToSpawn);
+					UClass* Class = GeneratedBP ? (UClass*)(GeneratedBP->GeneratedClass) : (NativeClass);
+					GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class);
+				}
+			}
+			else
+			{
+				LOG("Cannot spawn actor");
 			}
 			mzclient->PopulateSceneTree();
 			mzclient->SendNodeUpdate(mzclient->Client->nodeId);
@@ -329,6 +354,11 @@ void FMZClient::StartupModule() {
 			FExecuteAction::CreateLambda([=](){
 					SendNodeUpdate(Client->nodeId);
 				}));
+		CommandList->MapAction(
+			FMediaZPluginEditorCommands::Get().SendAssetList,
+			FExecuteAction::CreateLambda([=]() {
+					SendAssetList();
+				}));
 
 		UToolMenus* ToolMenus = UToolMenus::Get();
 		UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
@@ -345,6 +375,7 @@ void FMZClient::StartupModule() {
 			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
 			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
 			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
+			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendAssetList);
 		}
 	}
 
@@ -724,20 +755,6 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				MZFunction* mzfunc = new MZFunction(actorNode->actor, UEFunction);
 				
 				// Parse all function parameters.
-				
-				//uint8* Parms = (uint8*)FMemory_Alloca_Aligned(UEFunction->ParmsSize, UEFunction->GetMinAlignment());
-				//mzfunc->StructMemory = Parms;
-				//FMemory::Memzero(Parms, UEFunction->ParmsSize);
-
-				//for (TFieldIterator<FProperty> It(UEFunction); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
-				//{
-				//	FProperty* LocalProp = *It;
-				//	checkSlow(LocalProp);
-				//	if (!LocalProp->HasAnyPropertyFlags(CPF_ZeroConstructor))
-				//	{
-				//		LocalProp->InitializeValue_InContainer(Parms);
-				//	}
-				//}
 
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
@@ -909,6 +926,27 @@ void FMZClient::SendAssetList()
 		SpawnableClasses.Add(nameString);
 	}
 
+	UWorld* currentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	ULevel* currentLevel = currentWorld->GetCurrentLevel();
+	std::vector<std::pair<FString, FString>> BasicShapes =
+	{
+		{"Cube",UActorFactoryBasicShape::BasicCube.ToString()},
+		{"Sphere",UActorFactoryBasicShape::BasicSphere.ToString() },
+		{"Cylinder",UActorFactoryBasicShape::BasicCylinder.ToString()},
+		{"Cone",UActorFactoryBasicShape::BasicCone.ToString()},
+		{"Plane",UActorFactoryBasicShape::BasicPlane.ToString()}
+	};
+
+	for (auto [name, assetPath] : BasicShapes)
+	{
+		SpawnableClasses.Add(name);
+		FAssetPlacementInfo PlacementInfo;
+		PlacementInfo.AssetToPlace = FAssetData(LoadObject<UStaticMesh>(nullptr, *assetPath));
+		PlacementInfo.FactoryOverride = UActorFactoryBasicShape::StaticClass();
+		PlacementInfo.PreferredLevel = currentLevel;
+		ActorPlacementParamMap.Add(name, PlacementInfo);
+	}
+
 	TArray<FAssetData> AllAssets;
 	AssetRegistryModule.Get().GetAllAssets(AllAssets);
 	TArray<FName> ShownNames;
@@ -918,13 +956,17 @@ void FMZClient::SendAssetList()
 		FString assetNameString = asset.AssetName.ToString();
 		if (SpawnableClasses.Contains(assetNameString))
 		{
-			SpawnableClasses[assetNameString] = asset.GetAsset()->GetClass();
+			SpawnableClasses[assetNameString] = asset.GetAsset();
 		}
 	}
 
 	for (TObjectIterator<UClass> ClassIt; ClassIt; ++ClassIt)
 	{
 		UClass* const CurrentClass = *ClassIt;
+		if (CurrentClass->HasAnyClassFlags(CLASS_Abstract))
+		{
+			continue;
+		}
 		FString classNameString = CurrentClass->GetFName().ToString();
 		if (SpawnableClasses.Contains(classNameString))
 		{
@@ -932,9 +974,21 @@ void FMZClient::SendAssetList()
 		}
 	}
 
+	SpawnableClasses = SpawnableClasses.FilterByPredicate([](const TPair<FString, UObject*> pair)
+		{
+			if (pair.Value) return true;
+			return false;
+		});
+
+	SpawnableClasses.KeySort([](FString a, FString b)
+		{
+			if (a.Compare(b) > 0) return false;
+			else return true;
+		});
+
 	MessageBuilder mb;
 	std::vector<mz::fb::String256> NameList;
-	for (auto [name, _] : SpawnableClasses)
+	for (auto [name, ptr] : SpawnableClasses)
 	{
 		mz::fb::String256 str256;
 		auto val = str256.mutable_val();
