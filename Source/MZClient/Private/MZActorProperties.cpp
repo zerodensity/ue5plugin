@@ -1,5 +1,6 @@
 #if WITH_EDITOR
 #include "MZActorProperties.h"
+#include "MZTextureShareManager.h"
 
 MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPtr)
 {
@@ -130,10 +131,20 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 	}
 	else if (uproperty->IsA(FObjectProperty::StaticClass()))
 	{
-		TypeName = "mz.fb.Texture";
-		data = std::vector<uint8_t>(sizeof(mz::fb::Texture), 0);
-		mz::fb::Texture tex = {};
-		memcpy(data.data(), &tex, sizeof(tex));
+		if (((FObjectProperty*)uproperty)->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
+		{
+			TypeName = "mz.fb.Texture"; 
+			data = std::vector<uint8_t>(sizeof(mz::fb::Texture), 0);
+			mz::fb::Texture tex = {};
+			MZTextureShareManager::GetInstance()->AddTexturePin(this, &tex);
+			memcpy(data.data(), &tex, sizeof(tex));
+
+		}
+		else
+		{
+			data = std::vector<uint8_t>(1, 0);
+			TypeName = "mz.fb.Void";
+		}
 	}
 	//else if (uproperty->IsA(FArrayProperty::StaticClass())) { //Not supported by mediaz
 	//	data = std::vector<uint8_t>(1, 0);

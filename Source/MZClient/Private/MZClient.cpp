@@ -11,6 +11,7 @@
 #include "EngineUtils.h"
 #include "GenericPlatform/GenericPlatformMemory.h"
 
+#include "MZTextureShareManager.h"
 
 //exp
 #include "ActorFactories/ActorFactory.h"
@@ -33,7 +34,17 @@
 #include "SceneTree.h"
 #include "MZActorProperties.h"
 #include "MZActorFunctions.h"
+#include "AppTemplates.h"
 
+enum FunctionContextMenuActions
+{
+	BOOKMARK
+};
+
+enum FunctionContextMenuActionsOnRoot
+{
+	DELETE_BOOKMARK
+};
 
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
@@ -68,11 +79,6 @@ public:
 };
 
 
-template <class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
-static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::FlatBufferBuilder& b, flatbuffers::Offset<T> event)
-{
-	return mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union());
-}
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
@@ -82,6 +88,16 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 		std::vector<uint8> data(pin->data()->size(), 0);
 		memcpy(data.data(), pin->data()->data(), data.size());
 		re.Add(*(FGuid*)pin->id()->bytes()->Data(), data);
+	}
+	return re;
+}
+
+TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
+{
+	TMap<FGuid, const mz::fb::Pin*> re;
+	for (auto pin : *(archive->pins()))
+	{
+		re.Add(*(FGuid*)pin->id()->bytes()->Data(), pin);
 	}
 	return re;
 }
@@ -116,12 +132,16 @@ public:
 				PluginClient->Connected();
 			}
 		}
-    }
-
-    virtual void OnMenuFired(mz::ContextMenuRequest const& request) override
-    {
-		LOG("Menu fired from mediaz");
-
+		auto texman = MZTextureShareManager::GetInstance();
+		std::unique_lock lock1(texman->PendingCopyQueueMutex);
+		for (auto& [id, pin] : ParsePins(archive.node()))
+		{
+			if (texman->PendingCopyQueue.Contains(id))
+			{
+				auto mzprop = texman->PendingCopyQueue.FindRef(id);
+				texman->UpdateTexturePin(mzprop, (mz::fb::Texture*)pin->data()->Data());
+			}
+		}
     }
 
     void OnTextureCreated(mz::app::TextureCreated const& texture) override
@@ -184,6 +204,16 @@ public:
 		{
 			PluginClient->OnNodeSelected(*(FGuid*)action.node_id());
 		}
+	}
+
+	virtual void OnMenuFired(mz::ContextMenuRequest const& request) override
+	{
+		LOG("Context menu fired from MediaZ");
+	}
+
+	virtual void OnCommandFired(mz::ContextMenuAction const& action) override
+	{
+		LOG("Context menu command fired from MediaZ");
 	}
 
 	FMZClient* PluginClient;
@@ -405,6 +435,8 @@ bool FMZClient::Tick(float dt)
 		TaskQueue.Dequeue(task);
 		task();
 	}
+
+	MZTextureShareManager::GetInstance()->EnqueueCommands(Client);
 
 	return true;
 }
