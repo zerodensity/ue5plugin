@@ -20,21 +20,9 @@ void MemoryBarrier();
 #include "RHI.h"
 #include "MZActorProperties.h"
 
+#include "MZClient.h"
 
-//template<class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
-//static flatbuffers::grpc::Message<mz::app::AppEvent> MakeAppEvent(MessageBuilder& b, flatbuffers::Offset<T> event)
-//{
-//	b.Finish(mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union()));
-//	auto msg = b.ReleaseMessage<mz::app::AppEvent>();
-//	assert(msg.Verify());
-//	return msg;
-//}
-//
-//template <class T> requires((u32)mz::app::AppEventUnionTraits<T>::enum_value != 0)
-//static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::FlatBufferBuilder& b, flatbuffers::Offset<T> event)
-//{
-//	return mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union());
-//}
+
 MZTextureShareManager* MZTextureShareManager::singleton;
 
 
@@ -128,6 +116,7 @@ void MZTextureShareManager::AddTexturePin(MZProperty* mzprop, mz::fb::Texture* t
 		std::unique_lock lock(PendingCopyQueueMutex);
 		PendingCopyQueue.Add(mzprop->id, mzprop);
 	}
+	tex->mutate_size(mz::fb::SizePreset::CUSTOM);
 	tex->mutate_width(info.width);
 	tex->mutate_height(info.height);
 	tex->mutate_format(mz::fb::Format(info.format));
@@ -138,6 +127,7 @@ void MZTextureShareManager::AddTexturePin(MZProperty* mzprop, mz::fb::Texture* t
 
 void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture* tex)
 {
+	memcpy(mzprop->data.data(), tex, sizeof(mz::fb::Texture));
 	std::unique_lock lock2(CopyOnTickMutex);
 	MzTextureShareInfo info = {
 	.type = tex->type(),
@@ -183,7 +173,7 @@ void MZTextureShareManager::ExecCommands()
 	CmdQueue->Signal(CmdFence, ++CmdFenceValue);
 }
 
-void MZTextureShareManager::EnqueueCommands(mz::app::AppClient* client)
+void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 {
 	if (CopyOnTick.IsEmpty())
 	{
@@ -213,8 +203,9 @@ void MZTextureShareManager::EnqueueCommands(mz::app::AppClient* client)
 				{
 					continue;
 				}
-
-				//FD3D12Texture* Base = GetD3D12TextureFromRHITexture(RHIResource);
+				mz::fb::Texture* tex = (mz::fb::Texture*)pin.SrcMzp->data.data();
+				std::cout << tex << std::endl;
+ 				//FD3D12Texture* Base = GetD3D12TextureFromRHITexture(RHIResource);
 				
 				FRHITexture* RHITexture = RHIResource;
 				//if (RHITexture && EnumHasAnyFlags(RHITexture->GetFlags(), TexCreate_Presentable))
@@ -302,7 +293,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::AppClient* client)
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands();
 
-			if (!events.empty() && client)
+			if (!events.empty() && client && client->nodeId.IsValid() && !client->shutdown)
 			{
 				client->Write(MakeAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}

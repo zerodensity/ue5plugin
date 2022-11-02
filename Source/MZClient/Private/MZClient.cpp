@@ -102,125 +102,115 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-class MZCLIENT_API ClientImpl : public mz::app::AppClient
+ 
+void ClientImpl::OnAppConnected(mz::app::AppConnectedEvent const& event) 
 {
-public:
-    using mz::app::AppClient::AppClient;
-    
-    virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override
-    {
-        FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
+    FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
 		
-		UE_LOG(LogMediaZ, Warning, TEXT("Connected to mzEngine"));
-        if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
-        {
-            nodeId = *(FGuid*)event.node()->id();
-			PluginClient->sceneTree.Root->id = *(FGuid*)event.node()->id();
+	UE_LOG(LogMediaZ, Warning, TEXT("Connected to mzEngine"));
+    if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
+    {
+        nodeId = *(FGuid*)event.node()->id();
+		PluginClient->sceneTree.Root->id = *(FGuid*)event.node()->id();
+		PluginClient->Connected();
+    }
+}
+
+void ClientImpl::OnNodeUpdate(mz::NodeUpdated const& archive) 
+{
+	LOG("Node update from mediaz");
+	if (!nodeId.IsValid())
+	{
+		if (flatbuffers::IsFieldPresent(&archive, mz::NodeUpdated::VT_NODE))
+		{
+			nodeId = *(FGuid*)archive.node()->id();
+			PluginClient->sceneTree.Root->id = *(FGuid*)archive.node()->id();
 			PluginClient->Connected();
-        }
-    }
-
-    virtual void OnNodeUpdate(mz::NodeUpdated const& archive) override
-    {
-		LOG("Node update from mediaz");
-		if (!nodeId.IsValid())
-		{
-			if (flatbuffers::IsFieldPresent(&archive, mz::NodeUpdated::VT_NODE))
-			{
-				nodeId = *(FGuid*)archive.node()->id();
-				PluginClient->sceneTree.Root->id = *(FGuid*)archive.node()->id();
-				PluginClient->Connected();
-			}
-		}
-		auto texman = MZTextureShareManager::GetInstance();
-		std::unique_lock lock1(texman->PendingCopyQueueMutex);
-		for (auto& [id, pin] : ParsePins(archive.node()))
-		{
-			if (texman->PendingCopyQueue.Contains(id))
-			{
-				auto mzprop = texman->PendingCopyQueue.FindRef(id);
-				texman->UpdateTexturePin(mzprop, (mz::fb::Texture*)pin->data()->Data());
-			}
-		}
-    }
-
-    void OnTextureCreated(mz::app::TextureCreated const& texture) override
-    {
-		LOG("Texture created from mediaz");
-
-    }
-
-    virtual void Done(grpc::Status const& Status) override
-    {
-		LOG("Connection with mediaz is finished.");
-
-		PluginClient->Disconnected();
-		shutdown = true;
-		nodeId = {};
-    }
-
-    virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override
-    {
-		LOG("Plugin node removed from mediaz");
-		nodeId = {};
-    }
-
-	virtual void OnPinValueChanged(mz::PinValueChanged const& action) override
-	{
-		LOG("Pin value changed from mediaz editor");
-		if (PluginClient)
-		{
-			PluginClient->SetPropertyValue(*(FGuid*)action.pin_id(), (void*)action.value()->data(), action.value()->size());
 		}
 	}
-
-    virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override
-    {
-		LOG("Pin show as changed from mediaz");
-		if (PluginClient)
-		{
-			PluginClient->OnPinShowAsChanged(*(FGuid*)action.pin_id(), action.show_as());
-		}
-    }
-
-    virtual void OnFunctionCall(mz::app::FunctionCall const& action) override
-    {
-		LOG("Function called from mediaz");
-		if (PluginClient)
-		{
-
-			PluginClient->OnFunctionCall(*(FGuid*)action.function()->id(), ParsePins(*action.function()));
-		}
-    }
-
-	virtual void OnExecute(mz::app::AppExecute const& aE) override
-    {
-    }
-
-	virtual void OnNodeSelected(mz::NodeSelected const& action) override
+	auto texman = MZTextureShareManager::GetInstance();
+	std::unique_lock lock1(texman->PendingCopyQueueMutex);
+	for (auto& [id, pin] : ParsePins(archive.node()))
 	{
-		LOG("Node selected from mediaz");
-		if (PluginClient)
+		if (texman->PendingCopyQueue.Contains(id))
 		{
-			PluginClient->OnNodeSelected(*(FGuid*)action.node_id());
+			auto mzprop = texman->PendingCopyQueue.FindRef(id);
+			texman->UpdateTexturePin(mzprop, (mz::fb::Texture*)pin->data()->Data());
 		}
 	}
+}
 
-	virtual void OnMenuFired(mz::ContextMenuRequest const& request) override
+void ClientImpl::OnTextureCreated(mz::app::TextureCreated const& texture) 
+{
+	LOG("Texture created from mediaz");
+
+}
+
+void ClientImpl::Done(grpc::Status const& Status) 
+{
+	LOG("Connection with mediaz is finished.");
+
+	PluginClient->Disconnected();
+	shutdown = true;
+	nodeId = {};
+}
+
+void ClientImpl::OnNodeRemoved(mz::app::NodeRemovedEvent const& action) 
+{
+	LOG("Plugin node removed from mediaz");
+	nodeId = {};
+}
+
+void ClientImpl::OnPinValueChanged(mz::PinValueChanged const& action) 
+{
+	LOG("Pin value changed from mediaz editor");
+	if (PluginClient)
 	{
-		LOG("Context menu fired from MediaZ");
+		PluginClient->SetPropertyValue(*(FGuid*)action.pin_id(), (void*)action.value()->data(), action.value()->size());
 	}
+}
 
-	virtual void OnCommandFired(mz::ContextMenuAction const& action) override
+void ClientImpl::OnPinShowAsChanged(mz::PinShowAsChanged const& action) 
+{
+	LOG("Pin show as changed from mediaz");
+	if (PluginClient)
 	{
-		LOG("Context menu command fired from MediaZ");
+		PluginClient->OnPinShowAsChanged(*(FGuid*)action.pin_id(), action.show_as());
 	}
+}
 
-	FMZClient* PluginClient;
-    FGuid nodeId;
-    std::atomic_bool shutdown = true;
-};
+void ClientImpl::OnFunctionCall(mz::app::FunctionCall const& action) 
+{
+	LOG("Function called from mediaz");
+	if (PluginClient)
+	{
 
+		PluginClient->OnFunctionCall(*(FGuid*)action.function()->id(), ParsePins(*action.function()));
+	}
+}
+
+void ClientImpl::OnExecute(mz::app::AppExecute const& aE) 
+{
+}
+
+void ClientImpl::OnNodeSelected(mz::NodeSelected const& action) 
+{
+	LOG("Node selected from mediaz");
+	if (PluginClient)
+	{
+		PluginClient->OnNodeSelected(*(FGuid*)action.node_id());
+	}
+}
+
+void ClientImpl::OnMenuFired(mz::ContextMenuRequest const& request) 
+{
+	LOG("Context menu fired from MediaZ");
+}
+
+void ClientImpl::OnCommandFired(mz::ContextMenuAction const& action)
+{
+	LOG("Context menu command fired from MediaZ");
+}
 
 
 FMZClient::FMZClient() {}
@@ -462,6 +452,7 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 {
 #if WITH_EDITOR
 	sceneTree.Clear();
+	Pins.Empty();
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
@@ -617,8 +608,12 @@ void FMZClient::OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs)
 			{
 				
 				auto mzprop = RegisteredProperties.FindRef(nodeId);
-				mzprop->PinShowAs = newShowAs;
-				Pins.Add(mzprop->id, mzprop);
+				MZProperty* newmzprop = new MZProperty(mzprop->Container, mzprop->Property);
+				memcpy(newmzprop, mzprop, sizeof(MZProperty));
+				newmzprop->PinShowAs = newShowAs;
+				newmzprop->id = FGuid::NewGuid();
+				Pins.Add(newmzprop->id, newmzprop);
+				RegisteredProperties.Add(newmzprop->id, newmzprop);
 				SendPinUpdate();
 			}
 			else
@@ -679,6 +674,14 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 
 			}
 		});
+}
+
+void FMZClient::OnContexMenuFired(FGuid itemId)
+{
+}
+
+void FMZClient::OnContexMenuActionFired(FGuid itemId, uint32 actionId)
+{
 }
 
 bool PropertyVisible(FProperty* ueproperty)

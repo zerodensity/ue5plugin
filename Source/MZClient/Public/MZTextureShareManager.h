@@ -16,6 +16,7 @@ void MemoryBarrier();
 #include "MZActorProperties.h"
 #include "AppClient.h"
 #include <mzFlatBuffersCommon.h>
+#include "MZClient.h"
 
 struct ResourceInfo
 {
@@ -48,7 +49,7 @@ public:
 	//void RemoveFromCopyQueue();
 	void WaitCommands();
 	void ExecCommands();
-	void EnqueueCommands(mz::app::AppClient* client);
+	void EnqueueCommands(ClientImpl* client);
 
 	struct ID3D12Device* Dev;
 	struct ID3D12CommandAllocator* CmdAlloc;

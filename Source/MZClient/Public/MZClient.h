@@ -45,6 +45,57 @@ DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
 /**
  * Implements communication with the MediaZ Engine
  */
+
+class FMZClient;
+
+class MZCLIENT_API ClientImpl : public mz::app::AppClient
+{
+public:
+	using mz::app::AppClient::AppClient;
+
+	virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override;
+
+
+	virtual void OnNodeUpdate(mz::NodeUpdated const& archive) override;
+
+
+	void OnTextureCreated(mz::app::TextureCreated const& texture);
+
+
+	virtual void Done(grpc::Status const& Status) override;
+
+
+	virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override;
+
+
+	virtual void OnPinValueChanged(mz::PinValueChanged const& action) override;
+
+
+	virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override;
+
+
+	virtual void OnFunctionCall(mz::app::FunctionCall const& action) override;
+
+
+	virtual void OnExecute(mz::app::AppExecute const& aE) override;
+
+
+	virtual void OnNodeSelected(mz::NodeSelected const& action) override;
+
+
+	virtual void OnMenuFired(mz::ContextMenuRequest const& request) override;
+
+
+	virtual void OnCommandFired(mz::ContextMenuAction const& action) override;
+
+
+	FMZClient* PluginClient;
+	FGuid nodeId;
+	std::atomic_bool shutdown = true;
+};
+
+
+
 class MZCLIENT_API FMZClient : public IModuleInterface {
 
  public:
@@ -112,6 +163,12 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Called when a function is called from mediaZ
 	 void OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> properties);
+
+	 //Called when a context menu is fired
+	 void OnContexMenuFired(FGuid itemId);
+
+	 //Called when a action from a context menu is fired
+	 void OnContexMenuActionFired(FGuid itemId, uint32 actionId);
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
