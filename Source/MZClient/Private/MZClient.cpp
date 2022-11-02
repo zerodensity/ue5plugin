@@ -36,6 +36,8 @@
 #include "MZActorFunctions.h"
 #include "AppTemplates.h"
 
+#include "Kismet2/ComponentEditorUtils.h"
+
 enum FunctionContextMenuActions
 {
 	BOOKMARK
@@ -532,9 +534,13 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 	MessageBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = treeNode->SerializeChildren(mb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
-	if (treeNode->GetAsActorNode())
+	if (treeNode->GetAsActorNode() )
 	{
 		graphPins = treeNode->GetAsActorNode()->SerializePins(mb);
+	}
+	else if (treeNode->GetAsSceneComponentNode())
+	{
+		graphPins = treeNode->GetAsSceneComponentNode()->SerializePins(mb);
 	}
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions; 
 	if (treeNode->GetAsActorNode())
@@ -737,12 +743,14 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 		auto Components = actorNode->actor->GetComponents();
 		for (auto Component : Components)
 		{
+			continue;
+
 			auto ComponentClass = Component->GetClass();
 
-			if (Component->IsEditorOnly())
-			{
-				continue;
-			}
+			//if (Component->IsEditorOnly())
+			//{
+			//	continue;
+			//}
 
 			for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
 			{
@@ -834,7 +842,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 #endif
 				&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !bHideConstructionScriptComponentsInDetailsView)
 				&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
-				&& (ActorComp->CreationMethod != EComponentCreationMethod::Native); //|| FComponentEditorUtils::GetPropertyForEditableNativeComponent(ActorComp));
+				&& (ActorComp->CreationMethod != EComponentCreationMethod::Native || FComponentEditorUtils::GetPropertyForEditableNativeComponent(ActorComp));
 		};
 
 		// Filter the components by their visibility
@@ -925,7 +933,32 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 	}
 	else if (treeNode->GetAsSceneComponentNode())
 	{
+		auto Component = treeNode->GetAsSceneComponentNode()->sceneComponent;
+		auto Actor = Component->GetOwner();
 
+		auto ComponentClass = Component->GetClass();
+
+		//if (Component->IsEditorOnly())
+		//{
+		//	continue;
+		//}
+
+		for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
+		{
+
+			FName CategoryName = FObjectEditorUtils::GetCategoryFName(Property);
+			UClass* Class = Actor->StaticClass();
+			
+			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(Property))
+			{
+				continue;
+			}
+				
+			MZProperty* mzprop = new MZProperty(Component, Property);
+			RegisteredProperties.Add(mzprop->id, mzprop);
+			treeNode->GetAsSceneComponentNode()->Properties.push_back(mzprop);
+		}
+		
 		treeNode->needsReload = false;
 		return true;
 	}

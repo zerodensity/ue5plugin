@@ -2,6 +2,7 @@
 #if WITH_EDITOR
 #include "CoreMinimal.h"
 #include "MZActorProperties.h"
+#include "MZActorFunctions.h"
 #include <vector>
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
@@ -48,9 +49,12 @@ struct ActorNode : TreeNode
 struct SceneComponentNode : TreeNode
 {
 	USceneComponent* sceneComponent = nullptr;
+	std::vector<MZProperty*> Properties;
 	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
 	virtual SceneComponentNode* GetAsSceneComponentNode() override { return this; };
-	
+	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
+
 	virtual ~SceneComponentNode();
 };
 
