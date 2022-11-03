@@ -283,12 +283,28 @@ void FMZClient::InitConnection()
 
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
 {
+
+	//FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateUObject(this, &FMZClient::OnActorSpawned);
+	//FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateUObject(this, &FMZClient::OnActorDestroyed);
+	//world->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	//world->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+
 	PopulateSceneTree();
 	if (Client)
 	{
 		//SendAssetList();
 		SendNodeUpdate(Client->nodeId);
 	}
+}
+
+void FMZClient::OnActorSpawned(AActor* InActor)
+{
+	
+}
+
+void FMZClient::OnActorDestroyed(AActor* InActor)
+{
+	
 }
 
 void FMZClient::StartupModule() {
@@ -586,6 +602,16 @@ void FMZClient::SendPinUpdate() //runs in game thread
 	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0));
 	Client->Write(msg);
 	
+}
+
+void FMZClient::SendActorAdded()
+{
+
+}
+
+void FMZClient::SendActorDeleted()
+{
+
 }
 
 void FMZClient::OnNodeSelected(FGuid nodeId)
@@ -971,7 +997,7 @@ void FMZClient::SendAssetList()
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
-	AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
+	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
 
 	FName BaseClassName = AActor::StaticClass()->GetFName();
 	TSet< FName > DerivedNames;

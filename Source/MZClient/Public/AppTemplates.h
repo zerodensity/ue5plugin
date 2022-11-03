@@ -1,4 +1,5 @@
 #pragma once
+#if WITH_EDITOR
 
 #include "AppClient.h"
 #include <mzFlatBuffersCommon.h>
@@ -19,3 +20,6 @@ static flatbuffers::Offset<mz::app::AppEvent> CreateAppEventOffset(flatbuffers::
 {
 	return mz::app::CreateAppEvent(b, mz::app::AppEventUnionTraits<T>::enum_value, event.Union());
 }
+
+
+#endif

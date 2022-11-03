@@ -132,7 +132,13 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Sends pin updates to the root node 
 	 void SendPinUpdate();
+
+	 //Adds the node to scene tree and sends it to mediaZ
+	 void SendActorAdded();
 	 
+	 //Deletes the node from scene tree and sends it to mediaZ
+	 void SendActorDeleted();
+
 	 //Fills the root graph with first level information (Only the names of the actors without parents) 
 	 void PopulateSceneTree();
 
@@ -153,6 +159,12 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Called when the level is initiated
 	 void OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues);
+
+	 //Called when an actor is spawned into the world
+	 void OnActorSpawned(AActor* InActor);
+
+	 //Called when an actor is destroyed from the world
+	 void OnActorDestroyed(AActor* InActor);
 
 	 //Called when the actor is selected on the mediaZ hierarchy pane
 	 void OnNodeSelected(FGuid nodeId);
