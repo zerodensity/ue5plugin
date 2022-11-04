@@ -134,10 +134,16 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void SendPinUpdate();
 
 	 //Adds the node to scene tree and sends it to mediaZ
-	 void SendActorAdded();
+	 void SendActorAdded(AActor* actor);
 	 
 	 //Deletes the node from scene tree and sends it to mediaZ
-	 void SendActorDeleted();
+	 void SendActorDeleted(FGuid id);
+
+	 //Called when pie is started
+	 void HandleBeginPIE(bool bIsSimulating);
+
+	 //Called when pie is ending
+	 void HandleEndPIE(bool bIsSimulating);
 
 	 //Fills the root graph with first level information (Only the names of the actors without parents) 
 	 void PopulateSceneTree();

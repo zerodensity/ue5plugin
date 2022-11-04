@@ -51,6 +51,7 @@ enum FunctionContextMenuActionsOnRoot
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
+#define LOGF(x, y) UE_LOG(LogMediaZ, Warning, TEXT(x), y)
 
 
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
@@ -284,10 +285,11 @@ void FMZClient::InitConnection()
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
 {
 
-	//FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateUObject(this, &FMZClient::OnActorSpawned);
-	//FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateUObject(this, &FMZClient::OnActorDestroyed);
-	//world->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
-	//world->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZClient::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZClient::OnActorDestroyed);
+	world->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	world->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 
 	PopulateSceneTree();
 	if (Client)
@@ -296,15 +298,30 @@ void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValue
 		SendNodeUpdate(Client->nodeId);
 	}
 }
-
+bool IsActorDisplayable(const AActor* Actor);
 void FMZClient::OnActorSpawned(AActor* InActor)
 {
-	
+	if (IsActorDisplayable(InActor))
+	{
+		LOG("Actor spawned");
+		LOGF("%s", *(InActor->GetFName().ToString()));
+		TaskQueue.Enqueue([InActor, this]()
+			{
+				SendActorAdded(InActor);
+			});
+	}
 }
 
 void FMZClient::OnActorDestroyed(AActor* InActor)
 {
-	
+	LOG("Actor destroyed");
+	//LOG(*(InActor->GetFName().ToString()));
+	LOGF("%s", *(InActor->GetFName().ToString()) );
+	auto id = InActor->GetActorGuid();
+	TaskQueue.Enqueue([id, this]()
+		{
+			SendActorDeleted(id);
+		});
 }
 
 void FMZClient::StartupModule() {
@@ -324,6 +341,9 @@ void FMZClient::StartupModule() {
 	//Add Delegates
 	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
+	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZClient::HandleBeginPIE);
+	FEditorDelegates::EndPIE.AddRaw(this, &FMZClient::HandleEndPIE);
+	//EndPlayMapDelegate
 	//actor spawn
 	//actor kill
 	//PopulateRootGraph();
@@ -344,6 +364,7 @@ void FMZClient::StartupModule() {
 	mzcf->function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString actorName((char*)properties.FindRef(actorPinId).data());
+			
 			if (mzclient->ActorPlacementParamMap.Contains(actorName))
 			{
 				auto placementInfo = mzclient->ActorPlacementParamMap.FindRef(actorName);
@@ -353,14 +374,17 @@ void FMZClient::StartupModule() {
 					PlacementSubsystem->PlaceAsset(placementInfo, FPlacementOptions());
 				}
 			}
-			else if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
+			else if (mzclient->SpawnableClasses.Contains(actorName))
 			{
 				if (GEngine)
 				{
-					UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
-					UClass* NativeClass = Cast<UClass>(ClassToSpawn);
-					UClass* Class = GeneratedBP ? (UClass*)(GeneratedBP->GeneratedClass) : (NativeClass);
-					GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class);
+					if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
+					{
+						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
+						UClass* NativeClass = Cast<UClass>(ClassToSpawn);
+						UClass* Class = GeneratedBP ? (UClass*)(GeneratedBP->GeneratedClass) : (NativeClass);
+						GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class);
+					}
 				}
 			}
 			else
@@ -468,7 +492,6 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZClient::PopulateSceneTree() //Runs in game thread
 {
-#if WITH_EDITOR
 	sceneTree.Clear();
 	Pins.Empty();
 
@@ -509,7 +532,6 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 			}
 		}
 	}
-#endif //WITH_EDITOR
 }
 
 void FMZClient::SendNodeUpdate(FGuid nodeId)
@@ -604,14 +626,92 @@ void FMZClient::SendPinUpdate() //runs in game thread
 	
 }
 
-void FMZClient::SendActorAdded()
+void FMZClient::SendActorAdded(AActor* actor) //runs in game thread
 {
-
+	if (auto sceneParent = actor->GetSceneOutlinerParent())
+	{
+		if (sceneTree.nodeMap.Contains(sceneParent->GetActorGuid()))
+		{
+			auto parentNode = sceneTree.nodeMap.FindRef(sceneParent->GetActorGuid());
+			auto newNode = sceneTree.AddActor(parentNode, actor);
+			if (!Client || !Client->nodeId.IsValid())
+			{
+				return;
+			}
+			MessageBuilder mb;
+			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
+			auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
+			Client->Write(msg);
+		}
+	}
+	else
+	{
+		ActorNode* newNode = sceneTree.AddActor(actor->GetFolder().GetPath().ToString(), actor);
+		if (!Client || !Client->nodeId.IsValid())
+		{
+			return;
+		}
+		MessageBuilder mb;
+		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
+		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
+		Client->Write(msg);
+	}
 }
 
-void FMZClient::SendActorDeleted()
+void FMZClient::SendActorDeleted(FGuid id) //runs in game thread
 {
+	if (sceneTree.nodeMap.Contains(id))
+	{
+		auto node = sceneTree.nodeMap.FindRef(id);
+		//delete from parent
+		FGuid parentId = Client->nodeId;
+		if (auto parent = node->Parent)
+		{
+			parentId = parent->id;
+			auto v = parent->Children;
+			auto it = std::find(v.begin(), v.end(), node);
+			if (it != v.end())
+				v.erase(it);
+		}
+		//delete from map
+		sceneTree.nodeMap.Remove(node->id);
 
+		if (!Client || !Client->nodeId.IsValid())
+		{
+			return;
+		}
+
+		MessageBuilder mb;
+		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->id };
+		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0));
+		Client->Write(msg);
+	}
+}
+
+void FMZClient::HandleBeginPIE(bool bIsSimulating)
+{
+	LOG("PLAY SESSION IS STARTED");
+	TaskQueue.Enqueue([this]()
+		{
+			PopulateSceneTree();
+			if (Client)
+			{
+				SendNodeUpdate(Client->nodeId);
+			}
+		});
+}
+
+void FMZClient::HandleEndPIE(bool bIsSimulating)
+{
+	LOG("PLAY SESSION IS ENDING");
+	TaskQueue.Enqueue([this]()
+		{
+			PopulateSceneTree();
+			if (Client)
+			{
+				SendNodeUpdate(Client->nodeId);
+			}
+		});
 }
 
 void FMZClient::OnNodeSelected(FGuid nodeId)
