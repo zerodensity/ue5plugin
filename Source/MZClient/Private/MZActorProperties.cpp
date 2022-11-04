@@ -201,13 +201,20 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 		{
 			void* val = Property->ContainerPtrToValuePtr< void >(Container);
 			memcpy(val, newval, size);
+			if (TypeName == "mz.fb.vec3d")
+			{
+				UE_LOG(LogTemp, Warning, TEXT("The vector value is: %s"), *(*(FVector*)val).ToString());
+			}
 		}
+		
 
 		if (UActorComponent* Component = Cast<UActorComponent>(Container))
 		{
 			Component->MarkRenderStateDirty();
 			Component->UpdateComponentToWorld();
 		}
+		
+		
 	}
 	else if(customContainer)
 	{
@@ -217,6 +224,7 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 			memcpy(val, newval, size);
 		}
 	}
+	
 }
 
 std::vector<uint8> MZProperty::GetValue(uint8* customContainer)

@@ -88,7 +88,7 @@ public:
 
 	virtual void OnCommandFired(mz::ContextMenuAction const& action) override;
 
-
+	
 	FMZClient* PluginClient;
 	FGuid nodeId;
 	std::atomic_bool shutdown = true;

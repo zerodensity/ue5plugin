@@ -227,10 +227,13 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 	}
 
 	MZProperty* mzprop = RegisteredProperties.FindRef(pinId);
-	
-	TaskQueue.Enqueue([mzprop, newval, size]()
+	char* copy = new char[size];
+	memcpy(copy, newval, size);
+
+	TaskQueue.Enqueue([mzprop, copy, size]()
 		{
-			mzprop->SetValue(newval, size);
+			mzprop->SetValue(copy, size);
+			delete[] copy;
 		});
 }
 
@@ -349,22 +352,22 @@ void FMZClient::StartupModule() {
 	//PopulateRootGraph();
 
 	//ADD CUSTOM FUNCTIONS
-
-	MZCustomFunction* mzcf = new MZCustomFunction;
-	mzcf->id = FGuid::NewGuid();
-	FGuid actorPinId = FGuid::NewGuid();
-	mzcf->params.Add(actorPinId, "Spawn Actor");
-	mzcf->serialize = [funcid = mzcf->id, actorPinId](flatbuffers::FlatBufferBuilder& fbb) -> flatbuffers::Offset<mz::fb::Node>
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		mzcf->id = FGuid::NewGuid();
+		FGuid actorPinId = FGuid::NewGuid();
+		mzcf->params.Add(actorPinId, "Spawn Actor");
+		mzcf->serialize = [funcid = mzcf->id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
 				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST")),
 			};
 			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
 		};
-	mzcf->function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
+		mzcf->function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString actorName((char*)properties.FindRef(actorPinId).data());
-			
+
 			if (mzclient->ActorPlacementParamMap.Contains(actorName))
 			{
 				auto placementInfo = mzclient->ActorPlacementParamMap.FindRef(actorName);
@@ -391,10 +394,44 @@ void FMZClient::StartupModule() {
 			{
 				LOG("Cannot spawn actor");
 			}
-			mzclient->PopulateSceneTree();
-			mzclient->SendNodeUpdate(mzclient->Client->nodeId);
+			//mzclient->PopulateSceneTree();
+			//mzclient->SendNodeUpdate(mzclient->Client->nodeId);
 		};
-	CustomFunctions.Add(mzcf->id, mzcf);
+		CustomFunctions.Add(mzcf->id, mzcf);
+	}
+	//Add Camera function
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		mzcf->id = FGuid::NewGuid();
+		mzcf->serialize = [funcid = mzcf->id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		{
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
+		};
+		mzcf->function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
+		{
+			FString actorName("RealityCamera");
+
+			if (mzclient->SpawnableClasses.Contains(actorName))
+			{
+				if (GEngine)
+				{
+					if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
+					{
+						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
+						AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
+						auto videoCamera = realityCamera->GetRootComponent();
+						//videoCamera->GetProperty
+						//realityCamera->GetComponentsByClass();
+					}
+				}
+			}
+			else
+			{
+				LOG("Cannot spawn actor");
+			}
+		};
+		CustomFunctions.Add(mzcf->id, mzcf);
+	}
 
 #if WITH_EDITOR
 	
@@ -492,6 +529,7 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZClient::PopulateSceneTree() //Runs in game thread
 {
+	MZTextureShareManager::GetInstance()->Reset();
 	sceneTree.Clear();
 	Pins.Empty();
 

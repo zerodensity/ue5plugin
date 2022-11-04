@@ -19,6 +19,7 @@ void MemoryBarrier();
 #include "AppClient.h"
 #include <mzFlatBuffersCommon.h>
 #include "MZClient.h"
+#include "RHI.h"
 
 struct ResourceInfo
 {
@@ -49,6 +50,7 @@ public:
 	void UpdateTexturePin(MZProperty*, mz::fb::Texture*);
 	//void AddToCopyQueue();
 	//void RemoveFromCopyQueue();
+	void Reset();
 	void WaitCommands();
 	void ExecCommands();
 	void EnqueueCommands(ClientImpl* client);
@@ -65,7 +67,7 @@ public:
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
 	std::mutex CopyOnTickMutex;
-	TMap<FGuid, ResourceInfo> CopyOnTick;
+	TMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTick;
 
 private:
 	void Initiate();

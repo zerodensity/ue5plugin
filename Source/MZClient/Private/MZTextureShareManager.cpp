@@ -151,8 +151,16 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture
 	};
 
 	mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
+
+	UObject* obj = mzprop->Container;
+	if (!obj) return;
+	auto prop = CastField<FObjectProperty>(mzprop->Property);
+	if (!prop) return;
+	auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+	if (!URT) return;
+
 	PendingCopyQueue.Remove(mzprop->id);
-	CopyOnTick.Add(mzprop->id, copyInfo);
+	CopyOnTick.Add(URT, copyInfo);
 }
 
 void MZTextureShareManager::WaitCommands()
@@ -174,6 +182,12 @@ void MZTextureShareManager::ExecCommands()
 	CmdQueue->Signal(CmdFence, ++CmdFenceValue);
 }
 
+void MZTextureShareManager::Reset()
+{
+	CopyOnTick.Empty();
+	PendingCopyQueue.Empty();
+}
+
 void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 {
 	if (CopyOnTick.IsEmpty())
@@ -188,24 +202,18 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			flatbuffers::grpc::MessageBuilder fbb;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
-			for (auto& [id, pin] : CopyOnTick)
+			for (auto& [URT, pin] : CopyOnTick)
 			{
-				UObject* obj = pin.SrcMzp->Container;
-				if (!obj) continue;
-				auto prop = CastField<FObjectProperty>(pin.SrcMzp->Property);
-				if (!prop) continue;
-				auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
-				if (!URT) continue;
 				auto rt = URT->GetRenderTargetResource();
-				if (!rt) continue;
+				if (!rt) return;
 				auto RHIResource = rt->GetTexture2DRHI();
 
-				if (!RHIResource)
+				if (!RHIResource || !RHIResource->IsValid())
 				{
 					continue;
 				}
-				mz::fb::Texture* tex = (mz::fb::Texture*)pin.SrcMzp->data.data();
-				std::cout << tex << std::endl;
+				//mz::fb::Texture* tex = (mz::fb::Texture*)pin.SrcMzp->data.data();
+				//std::cout << tex << std::endl;
  				//FD3D12Texture* Base = GetD3D12TextureFromRHITexture(RHIResource);
 				
 				FRHITexture* RHITexture = RHIResource;
@@ -288,6 +296,7 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 				tbl<mz::app::AppEvent> msg;
 				if (!pin.ReadOnly)
 				{
+					auto id = pin.SrcMzp->id;
 					events.push_back(CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
 				}
 			}
