@@ -199,11 +199,32 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 	{
 		if (TypeName != "mz.fb.Void" && TypeName != "string")
 		{
-			void* val = Property->ContainerPtrToValuePtr< void >(Container);
-			memcpy(val, newval, size);
-			if (TypeName == "mz.fb.vec3d")
+			if (TypeName == "bool")
 			{
-				UE_LOG(LogTemp, Warning, TEXT("The vector value is: %s"), *(*(FVector*)val).ToString());
+				bool nval = *(bool*)newval;
+				FBoolProperty* boolProperty = Cast<FBoolProperty>(Property);
+				if (boolProperty)
+				{
+					void* val = Property->ContainerPtrToValuePtr< void >(Container);
+					boolProperty->SetPropertyValue(val, nval);
+				}
+			}
+			else
+			{
+				if (Property->ElementSize == size)
+				{
+					void* val = Property->ContainerPtrToValuePtr< void >(Container);
+					memcpy(val, newval, size);
+					if (TypeName == "mz.fb.vec3d")
+					{
+						UE_LOG(LogTemp, Warning, TEXT("The vector value is: %s"), *(*(FVector*)val).ToString());
+					}
+				}
+				else
+				{
+					UE_LOG(LogMediaZ, Error, TEXT("Property size mismatch with mediaZ"));
+
+				}
 			}
 		}
 		
@@ -218,7 +239,17 @@ void MZProperty::SetValue(void* newval, size_t size, uint8* customContainer) //c
 	}
 	else if(customContainer)
 	{
-		if (TypeName != "mz.fb.Void" && TypeName != "string")
+		if (TypeName == "bool")
+		{
+			bool nval = *(bool*)newval;
+			FBoolProperty* boolProperty = Cast<FBoolProperty>(Property);
+			if (boolProperty)
+			{
+				void* val = Property->ContainerPtrToValuePtr< void >(customContainer);
+				boolProperty->SetPropertyValue(val, nval);
+			}
+		}
+		else if (TypeName != "mz.fb.Void" && TypeName != "string")
 		{
 			void* val = Property->ContainerPtrToValuePtr< void >(customContainer);
 			memcpy(val, newval, size);
