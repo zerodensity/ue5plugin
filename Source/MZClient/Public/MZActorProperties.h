@@ -8,7 +8,7 @@
 
 struct MZProperty {
 
-	MZProperty(UObject* container, FProperty* uproperty, uint8* StructPtr = nullptr);
+	MZProperty(UObject* container, FProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, FStructProperty* parentProperty = nullptr);
 
 	void SetValue(void* val, size_t size, uint8* customContainer = nullptr);
 	std::vector<uint8> GetValue(uint8* customContainer = nullptr);
@@ -31,7 +31,7 @@ struct MZProperty {
 	std::vector<uint8_t> data;
 	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
 
-
+	std::vector<MZProperty*> childProperties;
 
 };
 

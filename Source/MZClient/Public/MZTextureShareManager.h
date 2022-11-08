@@ -67,7 +67,7 @@ public:
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
 	std::mutex CopyOnTickMutex;
-	TMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTick;
+	TMultiMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTick;
 
 private:
 	void Initiate();

@@ -1,9 +1,23 @@
 #if WITH_EDITOR
 #include "MZActorProperties.h"
 #include "MZTextureShareManager.h"
+#include "EditorCategoryUtils.h"
+#include "ObjectEditorUtils.h"
 
-MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPtr)
+bool PropertyVisibleExp(FProperty* ueproperty)
 {
+	return !ueproperty->HasAllPropertyFlags(CPF_DisableEditOnInstance) &&
+		!ueproperty->HasAllPropertyFlags(CPF_Deprecated) &&
+		//!ueproperty->HasAllPropertyFlags(CPF_EditorOnly) && //? dont know what this flag does but it hides more than necessary
+		ueproperty->HasAllPropertyFlags(CPF_Edit) &&
+		//ueproperty->HasAllPropertyFlags(CPF_BlueprintVisible) && //? dont know what this flag does but it hides more than necessary
+		ueproperty->HasAllFlags(RF_Public);
+}
+
+MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentCategory, uint8* structPtr, FStructProperty* parentProperty)
+{
+	
+
 	Property = uproperty;
 	
 	if (Property->HasAnyPropertyFlags(CPF_OutParm))
@@ -30,7 +44,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 
 		const auto& metaData = *metaDataMap;
 		DisplayName = metaData.Contains(NAME_DisplayName) ? metaData[NAME_DisplayName] : uproperty->GetFName().ToString();
-		CategoryName = metaData.Contains(NAME_Category) ? metaData[NAME_Category] : "Default";
+		CategoryName = (metaData.Contains(NAME_Category) ? metaData[NAME_Category] : "Default");
 		UIMinString = metaData.Contains(NAME_UIMin) ? metaData[NAME_UIMin] : "";
 		UIMaxString = metaData.Contains(NAME_UIMax) ? metaData[NAME_UIMax] : "";
 	}
@@ -45,12 +59,28 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 	IsAdvanced = uproperty->HasAllPropertyFlags(CPF_AdvancedDisplay);
 #else
 	DisplayName = uproperty->GetFName().ToString();
-	CategoryName = "Default";
+	CategoryName = parentCategory + "Default";
 	UIMinString = "";
 	UIMaxString = "";
 	IsAdvanced = false;
 #endif
 	
+	
+	// For properties inside a struct, add them to their own category unless they just take the name of the parent struct.  
+	// In that case push them to the parent category
+	FName PropertyCategoryName = FObjectEditorUtils::GetCategoryFName(Property);
+	if (parentProperty && (PropertyCategoryName == parentProperty->Struct->GetFName()))
+	{
+		CategoryName = parentCategory;
+	}
+	else
+	{
+		if (!parentCategory.IsEmpty())
+		{
+			CategoryName = (parentCategory + "|" + CategoryName);
+		}
+	}
+
 
 	if (uproperty->IsA(FFloatProperty::StaticClass())){ 
 		data = std::vector<uint8_t>(4, 0);
@@ -174,6 +204,33 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 		}
 		else
 		{
+			if (Container)
+			{
+				class FProperty* AProperty = StructProp->Struct->PropertyLink;
+				uint8* StructInst = StructProp->ContainerPtrToValuePtr<uint8>(Container);
+				while (AProperty != nullptr)
+				{
+					FName CategoryNamek = FObjectEditorUtils::GetCategoryFName(AProperty);
+					UClass* Class = Container->GetClass();
+
+					if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryNamek.ToString()) || !PropertyVisibleExp(AProperty))
+					{
+						AProperty = AProperty->PropertyLinkNext;
+						continue;
+					}
+
+					UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()) );
+					MZProperty* mzprop = new MZProperty(nullptr, AProperty, CategoryName + "|" + DisplayName, StructInst, StructProp);
+					childProperties.push_back(mzprop);
+					for (auto it : mzprop->childProperties)
+					{
+						childProperties.push_back(it);
+					}
+					//RegisteredProperties.Add(mzprop->id, mzprop);
+					AProperty = AProperty->PropertyLinkNext;
+				}
+			}
+
 			data = std::vector<uint8_t>(1, 0);
 			TypeName = "mz.fb.Void";
 		}
@@ -188,6 +245,12 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, uint8* structPt
 	if (container && TypeName != "mz.fb.Void" && TypeName != "string" && TypeName != "mz.fb.Texture")
 	{
 		void* val = Property->ContainerPtrToValuePtr< void >(container); //: Property->ContainerPtrToValuePtr<void>(StructPtr);
+		memcpy(data.data(), val, data.size());
+	}
+
+	if (structPtr && TypeName != "mz.fb.Void" && TypeName != "string" && TypeName != "mz.fb.Texture")
+	{
+		void* val = Property->ContainerPtrToValuePtr< void >(structPtr); //: Property->ContainerPtrToValuePtr<void>(StructPtr);
 		memcpy(data.data(), val, data.size());
 	}
 
@@ -288,6 +351,10 @@ std::vector<uint8> MZProperty::GetValue(uint8* customContainer)
 
 flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
+	if (TypeName == "mz.fb.void")
+	{
+		return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(), mz::fb::ShowAs::NONE, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
+	}
 	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
 }
 

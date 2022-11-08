@@ -188,6 +188,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Called when a action from a context menu is fired
 	 void OnContexMenuActionFired(FGuid itemId, uint32 actionId);
 
+	 //Sends pin to add to a node
+	 void SendPinAdded(FGuid nodeId, MZProperty* mzprop);
+
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
 

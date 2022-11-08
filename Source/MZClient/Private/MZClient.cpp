@@ -108,7 +108,7 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
  
 void ClientImpl::OnAppConnected(mz::app::AppConnectedEvent const& event) 
 {
-    FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
+    //FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
 		
 	UE_LOG(LogMediaZ, Warning, TEXT("Connected to mzEngine"));
     if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
@@ -420,6 +420,15 @@ void FMZClient::StartupModule() {
 						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
 						AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
 						auto videoCamera = realityCamera->GetRootComponent();
+						auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+
+						LOGF("%d", texture);
+						MZProperty* mzprop = new MZProperty(videoCamera, texture);
+						mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+						mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+						mzclient->Pins.Add(mzprop->id, mzprop);
+						mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
+						//actorNode->Properties.push_back(mzprop);
 						//videoCamera->GetProperty
 						//realityCamera->GetComponentsByClass();
 					}
@@ -802,7 +811,7 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 				auto mzcf = CustomFunctions.FindRef(funcId);
 				mzcf->function(properties);
 			}
-			if (RegisteredFunctions.Contains(funcId))
+			else if (RegisteredFunctions.Contains(funcId))
 			{
 				auto mzfunc = RegisteredFunctions.FindRef(funcId);
 				uint8* Parms = (uint8*)FMemory_Alloca_Aligned(mzfunc->Function->ParmsSize, mzfunc->Function->GetMinAlignment());
@@ -854,6 +863,19 @@ void FMZClient::OnContexMenuActionFired(FGuid itemId, uint32 actionId)
 {
 }
 
+void FMZClient::SendPinAdded(FGuid nodeId, MZProperty* mzprop)
+{
+	if (!Client || !Client->nodeId.IsValid())
+	{
+		return;
+	}
+	MessageBuilder mb;
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = {mzprop->Serialize(mb)};
+	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0));
+	Client->Write(msg);
+	return;
+}
+
 bool PropertyVisible(FProperty* ueproperty)
 {
 	return !ueproperty->HasAllPropertyFlags(CPF_DisableEditOnInstance) &&
@@ -901,6 +923,11 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 			MZProperty* mzprop = new MZProperty(actorNode->actor, AProperty);
 			RegisteredProperties.Add(mzprop->id, mzprop);
 			actorNode->Properties.push_back(mzprop);
+			for (auto it : mzprop->childProperties)
+			{
+				RegisteredProperties.Add(it->id, it);
+				actorNode->Properties.push_back(it);
+			}
 			AProperty = AProperty->PropertyLinkNext;
 		}
 
@@ -934,6 +961,11 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				MZProperty* mzprop = new MZProperty(Component, Property);
 				RegisteredProperties.Add(mzprop->id, mzprop);
 				actorNode->Properties.push_back(mzprop);
+				for (auto it : mzprop->childProperties)
+				{
+					RegisteredProperties.Add(it->id, it);
+					actorNode->Properties.push_back(it);
+				}
 			}
 		}
 		//ITERATE PROPERTIES END
@@ -1121,6 +1153,11 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 			MZProperty* mzprop = new MZProperty(Component, Property);
 			RegisteredProperties.Add(mzprop->id, mzprop);
 			treeNode->GetAsSceneComponentNode()->Properties.push_back(mzprop);
+			for (auto it : mzprop->childProperties)
+			{
+				RegisteredProperties.Add(it->id, it);
+				treeNode->GetAsSceneComponentNode()->Properties.push_back(it);
+			}
 		}
 		
 		treeNode->needsReload = false;
