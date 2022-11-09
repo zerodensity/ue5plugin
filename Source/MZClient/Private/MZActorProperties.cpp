@@ -351,7 +351,7 @@ std::vector<uint8> MZProperty::GetValue(uint8* customContainer)
 
 flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	if (TypeName == "mz.fb.void")
+	if (TypeName == "mz.fb.Void")
 	{
 		return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(), mz::fb::ShowAs::NONE, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
 	}

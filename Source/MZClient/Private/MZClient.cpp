@@ -409,7 +409,7 @@ void FMZClient::StartupModule() {
 		};
 		mzcf->function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
 		{
-			FString actorName("RealityCamera");
+			FString actorName("Reality_Camera");
 
 			if (mzclient->SpawnableClasses.Contains(actorName))
 			{
@@ -420,15 +420,40 @@ void FMZClient::StartupModule() {
 						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
 						AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
 						auto videoCamera = realityCamera->GetRootComponent();
-						auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
 
-						LOGF("%d", texture);
-						MZProperty* mzprop = new MZProperty(videoCamera, texture);
-						mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-						mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
-						mzclient->Pins.Add(mzprop->id, mzprop);
-						mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
-						//actorNode->Properties.push_back(mzprop);
+						std::vector<MZProperty*> pinsToSpawn;
+						{
+							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+							MZProperty* mzprop = new MZProperty(videoCamera, texture);
+							mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+							pinsToSpawn.push_back(mzprop);
+						}
+						{
+							auto fov = FindField<FProperty>(videoCamera->GetClass(), "FieldOfView");
+							MZProperty* mzprop = new MZProperty(videoCamera, fov);
+							mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+							pinsToSpawn.push_back(mzprop);
+						}
+						{
+							auto loc = FindField<FProperty>(videoCamera->GetClass(), "RelativeLocation");
+							MZProperty* mzprop = new MZProperty(videoCamera, loc);
+							mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+							pinsToSpawn.push_back(mzprop);
+						}
+						{
+							auto rot = FindField<FProperty>(videoCamera->GetClass(), "RelativeRotation");
+							MZProperty* mzprop = new MZProperty(videoCamera, rot);
+							mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+							pinsToSpawn.push_back(mzprop);
+						}
+						
+						for (auto mzprop : pinsToSpawn)
+						{
+							mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
+							mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+							mzclient->Pins.Add(mzprop->id, mzprop);
+							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
+						}
 						//videoCamera->GetProperty
 						//realityCamera->GetComponentsByClass();
 					}
@@ -773,20 +798,20 @@ void FMZClient::OnNodeSelected(FGuid nodeId)
 		});
 }
 
-void FMZClient::OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs)
+void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 {
-	TaskQueue.Enqueue([this, nodeId, newShowAs]()
+	TaskQueue.Enqueue([this, pinId, newShowAs]()
 		{
-			if (Pins.Contains(nodeId))
+			if (Pins.Contains(pinId))
 			{
-				auto mzprop = Pins.FindRef(nodeId);
+				auto mzprop = Pins.FindRef(pinId);
 				mzprop->PinShowAs = newShowAs;
 				SendPinUpdate();
 			}
-			else if(RegisteredProperties.Contains(nodeId))
+			else if(RegisteredProperties.Contains(pinId))
 			{
 				
-				auto mzprop = RegisteredProperties.FindRef(nodeId);
+				auto mzprop = RegisteredProperties.FindRef(pinId);
 				MZProperty* newmzprop = new MZProperty(mzprop->Container, mzprop->Property);
 				memcpy(newmzprop, mzprop, sizeof(MZProperty));
 				newmzprop->PinShowAs = newShowAs;
