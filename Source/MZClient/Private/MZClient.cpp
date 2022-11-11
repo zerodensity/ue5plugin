@@ -232,7 +232,7 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 
 	TaskQueue.Enqueue([mzprop, copy, size]()
 		{
-			mzprop->SetValue(copy, size);
+			mzprop->SetPropValue(copy, size);
 			delete[] copy;
 		});
 }
@@ -424,33 +424,45 @@ void FMZClient::StartupModule() {
 						std::vector<MZProperty*> pinsToSpawn;
 						{
 							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
-							MZProperty* mzprop = new MZProperty(videoCamera, texture);
-							mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-							pinsToSpawn.push_back(mzprop);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
 						}
 						{
 							auto fov = FindField<FProperty>(videoCamera->GetClass(), "FieldOfView");
-							MZProperty* mzprop = new MZProperty(videoCamera, fov);
-							mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-							pinsToSpawn.push_back(mzprop);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, fov, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
 						}
 						{
 							auto loc = FindField<FProperty>(videoCamera->GetClass(), "RelativeLocation");
-							MZProperty* mzprop = new MZProperty(videoCamera, loc);
-							mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-							pinsToSpawn.push_back(mzprop);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, loc, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
 						}
 						{
 							auto rot = FindField<FProperty>(videoCamera->GetClass(), "RelativeRotation");
-							MZProperty* mzprop = new MZProperty(videoCamera, rot);
-							mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-							pinsToSpawn.push_back(mzprop);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, rot, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
 						}
 						
 						for (auto mzprop : pinsToSpawn)
 						{
 							mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
-							mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+							//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
 							mzclient->Pins.Add(mzprop->id, mzprop);
 							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
 						}
@@ -627,7 +639,6 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		{
 			graphFunctions.push_back(cfunc->serialize(mb));
 		}
-
 
 		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
 		Client->Write(msg);
@@ -812,13 +823,16 @@ void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 			{
 				
 				auto mzprop = RegisteredProperties.FindRef(pinId);
-				MZProperty* newmzprop = new MZProperty(mzprop->Container, mzprop->Property);
-				memcpy(newmzprop, mzprop, sizeof(MZProperty));
-				newmzprop->PinShowAs = newShowAs;
-				newmzprop->id = FGuid::NewGuid();
-				Pins.Add(newmzprop->id, newmzprop);
-				RegisteredProperties.Add(newmzprop->id, newmzprop);
-				SendPinUpdate();
+				MZProperty* newmzprop = MZPropertyFactory::CreateProperty(mzprop->Container, mzprop->Property, &(RegisteredProperties));
+				if (newmzprop)
+				{
+					memcpy(newmzprop, mzprop, sizeof(MZProperty));
+					newmzprop->PinShowAs = newShowAs;
+					newmzprop->id = FGuid::NewGuid();
+					Pins.Add(newmzprop->id, newmzprop);
+					//RegisteredProperties.Add(newmzprop->id, newmzprop);
+					SendPinUpdate();
+				}
 			}
 			else
 			{
@@ -858,7 +872,7 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 					if (RegisteredProperties.Contains(id))
 					{
 						auto mzprop = RegisteredProperties.FindRef(id);
-						mzprop->SetValue((void*)val.data(), val.size(),Parms);
+						mzprop->SetPropValue((void*)val.data(), val.size(),Parms);
 					}
 				}
 
@@ -866,7 +880,7 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 
 				for (auto mzprop : mzfunc->OutProperties)
 				{
-					SendPinValueChanged(mzprop->id, mzprop->GetValue(Parms));
+					SendPinValueChanged(mzprop->id, mzprop->UpdatePinValue(Parms));
 				}
 				//for (TFieldIterator<FProperty> It(mzfunc->Function); It && It->HasAnyPropertyFlags(CPF_OutParm); ++It)
 				//{
@@ -945,13 +959,21 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				continue;
 			}
 #endif
-			MZProperty* mzprop = new MZProperty(actorNode->actor, AProperty);
-			RegisteredProperties.Add(mzprop->id, mzprop);
-			actorNode->Properties.push_back(mzprop);
-			for (auto it : mzprop->childProperties)
+			MZProperty* mzprop = MZPropertyFactory::CreateProperty(actorNode->actor, AProperty, &(RegisteredProperties));
+			if (!mzprop)
 			{
-				RegisteredProperties.Add(it->id, it);
-				actorNode->Properties.push_back(it);
+				AProperty = AProperty->PropertyLinkNext;
+				continue;
+			}
+			//RegisteredProperties.Add(mzprop->id, mzprop);
+			actorNode->Properties.push_back(mzprop);
+			if (mzprop->Property->IsA(FStructProperty::StaticClass()))
+			{
+				for (auto it : ((MZStructProperty*)mzprop)->childProperties)
+				{
+					//RegisteredProperties.Add(it->id, it);
+					actorNode->Properties.push_back(it);
+				}
 			}
 			AProperty = AProperty->PropertyLinkNext;
 		}
@@ -983,13 +1005,19 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 					continue;
 				}
 #endif				
-				MZProperty* mzprop = new MZProperty(Component, Property);
-				RegisteredProperties.Add(mzprop->id, mzprop);
-				actorNode->Properties.push_back(mzprop);
-				for (auto it : mzprop->childProperties)
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(Component, Property, &(RegisteredProperties));
+				if (mzprop)
 				{
-					RegisteredProperties.Add(it->id, it);
-					actorNode->Properties.push_back(it);
+					//RegisteredProperties.Add(mzprop->id, mzprop);
+					actorNode->Properties.push_back(mzprop);
+					if (mzprop->Property->IsA(FStructProperty::StaticClass()))
+					{
+						for (auto it : ((MZStructProperty*)mzprop)->childProperties)
+						{
+							//RegisteredProperties.Add(it->id, it);
+							actorNode->Properties.push_back(it);
+						}
+					}
 				}
 			}
 		}
@@ -1022,12 +1050,15 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
-					MZProperty* mzprop = new MZProperty(nullptr, *PropIt);
-					mzfunc->Properties.push_back(mzprop);
-					RegisteredProperties.Add(mzprop->id, mzprop);			
-					if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
+					MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, *PropIt, &(RegisteredProperties));
+					if (mzprop)
 					{
-						mzfunc->OutProperties.push_back(mzprop);
+						mzfunc->Properties.push_back(mzprop);
+						//RegisteredProperties.Add(mzprop->id, mzprop);			
+						if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
+						{
+							mzfunc->OutProperties.push_back(mzprop);
+						}
 					}
 				}
 				
@@ -1175,13 +1206,19 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				continue;
 			}
 				
-			MZProperty* mzprop = new MZProperty(Component, Property);
-			RegisteredProperties.Add(mzprop->id, mzprop);
-			treeNode->GetAsSceneComponentNode()->Properties.push_back(mzprop);
-			for (auto it : mzprop->childProperties)
+			MZProperty* mzprop = MZPropertyFactory::CreateProperty(Component, Property, &(RegisteredProperties));
+			if (mzprop)
 			{
-				RegisteredProperties.Add(it->id, it);
-				treeNode->GetAsSceneComponentNode()->Properties.push_back(it);
+				//RegisteredProperties.Add(mzprop->id, mzprop);
+				treeNode->GetAsSceneComponentNode()->Properties.push_back(mzprop);
+				if (mzprop->Property->IsA(FStructProperty::StaticClass()))
+				{
+					for (auto it :((MZStructProperty*)mzprop)->childProperties)
+					{
+						//RegisteredProperties.Add(it->id, it);
+						treeNode->GetAsSceneComponentNode()->Properties.push_back(it);
+					}
+				}
 			}
 		}
 		
