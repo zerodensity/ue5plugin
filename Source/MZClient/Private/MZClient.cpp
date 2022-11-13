@@ -967,14 +967,13 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 			}
 			//RegisteredProperties.Add(mzprop->id, mzprop);
 			actorNode->Properties.push_back(mzprop);
-			if (mzprop->Property->IsA(FStructProperty::StaticClass()))
+
+			for (auto it : mzprop->childProperties)
 			{
-				for (auto it : ((MZStructProperty*)mzprop)->childProperties)
-				{
-					//RegisteredProperties.Add(it->id, it);
-					actorNode->Properties.push_back(it);
-				}
+				//RegisteredProperties.Add(it->id, it);
+				actorNode->Properties.push_back(it);
 			}
+
 			AProperty = AProperty->PropertyLinkNext;
 		}
 
@@ -1010,14 +1009,13 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				{
 					//RegisteredProperties.Add(mzprop->id, mzprop);
 					actorNode->Properties.push_back(mzprop);
-					if (mzprop->Property->IsA(FStructProperty::StaticClass()))
+
+					for (auto it : mzprop->childProperties)
 					{
-						for (auto it : ((MZStructProperty*)mzprop)->childProperties)
-						{
-							//RegisteredProperties.Add(it->id, it);
-							actorNode->Properties.push_back(it);
-						}
+						//RegisteredProperties.Add(it->id, it);
+						actorNode->Properties.push_back(it);
 					}
+
 				}
 			}
 		}
@@ -1211,14 +1209,13 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 			{
 				//RegisteredProperties.Add(mzprop->id, mzprop);
 				treeNode->GetAsSceneComponentNode()->Properties.push_back(mzprop);
-				if (mzprop->Property->IsA(FStructProperty::StaticClass()))
+
+				for (auto it : mzprop->childProperties)
 				{
-					for (auto it :((MZStructProperty*)mzprop)->childProperties)
-					{
-						//RegisteredProperties.Add(it->id, it);
-						treeNode->GetAsSceneComponentNode()->Properties.push_back(it);
-					}
+					//RegisteredProperties.Add(it->id, it);
+					treeNode->GetAsSceneComponentNode()->Properties.push_back(it);
 				}
+
 			}
 		}
 		
