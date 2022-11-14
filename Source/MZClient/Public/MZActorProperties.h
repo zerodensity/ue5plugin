@@ -34,6 +34,9 @@ public:
 	std::string TypeName;
 	FGuid id;
 	std::vector<uint8_t> data; //wrt mediaZ standarts
+	std::vector<uint8_t> default_val; //wrt mediaZ standarts
+	std::vector<uint8_t> min_val; //wrt mediaZ standarts
+	std::vector<uint8_t> max_val; //wrt mediaZ standarts
 	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
 	std::vector<MZProperty*> childProperties;
 
@@ -331,6 +334,20 @@ protected:
 		virtual void SetProperty_InCont(void* container, void* val) override;
 };
 
+class MZTrackProperty : public MZProperty
+{
+public:
+	MZTrackProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	{
+		data = std::vector<uint8_t>(sizeof(mz::fb::Track), 0);
+		TypeName = "mz.fb.Track";
+	}
+
+	FStructProperty* structprop;
+protected:
+	virtual void SetProperty_InCont(void* container, void* val) override;
+};
 
 class MZPropertyFactory
 {

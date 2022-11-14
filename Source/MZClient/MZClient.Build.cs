@@ -76,6 +76,7 @@ public class MZClient : ModuleRules
 				PublicIncludePaths.Add(Path.Combine(SDKdir, "include"));
 				PublicIncludePaths.Add(Path.Combine(SDKdir, "../include"));
 
+
 				PublicDependencyModuleNames.AddRange(
 					new string[]
 					{
@@ -92,6 +93,8 @@ public class MZClient : ModuleRules
 					"AssetRegistry",
 					"EditorFramework",
                     "TypedElementFramework",
+					"RealityEditor",
+					"Reality",
 					}
 					);
 
@@ -122,6 +125,8 @@ public class MZClient : ModuleRules
 					"AssetRegistry",
 					"EditorFramework",
                     "TypedElementFramework",
+					"RealityEditor",
+					"Reality",
 					}
 					);
 

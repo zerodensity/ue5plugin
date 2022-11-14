@@ -432,32 +432,41 @@ void FMZClient::StartupModule() {
 							}
 						}
 						{
-							auto fov = FindField<FProperty>(videoCamera->GetClass(), "FieldOfView");
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, fov, &(mzclient->RegisteredProperties));
+							auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
 							if (mzprop)
 							{
 								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
 								pinsToSpawn.push_back(mzprop);
 							}
 						}
-						{
-							auto loc = FindField<FProperty>(videoCamera->GetClass(), "RelativeLocation");
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, loc, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						{
-							auto rot = FindField<FProperty>(videoCamera->GetClass(), "RelativeRotation");
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, rot, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
+						//{
+						//	auto fov = FindField<FProperty>(videoCamera->GetClass(), "FieldOfView");
+						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, fov, &(mzclient->RegisteredProperties));
+						//	if (mzprop)
+						//	{
+						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+						//		pinsToSpawn.push_back(mzprop);
+						//	}
+						//}
+						//{
+						//	auto loc = FindField<FProperty>(videoCamera->GetClass(), "RelativeLocation");
+						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, loc, &(mzclient->RegisteredProperties));
+						//	if (mzprop)
+						//	{
+						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+						//		pinsToSpawn.push_back(mzprop);
+						//	}
+						//}
+						//{
+						//	auto rot = FindField<FProperty>(videoCamera->GetClass(), "RelativeRotation");
+						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, rot, &(mzclient->RegisteredProperties));
+						//	if (mzprop)
+						//	{
+						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+						//		pinsToSpawn.push_back(mzprop);
+						//	}
+						//}
 						
 						for (auto mzprop : pinsToSpawn)
 						{

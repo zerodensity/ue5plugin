@@ -202,6 +202,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //all the properties registered 
 	 TMap<FGuid, MZProperty*> RegisteredProperties;
+
+	 //all the properties registered mapped with property pointers
+	 TMap<FProperty*, MZProperty*> PropertiesMap;
 	 
 	 //all the functions registered
 	 TMap<FGuid, MZFunction*> RegisteredFunctions;

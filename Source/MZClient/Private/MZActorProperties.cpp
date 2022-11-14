@@ -3,7 +3,7 @@
 #include "MZTextureShareManager.h"
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
-#include "MZTrack.h"
+#include "Reality/Public/RealityTrack.h"
 
 
 #define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMediaZ, Error, TEXT("Property size mismatch with mediaZ (uint64)"));return;}}
@@ -51,6 +51,24 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		CategoryName = (metaData.Contains(NAME_Category) ? metaData[NAME_Category] : "Default");
 		UIMinString = metaData.Contains(NAME_UIMin) ? metaData[NAME_UIMin] : "";
 		UIMaxString = metaData.Contains(NAME_UIMax) ? metaData[NAME_UIMax] : "";
+
+		if (metaData.Contains(NAME_UIMin))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("metadata is found for uimin"));
+		}
+		if (metaData.Contains(NAME_UIMax))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("metadata is found for uimax"));
+		}
+		if (metaData.Contains("ClampMin"))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("metadata is found for cmin"));
+		}
+		if (metaData.Contains("ClampMax"))
+		{
+			UE_LOG(LogTemp, Warning, TEXT("metadata is found for cmax"));
+		}
+
 	}
 	else
 	{
@@ -172,6 +190,19 @@ void MZVec3Property::SetProperty_InCont(void* container, void* val) { structprop
 
 void MZVec4Property::SetProperty_InCont(void* container, void* val) { structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FVector4*)val); }
 
+void MZTrackProperty::SetProperty_InCont(void* container, void* val) 
+{
+	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FRealityTrack*)val); 
+	FRealityTrack newTrack = *(FRealityTrack*)val;
+
+	if (AActor* actor = Cast<AActor>(Container))
+	{
+		actor->SetActorRelativeLocation(newTrack.location);
+		//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
+		//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
+	}
+}
+
 
 
 
@@ -181,7 +212,7 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBu
 	{
 		return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), "mz.fb.Void", mz::fb::ShowAs::NONE, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
 	}
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, 0, ReadOnly, IsAdvanced);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, 0, ReadOnly, IsAdvanced);
 }
 
 MZStructProperty::MZStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
@@ -385,6 +416,7 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 	MZProperty* prop = nullptr;
 
 	//CAST THE PROPERTY ACCORDINGLY
+	uproperty->GetClass();
 	if (FFloatProperty* floatprop = Cast<FFloatProperty>(uproperty) ) 
 	{
 		prop = new MZFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty);
@@ -448,39 +480,37 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 	else if (FStructProperty* structprop = Cast<FStructProperty>(uproperty))
 	{
 
-//	else if (StructProp->Struct == TBaseStructure<FTransform>::Get()) //todo everything
-//	{
-//		//TODO
-//		setVal = false;
-//	}
-//	else if (StructProp->Struct == FMZTrack::StaticStruct())
-//	{
-//		data = std::vector<uint8_t>(sizeof(mz::fb::Track), 0);
-//		TypeName = "mz.fb.Track";
-//		//setVal = false;
-//	}
-
+		//TODO ADD SUPPORT FOR FTRANSFORM
 		if (structprop->Struct == TBaseStructure<FVector2D>::Get()) //vec2
 		{
 			prop = new MZVec2Property(container, structprop, parentCategory, StructPtr, parentProperty);
 		}
-		else if (structprop->Struct == TBaseStructure<FVector>::Get() || structprop->Struct == TBaseStructure<FRotator>::Get()) //vec3
+		else if (structprop->Struct == TBaseStructure<FVector>::Get()) //vec3
 		{
 			prop = new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty);
+		}
+		else if (structprop->Struct == TBaseStructure<FRotator>::Get())
+		{
+			prop = new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty);
+			FVector min(0, 0, 0);
+			FVector max(359.999, 359.999, 359.999);
+			prop->min_val = prop->data;
+			prop->max_val = prop->data;
+			memcpy(prop->min_val.data(), &min, sizeof(FVector));
+			memcpy(prop->max_val.data(), &max, sizeof(FVector));
 		}
 		else if (structprop->Struct == TBaseStructure<FVector4>::Get() || structprop->Struct == TBaseStructure<FQuat>::Get()) //vec4
 		{
 			prop = new MZVec4Property(container, structprop, parentCategory, StructPtr, parentProperty);
 
 		}
-		//else if () //track
-		//{
-
-		//}
+		else if (structprop->Struct == FRealityTrack::StaticStruct()) //track
+		{
+			prop = new MZTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty);
+		}
 		else //auto construct
 		{
 			auto mzstructprop = new MZStructProperty(container, structprop, parentCategory, StructPtr, parentProperty);
-			//auto list = GetAllChildList(mzstructprop);
 			prop = mzstructprop;
 		}
 	}
@@ -499,7 +529,7 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 			registeredProperties->Add(it->id, it);
 		}
 	}
-	//prop->SetPropertyValue();
+	prop->default_val = prop->data;
 
 	return prop;
 }

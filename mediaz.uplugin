@@ -14,7 +14,7 @@
 	"IsBetaVersion": false,
 	"IsExperimentalVersion": false,
 	"Installed": false,
-    "EnabledByDefault": true,
+	"EnabledByDefault": true,
 	"SupportedTargetPlatforms": [ "Win64" ],
 	"Modules": [
 		{
@@ -22,6 +22,12 @@
 			"Type": "Runtime",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [ "Win64" ]
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "RealityEngine",
+			"Enabled": true
 		}
 	]
 }
