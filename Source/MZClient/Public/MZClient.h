@@ -2,6 +2,7 @@
 
 #if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
+#include "MZCustomTimeStep.h"
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -28,7 +29,6 @@
 //#include "D3D12RHI.h"
 //#include "D3D12Resources.h"
 
-#include "MZCustomTimeStep.h"
 #include "SceneTree.h"
 
 #include "AppClient.h"
@@ -182,6 +182,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Called when a function is called from mediaZ
 	 void OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> properties);
 
+	 //Called when the node is executed from mediaZ
+	 void OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates);
+
 	 //Called when a context menu is fired
 	 void OnContexMenuFired(FGuid itemId);
 
@@ -219,8 +222,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 TMap<FString, UObject*> SpawnableClasses;
 	 TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
 
-
-
+	 //Custom time step implementation for mediaZ controlling the unreal editor in play mode
+	 class UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
+	 bool ctsBound = false;
 
 protected: 
 

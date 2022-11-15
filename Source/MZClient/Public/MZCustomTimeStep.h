@@ -3,6 +3,7 @@
 
 #if WITH_EDITOR
 #include "Editor.h"
+#include "MZClient.h"
 #endif
 
 #include <atomic>
@@ -19,6 +20,7 @@ public:
 #if WITH_EDITOR
 	std::mutex Mutex;
 	std::condition_variable CV;
+	FMZClient* PluginClient = nullptr;
 #endif
 	//std::atomic<bool> wait = false;
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
@@ -40,11 +42,13 @@ public:
 	virtual bool UpdateTimeStep(class UEngine* InEngine) override
 	{
 		UpdateApplicationLastTime();
-		//if (IMZClient::Get()->IsConnected() && IsGameRunning())
-		//{
-		//	std::unique_lock lock(Mutex);
-		//	CV.wait(lock);
-		//}
+#if WITH_EDITOR
+		if (PluginClient && PluginClient->IsConnected() && IsGameRunning())
+		{
+			//std::unique_lock lock(Mutex);
+			//CV.wait(lock);
+		}
+#endif
 		return true;
 	}
 

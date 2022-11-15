@@ -162,6 +162,10 @@ void ClientImpl::OnNodeRemoved(mz::app::NodeRemovedEvent const& action)
 {
 	LOG("Plugin node removed from mediaz");
 	nodeId = {};
+	if (PluginClient && PluginClient->CustomTimeStepImpl)
+	{
+		PluginClient->CustomTimeStepImpl->CV.notify_one();
+	}
 }
 
 void ClientImpl::OnPinValueChanged(mz::PinValueChanged const& action) 
@@ -194,6 +198,11 @@ void ClientImpl::OnFunctionCall(mz::app::FunctionCall const& action)
 
 void ClientImpl::OnExecute(mz::app::AppExecute const& aE) 
 {
+	
+	if (PluginClient)
+	{
+		PluginClient->OnUpdatedNodeExecuted(ParsePins(*aE.node()));
+	}
 }
 
 void ClientImpl::OnNodeSelected(mz::NodeSelected const& action) 
@@ -256,22 +265,29 @@ void FMZClient::Connected()
 void FMZClient::Disconnected() 
 {
     Client->nodeId = {};
+	if (CustomTimeStepImpl)
+	{
+		CustomTimeStepImpl->CV.notify_one();
+	}
 
 }
 
 void FMZClient::InitConnection()
 {
+
     if (Client)
     {
-        //if (/*!ctsBound && */ (Client->nodeId.IsValid()))
-        //{
-        //    //CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
-        //    //auto tis = GEngine->SetCustomTimeStep(CustomTimeStepImpl);
-        //    if (tis)
-        //    {
-        //        ctsBound = true;
-        //    }
-        //}
+        if (!ctsBound && (Client->nodeId.IsValid()))
+        {
+            CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
+			CustomTimeStepImpl->PluginClient = this;
+            auto tis = GEngine->SetCustomTimeStep(CustomTimeStepImpl);
+            if (tis)
+            {
+                ctsBound = true;
+            }
+        }
+
         if (Client->shutdown)
         {
             Client->shutdown = (GRPC_CHANNEL_READY != Client->Connect());
@@ -837,7 +853,7 @@ void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 				{
 					memcpy(newmzprop, mzprop, sizeof(MZProperty));
 					newmzprop->PinShowAs = newShowAs;
-					newmzprop->id = FGuid::NewGuid();
+					//newmzprop->id = FGuid::NewGuid();
 					Pins.Add(newmzprop->id, newmzprop);
 					//RegisteredProperties.Add(newmzprop->id, newmzprop);
 					SendPinUpdate();
@@ -909,6 +925,26 @@ void FMZClient::OnContexMenuFired(FGuid itemId)
 
 void FMZClient::OnContexMenuActionFired(FGuid itemId, uint32 actionId)
 {
+}
+
+void FMZClient::OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates)
+{
+	TaskQueue.Enqueue([this, updates]()
+	{
+		for (auto& [id, data] : updates)
+		{
+			if (RegisteredProperties.Contains(id))
+			{
+				auto mzprop = RegisteredProperties.FindRef(id);
+				mzprop->SetPropValue((void*)data.data(), data.size());
+			}
+		}
+
+	});
+	if (CustomTimeStepImpl)
+	{
+		CustomTimeStepImpl->CV.notify_one();
+	}
 }
 
 void FMZClient::SendPinAdded(FGuid nodeId, MZProperty* mzprop)
