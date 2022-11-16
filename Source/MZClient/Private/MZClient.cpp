@@ -13,6 +13,7 @@
 
 #include "MZTextureShareManager.h"
 
+#include "HardwareInfo.h"
 //exp
 #include "ActorFactories/ActorFactory.h"
 #include "ActorFactories/ActorFactoryBasicShape.h"
@@ -344,6 +345,14 @@ void FMZClient::OnActorDestroyed(AActor* InActor)
 }
 
 void FMZClient::StartupModule() {
+
+	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
+	if ("D3D12" != hwinfo)
+	{
+		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
+		return;
+	}
+
 	using namespace grpc;
 	using namespace grpc::internal;
 	if (grpc::g_glip == nullptr) {
