@@ -204,6 +204,7 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
 			for (auto& [URT, pin] : CopyOnTick)
 			{
+
 				auto rt = URT->GetRenderTargetResource();
 				if (!rt) return;
 				auto RHIResource = rt->GetTexture2DRHI();
@@ -255,14 +256,14 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 					if (DstDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)      Flags ^= ETextureCreateFlags::ShaderResource;
 
 					
-					//FTexture2DRHIRef Texture2DRHI = GetID3D12DynamicRHI()->RHICreateTexture2DFromResource(format, Flags, FClearValueBinding::Black, DstResource);
+					FTexture2DRHIRef Texture2DRHI = GetID3D12DynamicRHI()->RHICreateTexture2DFromResource(format, Flags, FClearValueBinding::Black, DstResource);
 					URT->RenderTargetFormat = rtFormat;
 					URT->SizeX = DstDesc.Width;
 					URT->SizeY = DstDesc.Height;
 					URT->ClearColor = FLinearColor::Black;
 					URT->bGPUSharedFlag = 1;
-					//RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
-					//URT->Resource->TextureRHI = Texture2DRHI;
+					RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
+					URT->Resource->TextureRHI = Texture2DRHI;
 					URT->Resource->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
 					continue;
 				}

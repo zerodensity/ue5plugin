@@ -860,11 +860,12 @@ void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 				MZProperty* newmzprop = MZPropertyFactory::CreateProperty(mzprop->Container, mzprop->Property, &(RegisteredProperties));
 				if (newmzprop)
 				{
-					memcpy(newmzprop, mzprop, sizeof(MZProperty));
+					//memcpy(newmzprop, mzprop, sizeof(MZProperty));
 					newmzprop->PinShowAs = newShowAs;
+					//RegisteredProperties.Remove(newmzprop->id);
 					//newmzprop->id = FGuid::NewGuid();
 					Pins.Add(newmzprop->id, newmzprop);
-					//RegisteredProperties.Add(newmzprop->id, newmzprop);
+					RegisteredProperties.Add(newmzprop->id, newmzprop);
 					SendPinUpdate();
 				}
 			}
