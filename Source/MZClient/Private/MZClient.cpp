@@ -225,8 +225,89 @@ void ClientImpl::OnCommandFired(mz::ContextMenuAction const& action)
 	LOG("Context menu command fired from MediaZ");
 }
 
+void ClientImpl::OnNodeImported(mz::app::NodeImported const& action)
+{
+	LOG("Node imported from MediaZ");
+	if (PluginClient)
+	{
+		PluginClient->OnNodeImported(action.node());
+	}
+}
+
 
 FMZClient::FMZClient() {}
+
+void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::Node*>& out)
+{
+	if (node->pins()->size() > 0)
+	{
+		out.push_back(node);
+	}
+
+	for (auto child : *node->contents_as_Graph()->nodes())
+	{
+		GetNodesWithProperty(child, out);
+	}
+}
+
+struct PropUpdate
+{
+	FGuid actorId;
+	FString propName;
+	void* newVal;
+	size_t size;
+};
+
+void FMZClient::OnNodeImported(const mz::fb::Node* node)
+{
+	std::vector<const mz::fb::Node*> nodesWithProperty;
+	GetNodesWithProperty(node, nodesWithProperty);
+	std::vector<PropUpdate> updates;
+	for (auto nodeW : nodesWithProperty)
+	{
+		FGuid id = *(FGuid*)(nodeW->id());
+		for (auto prop : *nodeW->pins())
+		{	
+			if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_META_DATA_MAP))
+			{
+				if (auto entry = prop->meta_data_map()->LookupByKey("property"))
+				{
+					FString name(entry->value()->c_str());
+					char* copy = new char[prop->data()->size()];
+					memcpy(copy, prop->data()->data(), prop->data()->size());
+					updates.push_back({ id, name, copy, prop->data()->size() });
+				}
+			}
+			
+		}
+	}
+	
+	TaskQueue.Enqueue([this, updates]()
+		{
+			for (auto update : updates)
+			{
+				if (sceneTree.nodeMap.Contains(update.actorId))
+				{
+					auto actorNode = sceneTree.nodeMap.FindRef(update.actorId)->GetAsActorNode();
+					if (actorNode)
+					{
+						if (actorNode->actor)
+						{
+							auto prp = FindField<FProperty>(actorNode->actor->GetClass(), TCHAR_TO_UTF8(*update.propName));
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(actorNode->actor, prp);
+							if (mzprop)
+							{
+								mzprop->SetPropValue(update.newVal, update.size);
+							}
+							delete mzprop;
+						}
+					}
+				}
+				delete update.newVal;
+			}
+		});
+}
+
 
 void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 {

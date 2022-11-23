@@ -88,6 +88,8 @@ public:
 
 	virtual void OnCommandFired(mz::ContextMenuAction const& action) override;
 
+	virtual void OnNodeImported(mz::app::NodeImported const& action) override;
+
 	
 	FMZClient* PluginClient;
 	FGuid nodeId;
@@ -190,6 +192,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Called when a action from a context menu is fired
 	 void OnContexMenuActionFired(FGuid itemId, uint32 actionId);
+
+	 //Called when a node is imported through (save/load graph) mediaZ
+	 void OnNodeImported(const mz::fb::Node* node);
 
 	 //Sends pin to add to a node
 	 void SendPinAdded(FGuid nodeId, MZProperty* mzprop);

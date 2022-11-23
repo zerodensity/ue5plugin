@@ -39,7 +39,7 @@ public:
 	std::vector<uint8_t> max_val; //wrt mediaZ standarts
 	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
 	std::vector<MZProperty*> childProperties;
-
+	bool transient = true;
 
 protected:
 	virtual void SetProperty_InCont(void* container, void* val);
