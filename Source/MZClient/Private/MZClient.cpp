@@ -305,6 +305,10 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 				}
 				delete update.newVal;
 			}
+
+			PopulateSceneTree();
+			SendNodeUpdate(Client->nodeId);
+			SendAssetList();
 		});
 }
 
