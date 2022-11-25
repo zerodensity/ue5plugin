@@ -39,6 +39,10 @@
 
 #include "Kismet2/ComponentEditorUtils.h"
 
+#include "Elements/Interfaces/TypedElementObjectInterface.h" //experiment
+#include "Elements/Framework/TypedElementRegistry.h"
+#include "Elements/Actor/ActorElementData.h"
+
 enum FunctionContextMenuActions
 {
 	BOOKMARK
@@ -253,6 +257,7 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 struct PropUpdate
 {
 	FGuid actorId;
+	FString componentName;
 	FString propName;
 	void* newVal;
 	size_t size;
@@ -270,13 +275,31 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 		{	
 			if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_META_DATA_MAP))
 			{
+				FString componentName;
+				FString propName;
+				char* copy = new char[prop->data()->size()];
+				memcpy(copy, prop->data()->data(), prop->data()->size());
+
 				if (auto entry = prop->meta_data_map()->LookupByKey("property"))
 				{
-					FString name(entry->value()->c_str());
-					char* copy = new char[prop->data()->size()];
-					memcpy(copy, prop->data()->data(), prop->data()->size());
-					updates.push_back({ id, name, copy, prop->data()->size() });
+					propName = FString(entry->value()->c_str());
 				}
+				if (auto entry = prop->meta_data_map()->LookupByKey("component"))
+				{
+					componentName = FString(entry->value()->c_str());
+				}
+				if (auto entry = prop->meta_data_map()->LookupByKey("actorId"))
+				{
+					FString actorIdString = FString(entry->value()->c_str());
+					FGuid actorId;
+					if (FGuid::Parse(actorIdString, actorId))
+					{
+						id = actorId;
+					}
+					//componentName = FString(entry->value()->c_str());
+				}
+
+				updates.push_back({ id, componentName, propName, copy, prop->data()->size()});
 			}
 			
 		}
@@ -284,25 +307,49 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 	
 	TaskQueue.Enqueue([this, updates]()
 		{
+			UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+
+			TMap<FGuid, AActor*> sceneActorMap;
+			if (World)
+			{
+				for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
+				{
+					sceneActorMap.Add(ActorItr->GetActorGuid(), *ActorItr);
+				}
+			}
+
 			for (auto update : updates)
 			{
-				if (sceneTree.nodeMap.Contains(update.actorId))
+				if (sceneActorMap.Contains(update.actorId))
 				{
-					auto actorNode = sceneTree.nodeMap.FindRef(update.actorId)->GetAsActorNode();
-					if (actorNode)
+					auto actor = sceneActorMap.FindRef(update.actorId);
+					MZProperty* mzprop = nullptr;
+					if (update.componentName.IsEmpty())
 					{
-						if (actorNode->actor)
+						auto prp = FindField<FProperty>(actor->GetClass(), TCHAR_TO_UTF8(*update.propName));
+						if (prp)
 						{
-							auto prp = FindField<FProperty>(actorNode->actor->GetClass(), TCHAR_TO_UTF8(*update.propName));
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(actorNode->actor, prp);
-							if (mzprop)
-							{
-								mzprop->SetPropValue(update.newVal, update.size);
-							}
-							delete mzprop;
+							mzprop = MZPropertyFactory::CreateProperty(actor, prp);
 						}
 					}
+					else
+					{	
+						auto component = FindObject<USceneComponent>(actor, *update.componentName);
+						auto prp = FindField<FProperty>(component->GetClass(), TCHAR_TO_UTF8(*update.propName));
+						if (component && prp)
+						{
+							mzprop = MZPropertyFactory::CreateProperty(component, prp);
+						}
+
+					}
+					if (mzprop)
+					{
+						mzprop->SetPropValue(update.newVal, update.size);
+					}
+					delete mzprop;
 				}
+
+
 				delete update.newVal;
 			}
 
@@ -412,6 +459,10 @@ void FMZClient::OnActorSpawned(AActor* InActor)
 		LOGF("%s", *(InActor->GetFName().ToString()));
 		TaskQueue.Enqueue([InActor, this]()
 			{
+				if (sceneTree.nodeMap.Contains(InActor->GetActorGuid()))
+				{
+					return;
+				}
 				SendActorAdded(InActor);
 			});
 	}
@@ -477,14 +528,22 @@ void FMZClient::StartupModule() {
 		mzcf->function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString actorName((char*)properties.FindRef(actorPinId).data());
-
+			AActor* spawnedActor = nullptr;
 			if (mzclient->ActorPlacementParamMap.Contains(actorName))
 			{
 				auto placementInfo = mzclient->ActorPlacementParamMap.FindRef(actorName);
 				UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
 				if (PlacementSubsystem)
 				{
-					PlacementSubsystem->PlaceAsset(placementInfo, FPlacementOptions());
+					TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(placementInfo, FPlacementOptions());
+					for (auto elem : PlacedElements)
+					{
+						const FActorElementData* ActorElement = elem.GetData<FActorElementData>(true);
+						if (ActorElement)
+						{
+							spawnedActor = ActorElement->Actor;
+						}
+					}
 				}
 			}
 			else if (mzclient->SpawnableClasses.Contains(actorName))
@@ -496,7 +555,7 @@ void FMZClient::StartupModule() {
 						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
 						UClass* NativeClass = Cast<UClass>(ClassToSpawn);
 						UClass* Class = GeneratedBP ? (UClass*)(GeneratedBP->GeneratedClass) : (NativeClass);
-						GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class);
+						spawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class);
 					}
 				}
 			}
@@ -504,6 +563,12 @@ void FMZClient::StartupModule() {
 			{
 				LOG("Cannot spawn actor");
 			}
+			if (spawnedActor)
+			{
+				mzclient->SendActorAdded(spawnedActor, actorName);
+				LOGF("Spawned actor %s", *spawnedActor->GetFName().ToString());
+			}
+
 			//mzclient->PopulateSceneTree();
 			//mzclient->SendNodeUpdate(mzclient->Client->nodeId);
 		};
@@ -529,8 +594,8 @@ void FMZClient::StartupModule() {
 					{
 						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
 						AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
-						auto videoCamera = realityCamera->GetRootComponent();
-
+						//auto videoCamera = realityCamera->GetRootComponent();
+						auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
 						std::vector<MZProperty*> pinsToSpawn;
 						{
 							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
@@ -550,33 +615,6 @@ void FMZClient::StartupModule() {
 								pinsToSpawn.push_back(mzprop);
 							}
 						}
-						//{
-						//	auto fov = FindField<FProperty>(videoCamera->GetClass(), "FieldOfView");
-						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, fov, &(mzclient->RegisteredProperties));
-						//	if (mzprop)
-						//	{
-						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-						//		pinsToSpawn.push_back(mzprop);
-						//	}
-						//}
-						//{
-						//	auto loc = FindField<FProperty>(videoCamera->GetClass(), "RelativeLocation");
-						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, loc, &(mzclient->RegisteredProperties));
-						//	if (mzprop)
-						//	{
-						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-						//		pinsToSpawn.push_back(mzprop);
-						//	}
-						//}
-						//{
-						//	auto rot = FindField<FProperty>(videoCamera->GetClass(), "RelativeRotation");
-						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, rot, &(mzclient->RegisteredProperties));
-						//	if (mzprop)
-						//	{
-						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-						//		pinsToSpawn.push_back(mzprop);
-						//	}
-						//}
 						
 						for (auto mzprop : pinsToSpawn)
 						{
@@ -585,8 +623,6 @@ void FMZClient::StartupModule() {
 							mzclient->Pins.Add(mzprop->id, mzprop);
 							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
 						}
-						//videoCamera->GetProperty
-						//realityCamera->GetComponentsByClass();
 					}
 				}
 			}
@@ -828,14 +864,23 @@ void FMZClient::SendPinUpdate() //runs in game thread
 	
 }
 
-void FMZClient::SendActorAdded(AActor* actor) //runs in game thread
+void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game thread
 {
+	ActorNode* newNode = nullptr;
 	if (auto sceneParent = actor->GetSceneOutlinerParent())
 	{
 		if (sceneTree.nodeMap.Contains(sceneParent->GetActorGuid()))
 		{
 			auto parentNode = sceneTree.nodeMap.FindRef(sceneParent->GetActorGuid());
-			auto newNode = sceneTree.AddActor(parentNode, actor);
+			newNode = sceneTree.AddActor(parentNode, actor);
+			if (!newNode)
+			{
+				return;
+			}
+			if (!spawnTag.IsEmpty())
+			{
+				newNode->mzMetaData.Add("spawnTag", spawnTag);
+			}
 			if (!Client || !Client->nodeId.IsValid())
 			{
 				return;
@@ -848,7 +893,15 @@ void FMZClient::SendActorAdded(AActor* actor) //runs in game thread
 	}
 	else
 	{
-		ActorNode* newNode = sceneTree.AddActor(actor->GetFolder().GetPath().ToString(), actor);
+		newNode = sceneTree.AddActor(actor->GetFolder().GetPath().ToString(), actor);
+		if (!newNode)
+		{
+			return;
+		}
+		if (!spawnTag.IsEmpty())
+		{
+			newNode->mzMetaData.Add("spawnTag", spawnTag);
+		}
 		if (!Client || !Client->nodeId.IsValid())
 		{
 			return;
@@ -858,6 +911,8 @@ void FMZClient::SendActorAdded(AActor* actor) //runs in game thread
 		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
 		Client->Write(msg);
 	}
+
+	return;
 }
 
 void FMZClient::SendActorDeleted(FGuid id) //runs in game thread

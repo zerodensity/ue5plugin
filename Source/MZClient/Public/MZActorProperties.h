@@ -19,6 +19,7 @@ public:
 	//std::vector<uint8> GetValue(uint8* customContainer = nullptr);
 	void MarkState();
 	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;
 	UObject* Container;
@@ -39,6 +40,7 @@ public:
 	std::vector<uint8_t> max_val; //wrt mediaZ standarts
 	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
 	std::vector<MZProperty*> childProperties;
+	TMap<FString, FString> mzMetaDataMap;
 	bool transient = true;
 
 protected:

@@ -136,7 +136,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void SendPinUpdate();
 
 	 //Adds the node to scene tree and sends it to mediaZ
-	 void SendActorAdded(AActor* actor);
+	 void SendActorAdded(AActor* actor, FString spawnTag = FString());
 	 
 	 //Deletes the node from scene tree and sends it to mediaZ
 	 void SendActorDeleted(FGuid id);

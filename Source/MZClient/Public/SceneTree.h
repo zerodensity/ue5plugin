@@ -38,6 +38,7 @@ struct ActorNode : TreeNode
 	AActor* actor = nullptr;
 	std::vector<MZProperty*> Properties;
 	std::vector<MZFunction*> Functions;
+	TMap<FString, FString> mzMetaData;
 	virtual FString GetClassDisplayName() override { return actor ? actor->GetClass()->GetFName().ToString() : "Actor"; };
 	virtual ActorNode* GetAsActorNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
