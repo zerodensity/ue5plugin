@@ -628,6 +628,45 @@ void FMZClient::StartupModule() {
 						std::vector<MZProperty*> pinsToSpawn;
 						{
 							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+							RenderTarget2D->InitAutoFormat(1920, 1080);
+							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
+						}
+						{
+							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
+							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+							RenderTarget2D->InitAutoFormat(1920, 1080);
+							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
+						}
+						{
+							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
+							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+							RenderTarget2D->InitAutoFormat(1920, 1080);
+							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
+						}
+						{
+							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
+							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+							RenderTarget2D->InitAutoFormat(1920, 1080);
+							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
 							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
 							if (mzprop)
 							{
