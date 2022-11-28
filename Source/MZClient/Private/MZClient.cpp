@@ -241,6 +241,22 @@ void ClientImpl::OnNodeImported(mz::app::NodeImported const& action)
 
 FMZClient::FMZClient() {}
 
+void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<FGuid, FString>& spawnedByMediaz)
+{
+	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_META_DATA_MAP))
+	{
+		if (auto entry = node->meta_data_map()->LookupByKey("spawnTag"))
+		{
+			spawnedByMediaz.Add(*(FGuid*)node->id(), FString(entry->value()->c_str()));
+		}
+	}
+	for (auto child : *node->contents_as_Graph()->nodes())
+	{
+		GetNodesSpawnedByMediaz(child, spawnedByMediaz);
+	}
+}
+
+
 void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::Node*>& out)
 {
 	if (node->pins()->size() > 0)
@@ -304,9 +320,13 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 			
 		}
 	}
+
+	TMap<FGuid, FString> spawnedByMediaz; //old guid (imported) x spawn tag
+	GetNodesSpawnedByMediaz(node, spawnedByMediaz);
 	
-	TaskQueue.Enqueue([this, updates]()
+	TaskQueue.Enqueue([this, updates, spawnedByMediaz]()
 		{
+			
 			UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
 			TMap<FGuid, AActor*> sceneActorMap;
@@ -315,6 +335,15 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 				for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
 				{
 					sceneActorMap.Add(ActorItr->GetActorGuid(), *ActorItr);
+				}
+			}
+
+			for (auto [oldGuid, spawnTag] : spawnedByMediaz)
+			{
+				if (!sceneActorMap.Contains(oldGuid))
+				{
+					///spawn
+					//sceneActorMap.Add(oldGuid, spawnedActor); this will map the old id with spawned actor in order to match the old properties (imported from disk)
 				}
 			}
 
@@ -619,6 +648,68 @@ void FMZClient::StartupModule() {
 						for (auto mzprop : pinsToSpawn)
 						{
 							mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
+							//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+							mzclient->Pins.Add(mzprop->id, mzprop);
+							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
+						}
+					}
+				}
+			}
+			else
+			{
+				LOG("Cannot spawn actor");
+			}
+		};
+		CustomFunctions.Add(mzcf->id, mzcf);
+	}
+	//Add Projection cube function
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		mzcf->id = FGuid::NewGuid();
+		mzcf->serialize = [funcid = mzcf->id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		{
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
+		};
+		mzcf->function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
+		{
+			FString actorName("RealityActor_ProjectionCube");
+
+			if (mzclient->SpawnableClasses.Contains(actorName))
+			{
+				if (GEngine)
+				{
+					if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
+					{
+						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
+						AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
+						
+						std::vector<MZProperty*> pinsToSpawn;
+						{
+							auto texture = FindField<FObjectProperty>(GeneratedBP->GeneratedClass, "VideoInput");
+							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+							RenderTarget2D->InitAutoFormat(1920, 1080);
+							texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+
+							MZProperty* mzprop = MZPropertyFactory::CreateProperty(projectionCube, texture, &(mzclient->RegisteredProperties));
+							if (mzprop)
+							{
+								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+								pinsToSpawn.push_back(mzprop);
+							}
+						}
+						//{
+						//	auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
+						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
+						//	if (mzprop)
+						//	{
+						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+						//		pinsToSpawn.push_back(mzprop);
+						//	}
+						//}
+
+						for (auto mzprop : pinsToSpawn)
+						{
+							mzprop->DisplayName = projectionCube->GetActorLabel() + " | " + mzprop->DisplayName;
 							//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
 							mzclient->Pins.Add(mzprop->id, mzprop);
 							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
@@ -1426,6 +1517,13 @@ void FMZClient::SendAssetList()
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
+	TArray< FString > ContentPaths;
+	ContentPaths.Add(TEXT("/Game"));
+	ContentPaths.Add(TEXT("/Script"));
+	ContentPaths.Add(TEXT("/mediaz"));
+	ContentPaths.Add(TEXT("/RealityEngine"));
+	//ContentPaths.Add(TEXT("/All"));
+	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
 	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
 
 	FName BaseClassName = AActor::StaticClass()->GetFName();
