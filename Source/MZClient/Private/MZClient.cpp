@@ -343,7 +343,46 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 				if (!sceneActorMap.Contains(oldGuid))
 				{
 					///spawn
-					//sceneActorMap.Add(oldGuid, spawnedActor); this will map the old id with spawned actor in order to match the old properties (imported from disk)
+					FString actorName(spawnTag);
+					AActor* spawnedActor = nullptr;
+					if (ActorPlacementParamMap.Contains(actorName))
+					{
+						auto placementInfo = ActorPlacementParamMap.FindRef(actorName);
+						UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
+						if (PlacementSubsystem)
+						{
+							TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(placementInfo, FPlacementOptions());
+							for (auto elem : PlacedElements)
+							{
+								const FActorElementData* ActorElement = elem.GetData<FActorElementData>(true);
+								if (ActorElement)
+								{
+									spawnedActor = ActorElement->Actor;
+								}
+							}
+						}
+					}
+					else if (SpawnableClasses.Contains(actorName))
+					{
+						if (GEngine)
+						{
+							if (UObject* ClassToSpawn = SpawnableClasses[actorName])
+							{
+								UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
+								UClass* NativeClass = Cast<UClass>(ClassToSpawn);
+								UClass* Class = GeneratedBP ? (UClass*)(GeneratedBP->GeneratedClass) : (NativeClass);
+								spawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class);
+							}
+						}
+					}
+					else
+					{
+						LOG("Cannot spawn actor");
+					}
+					if (spawnedActor)
+					{
+						sceneActorMap.Add(oldGuid, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
+					}
 				}
 			}
 
@@ -623,6 +662,15 @@ void FMZClient::StartupModule() {
 					{
 						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
 						AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
+						if (realityCamera)
+						{
+							mzclient->SendActorAdded(realityCamera, actorName);
+							LOGF("Spawned actor %s", *realityCamera->GetFName().ToString());
+						}
+						else
+						{
+							return;
+						}
 						//auto videoCamera = realityCamera->GetRootComponent();
 						auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
 						std::vector<MZProperty*> pinsToSpawn;
@@ -721,7 +769,15 @@ void FMZClient::StartupModule() {
 					{
 						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
 						AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
-						
+						if (projectionCube)
+						{
+							mzclient->SendActorAdded(projectionCube, actorName);
+							LOGF("Spawned actor %s", *projectionCube->GetFName().ToString());
+						}
+						else
+						{
+							return;
+						}
 						std::vector<MZProperty*> pinsToSpawn;
 						{
 							auto texture = FindField<FObjectProperty>(GeneratedBP->GeneratedClass, "VideoInput");
