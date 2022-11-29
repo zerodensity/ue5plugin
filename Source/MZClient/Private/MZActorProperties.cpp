@@ -549,6 +549,69 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		prop->data.clear();
 		prop->default_val.clear();
 	}
+	else if (auto actor = Cast<AActor>(container))
+	{
+		if (prop->TypeName != "bool")
+		{
+			auto defobj = actor->GetClass()->GetDefaultObject();
+			if (defobj)
+			{
+				auto val = uproperty->ContainerPtrToValuePtr<void>(defobj);
+				if (prop->default_val.size() != uproperty->GetSize())
+				{
+					prop->default_val = std::vector<uint8>(uproperty->GetSize(), 0);	
+				}
+				memcpy(prop->default_val.data(), val, uproperty->GetSize());
+			}
+
+		}
+		else
+		{
+			auto defobj = actor->GetClass()->GetDefaultObject();
+			if (defobj)
+			{
+				auto val = *uproperty->ContainerPtrToValuePtr<bool>(defobj);
+				if (prop->default_val.size() != uproperty->GetSize())
+				{
+					prop->default_val = std::vector<uint8>(uproperty->GetSize(), 0);
+				}
+				memcpy(prop->default_val.data(), &val, uproperty->GetSize());
+			}
+
+		}
+			//uproperty->ContainerPtrToValuePtrForDefaults()
+	}
+	else if (auto sceneComponent = Cast<USceneComponent>(container))
+	{
+		if (prop->TypeName != "bool")
+		{
+			auto defobj = sceneComponent->GetClass()->GetDefaultObject();
+			if (defobj)
+			{
+				auto val = uproperty->ContainerPtrToValuePtr<void>(defobj);
+				if (prop->default_val.size() != uproperty->GetSize())
+				{
+					prop->default_val = std::vector<uint8>(uproperty->GetSize(), 0);
+				}
+				memcpy(prop->default_val.data(), val, uproperty->GetSize());
+			}
+		}
+		else
+		{
+			auto defobj = sceneComponent->GetClass()->GetDefaultObject();
+			if (defobj)
+			{
+				auto val = *uproperty->ContainerPtrToValuePtr<bool>(defobj);
+				if (prop->default_val.size() != uproperty->GetSize())
+				{
+					prop->default_val = std::vector<uint8>(uproperty->GetSize(), 0);
+				}
+				memcpy(prop->default_val.data(), &val, uproperty->GetSize());
+			}
+
+		}
+		//uproperty->ContainerPtrToValuePtrForDefaults()
+	}
 
 	//update metadata
 	prop->mzMetaDataMap.Add("property", uproperty->GetFName().ToString());
@@ -560,6 +623,8 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 			prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
 		}
 	}
+
+	
 	//prop->mzMetaDataMap.Add("component", prop->PropertyName);
 	//	mz::fb::CreateMetaDataEntryDirect(fbb, "propertyPath", TCHAR_TO_UTF8(*Property->GetPathName())),
 	//	mz::fb::CreateMetaDataEntryDirect(fbb, "property", TCHAR_TO_UTF8(*Property->GetName())) };

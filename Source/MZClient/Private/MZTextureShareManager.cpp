@@ -182,6 +182,12 @@ void MZTextureShareManager::ExecCommands()
 	CmdQueue->Signal(CmdFence, ++CmdFenceValue);
 }
 
+void MZTextureShareManager::TextureDestroyed(UTextureRenderTarget2D* texture)
+{
+	std::unique_lock lock(CopyOnTickMutex);
+	CopyOnTick.Remove(texture);
+}
+
 void MZTextureShareManager::Reset()
 {
 	CopyOnTick.Empty();
@@ -190,6 +196,7 @@ void MZTextureShareManager::Reset()
 
 void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 {
+
 	if (CopyOnTick.IsEmpty())
 	{
 		return;

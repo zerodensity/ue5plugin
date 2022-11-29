@@ -139,7 +139,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void SendActorAdded(AActor* actor, FString spawnTag = FString());
 	 
 	 //Deletes the node from scene tree and sends it to mediaZ
-	 void SendActorDeleted(FGuid id);
+	 void SendActorDeleted(FGuid id, std::set<UObject*> removedObjects);
 
 	 //Called when pie is started
 	 void HandleBeginPIE(bool bIsSimulating);
@@ -173,6 +173,12 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Called when an actor is destroyed from the world
 	 void OnActorDestroyed(AActor* InActor);
+
+	 //Remove properties of tree node from registered properties and pins
+	 void RemoveProperties(TreeNode* node, std::set<MZProperty*>& pinsToRemove, std::set<MZProperty*>& propertiesToRemove);
+
+	 void CheckPins(std::set<UObject*>& removedObjects, std::set<MZProperty*>& pinsToRemove, std::set<MZProperty*>& propertiesToRemove);
+
 
 	 //Called when the actor is selected on the mediaZ hierarchy pane
 	 void OnNodeSelected(FGuid nodeId);

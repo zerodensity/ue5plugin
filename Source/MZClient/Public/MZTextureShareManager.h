@@ -54,6 +54,8 @@ public:
 	void WaitCommands();
 	void ExecCommands();
 	void EnqueueCommands(ClientImpl* client);
+	void TextureDestroyed(UTextureRenderTarget2D* texture);
+
 
 	struct ID3D12Device* Dev;
 	struct ID3D12CommandAllocator* CmdAlloc;

@@ -542,10 +542,18 @@ void FMZClient::OnActorDestroyed(AActor* InActor)
 	//LOG(*(InActor->GetFName().ToString()));
 	LOGF("%s", *(InActor->GetFName().ToString()) );
 	auto id = InActor->GetActorGuid();
-	TaskQueue.Enqueue([id, this]()
-		{
-			SendActorDeleted(id);
-		});
+	std::set<UObject*> removedItems;
+	removedItems.insert(InActor);
+	auto Components = InActor->GetComponents();
+	for (auto comp : Components)
+	{
+		removedItems.insert(comp);
+	}
+
+	/*TaskQueue.Enqueue([id, removedItems, this]()
+		{*/
+			SendActorDeleted(id, removedItems);
+	//	});
 }
 
 void FMZClient::StartupModule() {
@@ -919,6 +927,7 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 	MZTextureShareManager::GetInstance()->Reset();
 	sceneTree.Clear();
 	Pins.Empty();
+	RegisteredProperties.Empty();
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
@@ -1100,12 +1109,85 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 
 	return;
 }
+void FMZClient::RemoveProperties(TreeNode* node, std::set<MZProperty*>& pinsToRemove, std::set<MZProperty*>& propertiesToRemove)
+{
+	if (auto componentNode = node->GetAsSceneComponentNode())
+	{
+		for (auto [id, pin] : Pins)
+		{
+			if (pin->Container == componentNode->sceneComponent)
+			{
+				pinsToRemove.insert(pin);
+			}
+		}
+		for (auto prop : componentNode->Properties)
+		{
+			propertiesToRemove.insert(prop);
+			RegisteredProperties.Remove(prop->id);
+		}
+	}
+	else if (auto actorNode = node->GetAsActorNode())
+	{
+		for (auto [id, pin] : Pins)
+		{
+			if (pin->Container == actorNode->actor)
+			{
+				pinsToRemove.insert(pin);
+			}
+		}
+		for (auto prop : actorNode->Properties)
+		{
+			propertiesToRemove.insert(prop);
+			RegisteredProperties.Remove(prop->id);
+		}
+	}
+	for (auto child : node->Children)
+	{
+		RemoveProperties(child, pinsToRemove, propertiesToRemove);
+	}
+}
 
-void FMZClient::SendActorDeleted(FGuid id) //runs in game thread
+void FMZClient::CheckPins(std::set<UObject*>& removedObjects, std::set<MZProperty*>& pinsToRemove, std::set<MZProperty*>& propertiesToRemove)
+{
+	for (auto [id, pin] : Pins)
+	{
+		if (removedObjects.contains(pin->Container))
+		{
+			pinsToRemove.insert(pin);
+		}
+	}
+}
+
+void FMZClient::SendActorDeleted(FGuid id, std::set<UObject*> removedObjects) //runs in game thread
 {
 	if (sceneTree.nodeMap.Contains(id))
 	{
 		auto node = sceneTree.nodeMap.FindRef(id);
+		//delete properties
+		std::set<MZProperty*> pinsToRemove;
+		std::set<MZProperty*> propertiesToRemove;
+		RemoveProperties(node, pinsToRemove, propertiesToRemove);
+		CheckPins(removedObjects, pinsToRemove, propertiesToRemove);
+
+		std::set<UTextureRenderTarget2D*> removedTextures;
+		
+		for (auto prop : pinsToRemove)
+		{
+			if (auto objProp = Cast<FObjectProperty>(prop->Property))
+			{
+				if (auto URT = Cast<UTextureRenderTarget2D>(objProp->GetObjectPropertyValue(objProp->ContainerPtrToValuePtr<UTextureRenderTarget2D>(prop->Container))))
+				{
+					removedTextures.insert(URT);
+				}
+			}
+		}
+		auto texman = MZTextureShareManager::GetInstance();
+
+		for (auto texture : removedTextures)
+		{
+			texman->TextureDestroyed(texture);
+		}
+
 		//delete from parent
 		FGuid parentId = Client->nodeId;
 		if (auto parent = node->Parent)
@@ -1128,6 +1210,18 @@ void FMZClient::SendActorDeleted(FGuid id) //runs in game thread
 		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->id };
 		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0));
 		Client->Write(msg);
+
+		if (!pinsToRemove.empty())
+		{
+			std::vector<mz::fb::UUID> pinsToDelete;
+			for (auto pin : pinsToRemove)
+			{
+				pinsToDelete.push_back(*(mz::fb::UUID*)&pin->id);
+			}
+			auto msgg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0));
+			Client->Write(msgg);
+		}
+
 	}
 }
 
@@ -1147,14 +1241,13 @@ void FMZClient::HandleBeginPIE(bool bIsSimulating)
 void FMZClient::HandleEndPIE(bool bIsSimulating)
 {
 	LOG("PLAY SESSION IS ENDING");
-	TaskQueue.Enqueue([this]()
-		{
-			PopulateSceneTree();
-			if (Client)
-			{
-				SendNodeUpdate(Client->nodeId);
-			}
-		});
+	
+	PopulateSceneTree();
+	if (Client)
+	{
+		SendNodeUpdate(Client->nodeId);
+	}
+
 }
 
 void FMZClient::OnNodeSelected(FGuid nodeId)
