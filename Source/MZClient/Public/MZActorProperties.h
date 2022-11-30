@@ -22,6 +22,7 @@ public:
 	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;
+	UPROPERTY()
 	UObject* Container;
 	uint8* StructPtr = nullptr;
 

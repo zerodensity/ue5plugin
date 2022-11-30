@@ -59,6 +59,12 @@ enum FunctionContextMenuActionsOnRoot
 	DELETE_BOOKMARK
 };
 
+enum ActorContextMenuActions
+{
+	DELETE_ACTOR,
+};
+
+
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
@@ -228,11 +234,20 @@ void ClientImpl::OnNodeSelected(mz::NodeSelected const& action)
 void ClientImpl::OnMenuFired(mz::ContextMenuRequest const& request) 
 {
 	LOG("Context menu fired from MediaZ");
+	if (PluginClient)
+	{
+		FVector2D pos(request.pos()->x(), request.pos()->y());
+		PluginClient->OnContexMenuFired(*(FGuid*)request.item_id(), pos, request.instigator());
+	}
 }
 
 void ClientImpl::OnCommandFired(mz::ContextMenuAction const& action)
 {
 	LOG("Context menu command fired from MediaZ");
+	if (PluginClient)
+	{
+		PluginClient->OnContexMenuActionFired(*(FGuid*)action.item_id(), action.command());
+	}
 }
 
 void ClientImpl::OnNodeImported(mz::app::NodeImported const& action)
@@ -591,6 +606,7 @@ void FMZClient::StartupModule() {
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZClient::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZClient::HandleEndPIE);
+
 	//EndPlayMapDelegate
 	//actor spawn
 	//actor kill
@@ -1363,12 +1379,39 @@ void FMZClient::OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> pro
 		});
 }
 
-void FMZClient::OnContexMenuFired(FGuid itemId)
+void FMZClient::OnContexMenuFired(FGuid itemId, FVector2D pos, uint32 instigator)
 {
+	if (sceneTree.nodeMap.Contains(itemId))
+	{
+		if (auto actorNode = sceneTree.nodeMap.FindRef(itemId)->GetAsActorNode())
+		{
+			if (!Client || !Client->nodeId.IsValid())
+			{
+				return;
+			}
+			MessageBuilder mb;
+			//auto deleteAction = 
+			//std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = { mz::CreateContextMenuItemDirect(mb, "Destroy", 0, 0) };
+			std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
+			auto posx = mz::fb::vec2(pos.X, pos.Y);
+			auto msg = MakeAppEvent(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions));
+			Client->Write(msg);
+		}
+	}
 }
 
 void FMZClient::OnContexMenuActionFired(FGuid itemId, uint32 actionId)
 {
+	if (sceneTree.nodeMap.Contains(itemId))
+	{
+		if (auto actorNode = sceneTree.nodeMap.FindRef(itemId)->GetAsActorNode())
+		{
+			TaskQueue.Enqueue([this, actor = actorNode->actor, actionId]()
+				{
+					menuActions.ExecuteActorAction(actionId, actor);
+				});
+		}
+	}
 }
 
 void FMZClient::OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates)

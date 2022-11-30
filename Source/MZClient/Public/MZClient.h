@@ -98,6 +98,42 @@ public:
 	std::atomic_bool shutdown = true;
 };
 
+class ContextMenuActions
+{
+public:
+	TArray< TPair<FString, std::function<void(AActor*)>> >  ActorMenu;
+	TArray< TPair<FString, Task> >  FunctionMenu;
+	TArray< TPair<FString, Task> >  PropertyMenu;
+
+	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb)
+	{
+		std::vector<flatbuffers::Offset<mz::ContextMenuItem>> result;
+		int command = 0;
+		for (auto item : ActorMenu)
+		{
+			result.push_back(mz::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
+		}
+		return result;
+	}
+
+	ContextMenuActions()
+	{
+		TPair<FString, std::function<void(AActor*)> > deleteAction(FString("Delete"), [](AActor* actor)
+			{
+				//actor->Destroy();
+				actor->GetWorld()->EditorDestroyActor(actor, false);
+			});
+		ActorMenu.Add(deleteAction);
+	}
+	void ExecuteActorAction(uint32 command, AActor* actor)
+	{
+		if (ActorMenu.IsValidIndex(command))
+		{
+			ActorMenu[command].Value(actor);
+		}
+	}
+};
+
 class UENodeStatusHandler
 {
 public:
@@ -120,7 +156,7 @@ private:
 	uint64_t FrameCount = 0;
 	float FramesPerSecond = 0;
 };
-
+	
 class MZCLIENT_API FMZClient : public IModuleInterface {
 
  public:
@@ -216,7 +252,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 void OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates);
 
 	 //Called when a context menu is fired
-	 void OnContexMenuFired(FGuid itemId);
+	 void OnContexMenuFired(FGuid itemId, FVector2D pos, uint32 instigator);
 
 	 //Called when a action from a context menu is fired
 	 void OnContexMenuActionFired(FGuid itemId, uint32 actionId);
@@ -255,8 +291,11 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 TMap<FGuid, MZCustomFunction*> CustomFunctions;
 
 	 //Spawnable class list to spawn them from mediaZ
+	 UPROPERTY()
 	 TMap<FString, UObject*> SpawnableClasses;
 	 TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
+
+	 ContextMenuActions menuActions;
 
 	 //Custom time step implementation for mediaZ controlling the unreal editor in play mode
 	 class UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
