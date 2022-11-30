@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Engine/EngineTypes.h"
+
 #if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
 #include "MZCustomTimeStep.h"
@@ -8,6 +10,7 @@
 #include "Misc/MessageDialog.h"
 #include <queue>
 #include <map>
+#include <numeric>
 #include "Containers/Queue.h"
 #include "Logging/LogMacros.h"
 #include "SceneTree.h"
@@ -90,13 +93,33 @@ public:
 
 	virtual void OnNodeImported(mz::app::NodeImported const& action) override;
 
-	
 	FMZClient* PluginClient;
 	FGuid nodeId;
 	std::atomic_bool shutdown = true;
 };
 
+class UENodeStatusHandler
+{
+public:
+	void SetClient(class ClientImpl* GrpcClient);
+	void Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status);
+	void Remove(std::string const& Id);
+private:
+	void SendStatus() const;
+	class ClientImpl* Client = nullptr;
+	std::unordered_map<std::string, mz::fb::TNodeStatusMessage> StatusMessages;
+};
 
+class FPSCounter
+{
+public:
+	bool Update(float dt);
+	mz::fb::TNodeStatusMessage GetNodeStatusMessage() const;
+private:
+	float DeltaTimeAccum = 0;
+	uint64_t FrameCount = 0;
+	float FramesPerSecond = 0;
+};
 
 class MZCLIENT_API FMZClient : public IModuleInterface {
 
@@ -179,7 +202,6 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 void CheckPins(std::set<UObject*>& removedObjects, std::set<MZProperty*>& pinsToRemove, std::set<MZProperty*>& propertiesToRemove);
 
-
 	 //Called when the actor is selected on the mediaZ hierarchy pane
 	 void OnNodeSelected(FGuid nodeId);
 
@@ -204,6 +226,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Sends pin to add to a node
 	 void SendPinAdded(FGuid nodeId, MZProperty* mzprop);
+
+	 // Sends current node status to mediaz engine
+	 void SendNodeStatusUpdate();
 
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
@@ -237,14 +262,10 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 class UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
 	 bool ctsBound = false;
 
-protected: 
-
+protected:
+	FPSCounter FPSCounter;
+	UENodeStatusHandler UENodeStatusHandler;
 };
-
-
-
-
-
 
 #endif
 

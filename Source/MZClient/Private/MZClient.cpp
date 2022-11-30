@@ -2,6 +2,9 @@
 
 #include "MZClient.h"
 
+// UE
+#include "TimerManager.h"
+
 //#include "ScreenRendering.h"
 //#include "HardwareInfo.h"//
 
@@ -578,6 +581,8 @@ void FMZClient::StartupModule() {
 
 	InitConnection();
 
+	UENodeStatusHandler.SetClient(Client);
+
 	//Add Delegates
 	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
@@ -896,6 +901,9 @@ void FMZClient::TestAction()
 
 bool FMZClient::Tick(float dt)
 {
+	if (FPSCounter.Update(dt))
+		UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
+
     InitConnection();
 
 	while (!TaskQueue.IsEmpty()) {
@@ -984,12 +992,12 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		MessageBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = sceneTree.Root->SerializeChildren(mb);
 		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
-		for (auto [_, pin] : Pins)
+		for (auto& [_, pin] : Pins)
 		{
 			graphPins.push_back(pin->Serialize(mb));
 		}
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
-		for (auto [_, cfunc] : CustomFunctions)
+		for (auto& [_, cfunc] : CustomFunctions)
 		{
 			graphFunctions.push_back(cfunc->serialize(mb));
 		}
@@ -1054,7 +1062,7 @@ void FMZClient::SendPinUpdate() //runs in game thread
 
 	MessageBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
-	for (auto [_, pin] : Pins)
+	for (auto& [_, pin] : Pins)
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
@@ -1816,6 +1824,66 @@ void FMZClient::SendAssetList()
 	return;
 }
 
+void UENodeStatusHandler::SetClient(ClientImpl* GrpcClient)
+{
+	this->Client = GrpcClient;
+}
+
+void UENodeStatusHandler::Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status)
+{
+	StatusMessages[Id] = Status;
+	SendStatus();
+}
+
+void UENodeStatusHandler::Remove(std::string const& Id)
+{
+	auto it = StatusMessages.find(Id);
+	if (it != StatusMessages.end())
+	{
+		StatusMessages.erase(it);
+		SendStatus();
+	}
+}
+
+void UENodeStatusHandler::SendStatus() const
+{
+	if (!Client)
+		return;
+	flatbuffers::grpc::MessageBuilder Builder;
+	mz::TNodeUpdateRequest UpdateRequest;
+	UpdateRequest.node_id = std::make_unique<mz::fb::UUID>(*((mz::fb::UUID*)&Client->nodeId));
+	for (auto& [_, StatusMsg] : StatusMessages)
+	{
+		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
+	}
+	auto Message = MakeAppEvent(Builder, mz::CreateNodeUpdateRequest(Builder, &UpdateRequest));
+	Client->Write(Message);
+}
+
+bool FPSCounter::Update(float dt)
+{
+	++FrameCount;
+	DeltaTimeAccum += dt;
+	if (DeltaTimeAccum >= 1.f)
+	{
+		auto Prev = FramesPerSecond;
+		FramesPerSecond = 1.f / (DeltaTimeAccum / float(FrameCount));
+		FramesPerSecond = std::roundf(FramesPerSecond  * 100.f) / 100.f;
+		DeltaTimeAccum = 0;
+		FrameCount = 0;
+		return Prev != FramesPerSecond;
+	}
+	return false;
+}
+
+mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
+{
+	flatbuffers::grpc::MessageBuilder Builder;
+	mz::fb::TNodeStatusMessage FpsStatusMessage;
+	FpsStatusMessage.text = std::to_string(FramesPerSecond) + " FPS";
+	FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
+	return FpsStatusMessage;
+}
 
 #pragma optimize("", on)
 #undef LOCTEXT_NAMESPACE
@@ -1831,3 +1899,4 @@ IMPLEMENT_MODULE(FMZClient, MZClient)
 
 IMPLEMENT_MODULE(FDefaultModuleImpl, MZClient);
 #endif
+
