@@ -2,6 +2,9 @@
 
 #include "MZClient.h"
 
+// std
+#include <format>
+
 // UE
 #include "TimerManager.h"
 
@@ -1880,7 +1883,7 @@ mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 {
 	flatbuffers::grpc::MessageBuilder Builder;
 	mz::fb::TNodeStatusMessage FpsStatusMessage;
-	FpsStatusMessage.text = std::to_string(FramesPerSecond) + " FPS";
+	FpsStatusMessage.text = std::format("{:.2f}", FramesPerSecond) + " FPS";
 	FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
 	return FpsStatusMessage;
 }
