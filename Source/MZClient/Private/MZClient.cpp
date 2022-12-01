@@ -1878,7 +1878,7 @@ void UENodeStatusHandler::Remove(std::string const& Id)
 
 void UENodeStatusHandler::SendStatus() const
 {
-	if (!Client)
+	if (!(Client && Client->nodeId.IsValid()) )
 		return;
 	flatbuffers::grpc::MessageBuilder Builder;
 	mz::TNodeUpdateRequest UpdateRequest;
