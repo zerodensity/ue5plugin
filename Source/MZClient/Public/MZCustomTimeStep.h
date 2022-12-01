@@ -43,10 +43,10 @@ public:
 	{
 		UpdateApplicationLastTime();
 #if WITH_EDITOR
-		if (PluginClient && PluginClient->IsConnected() && IsGameRunning())
+		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
-			//std::unique_lock lock(Mutex);
-			//CV.wait(lock);
+			std::unique_lock lock(Mutex);
+			CV.wait(lock);
 		}
 #endif
 		return true;
