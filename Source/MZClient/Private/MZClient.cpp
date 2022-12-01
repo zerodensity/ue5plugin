@@ -690,98 +690,92 @@ void FMZClient::StartupModule() {
 		{
 			FString actorName("Reality_Camera");
 
-			if (mzclient->SpawnableClasses.Contains(actorName))
+
+			TSoftClassPtr<AActor> ActorBpClass = TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_Camera.Reality_Camera_C'")));
+
+			UClass* LoadedBpAsset = ActorBpClass.LoadSynchronous();
+
+			//UBlueprint* GeneratedBP = Cast<UBlueprint>(LoadedBpAsset);
+			AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset);
+			if (realityCamera)
 			{
-				if (GEngine)
-				{
-					if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
-					{
-						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
-						AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
-						if (realityCamera)
-						{
-							mzclient->SendActorAdded(realityCamera, actorName);
-							LOGF("Spawned actor %s", *realityCamera->GetFName().ToString());
-						}
-						else
-						{
-							return;
-						}
-						//auto videoCamera = realityCamera->GetRootComponent();
-						auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
-						std::vector<MZProperty*> pinsToSpawn;
-						{
-							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
-							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
-							RenderTarget2D->InitAutoFormat(1920, 1080);
-							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						{
-							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
-							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
-							RenderTarget2D->InitAutoFormat(1920, 1080);
-							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						{
-							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
-							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
-							RenderTarget2D->InitAutoFormat(1920, 1080);
-							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						{
-							auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
-							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
-							RenderTarget2D->InitAutoFormat(1920, 1080);
-							texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						{
-							auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						
-						for (auto mzprop : pinsToSpawn)
-						{
-							mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
-							//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
-							mzclient->Pins.Add(mzprop->id, mzprop);
-							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
-						}
-					}
-				}
+				mzclient->SendActorAdded(realityCamera, actorName);
+				LOGF("Spawned actor %s", *realityCamera->GetFName().ToString());
 			}
 			else
 			{
-				LOG("Cannot spawn actor");
+				return;
 			}
+			//auto videoCamera = realityCamera->GetRootComponent();
+			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
+			std::vector<MZProperty*> pinsToSpawn;
+			{
+				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+				RenderTarget2D->InitAutoFormat(1920, 1080);
+				texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+				if (mzprop)
+				{
+					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+					pinsToSpawn.push_back(mzprop);
+				}
+			}
+			{
+				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
+				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+				RenderTarget2D->InitAutoFormat(1920, 1080);
+				texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+				if (mzprop)
+				{
+					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+					pinsToSpawn.push_back(mzprop);
+				}
+			}
+			{
+				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
+				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+				RenderTarget2D->InitAutoFormat(1920, 1080);
+				texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+				if (mzprop)
+				{
+					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+					pinsToSpawn.push_back(mzprop);
+				}
+			}
+			{
+				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
+				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(videoCamera);
+				RenderTarget2D->InitAutoFormat(1920, 1080);
+				texture->SetObjectPropertyValue_InContainer(videoCamera, RenderTarget2D);
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
+				if (mzprop)
+				{
+					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+					pinsToSpawn.push_back(mzprop);
+				}
+			}
+			{
+				auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
+				if (mzprop)
+				{
+					mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+					pinsToSpawn.push_back(mzprop);
+				}
+			}
+						
+			for (auto mzprop : pinsToSpawn)
+			{
+				mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
+				//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+				mzclient->Pins.Add(mzprop->id, mzprop);
+				mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
+			}
+					
+
 		};
 		CustomFunctions.Add(mzcf->id, mzcf);
 	}
@@ -797,61 +791,52 @@ void FMZClient::StartupModule() {
 		{
 			FString actorName("RealityActor_ProjectionCube");
 
-			if (mzclient->SpawnableClasses.Contains(actorName))
+			TSoftClassPtr<AActor> ActorBpClass = TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'")));
+
+			UClass* LoadedBpAsset = ActorBpClass.LoadSynchronous();
+			
+			AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset);
+			if (projectionCube)
 			{
-				if (GEngine)
-				{
-					if (UObject* ClassToSpawn = mzclient->SpawnableClasses[actorName])
-					{
-						UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
-						AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(GeneratedBP->GeneratedClass);
-						if (projectionCube)
-						{
-							mzclient->SendActorAdded(projectionCube, actorName);
-							LOGF("Spawned actor %s", *projectionCube->GetFName().ToString());
-						}
-						else
-						{
-							return;
-						}
-						std::vector<MZProperty*> pinsToSpawn;
-						{
-							auto texture = FindField<FObjectProperty>(GeneratedBP->GeneratedClass, "VideoInput");
-							auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-							RenderTarget2D->InitAutoFormat(1920, 1080);
-							texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
-
-							MZProperty* mzprop = MZPropertyFactory::CreateProperty(projectionCube, texture, &(mzclient->RegisteredProperties));
-							if (mzprop)
-							{
-								mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-								pinsToSpawn.push_back(mzprop);
-							}
-						}
-						//{
-						//	auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
-						//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
-						//	if (mzprop)
-						//	{
-						//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-						//		pinsToSpawn.push_back(mzprop);
-						//	}
-						//}
-
-						for (auto mzprop : pinsToSpawn)
-						{
-							mzprop->DisplayName = projectionCube->GetActorLabel() + " | " + mzprop->DisplayName;
-							//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
-							mzclient->Pins.Add(mzprop->id, mzprop);
-							mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
-						}
-					}
-				}
+				mzclient->SendActorAdded(projectionCube, actorName);
+				LOGF("Spawned actor %s", *projectionCube->GetFName().ToString());
 			}
 			else
 			{
-				LOG("Cannot spawn actor");
+				return;
 			}
+			std::vector<MZProperty*> pinsToSpawn;
+			{
+				auto texture = FindField<FObjectProperty>(LoadedBpAsset, "VideoInput");
+				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+				RenderTarget2D->InitAutoFormat(1920, 1080);
+				texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+
+				MZProperty* mzprop = MZPropertyFactory::CreateProperty(projectionCube, texture, &(mzclient->RegisteredProperties));
+				if (mzprop)
+				{
+					mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+					pinsToSpawn.push_back(mzprop);
+				}
+			}
+			//{
+			//	auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
+			//	MZProperty* mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+
+			for (auto mzprop : pinsToSpawn)
+			{
+				mzprop->DisplayName = projectionCube->GetActorLabel() + " | " + mzprop->DisplayName;
+				//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+				mzclient->Pins.Add(mzprop->id, mzprop);
+				mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
+			}
+					
 		};
 		CustomFunctions.Add(mzcf->id, mzcf);
 	}
