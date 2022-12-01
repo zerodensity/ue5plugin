@@ -905,9 +905,6 @@ void FMZClient::TestAction()
 
 bool FMZClient::Tick(float dt)
 {
-	if (FPSCounter.Update(dt))
-		UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
-
     InitConnection();
 
 	while (!TaskQueue.IsEmpty()) {
@@ -1909,11 +1906,16 @@ bool FPSCounter::Update(float dt)
 
 mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 {
-	flatbuffers::grpc::MessageBuilder Builder;
 	mz::fb::TNodeStatusMessage FpsStatusMessage;
-	FpsStatusMessage.text = std::format("{:.2f}", FramesPerSecond) + " FPS";
-	FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
 	return FpsStatusMessage;
+	//flatbuffers::grpc::MessageBuilder Builder;
+	//mz::fb::TNodeStatusMessage FpsStatusMessage;
+
+	//char fps[40] = {0};
+	//::sprintf(fps, "%.2f FPS", FramesPerSecond);
+	//FpsStatusMessage.text = fps;
+	//FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
+	//return FpsStatusMessage;
 }
 
 #pragma optimize("", on)
