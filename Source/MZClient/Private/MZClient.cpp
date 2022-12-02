@@ -136,12 +136,12 @@ void ClientImpl::OnAppConnected(mz::app::AppConnectedEvent const& event)
     }
 }
 
-void ClientImpl::OnNodeUpdate(mz::NodeUpdated const& archive) 
+void ClientImpl::OnNodeUpdate(mz::FullNodeUpdate const& archive) 
 {
 	LOG("Node update from mediaz");
 	if (!nodeId.IsValid())
 	{
-		if (flatbuffers::IsFieldPresent(&archive, mz::NodeUpdated::VT_NODE))
+		if (flatbuffers::IsFieldPresent(&archive, mz::FullNodeUpdate::VT_NODE))
 		{
 			nodeId = *(FGuid*)archive.node()->id();
 			PluginClient->sceneTree.Root->id = *(FGuid*)archive.node()->id();
@@ -1003,7 +1003,7 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 			graphFunctions.push_back(cfunc->serialize(mb));
 		}
 
-		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
+		auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
 		Client->Write(msg);
 		return;
 	}
@@ -1034,7 +1034,7 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 			graphFunctions.push_back(mzfunc->Serialize(mb));
 		}
 	}
-	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
+	auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
 	Client->Write(msg);
 
 	//Send list actors on the scene 
@@ -1067,7 +1067,7 @@ void FMZClient::SendPinUpdate() //runs in game thread
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
-	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0));
+	auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0));
 	Client->Write(msg);
 	
 }
@@ -1095,7 +1095,7 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 			}
 			MessageBuilder mb;
 			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-			auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&parentNode->id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
+			auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
 			Client->Write(msg);
 		}
 	}
@@ -1116,7 +1116,7 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 		}
 		MessageBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
+		auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
 		Client->Write(msg);
 	}
 
@@ -1221,7 +1221,7 @@ void FMZClient::SendActorDeleted(FGuid id, std::set<UObject*> removedObjects) //
 
 		MessageBuilder mb;
 		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->id };
-		auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0));
+		auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0));
 		Client->Write(msg);
 
 		if (!pinsToRemove.empty())
@@ -1231,7 +1231,7 @@ void FMZClient::SendActorDeleted(FGuid id, std::set<UObject*> removedObjects) //
 			{
 				pinsToDelete.push_back(*(mz::fb::UUID*)&pin->id);
 			}
-			auto msgg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0));
+			auto msgg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&Client->nodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0));
 			Client->Write(msgg);
 		}
 
@@ -1424,7 +1424,7 @@ void FMZClient::SendPinAdded(FGuid nodeId, MZProperty* mzprop)
 	}
 	MessageBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = {mzprop->Serialize(mb)};
-	auto msg = MakeAppEvent(mb, mz::CreateNodeUpdateRequestDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0));
+	auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0));
 	Client->Write(msg);
 	return;
 }
@@ -1878,13 +1878,13 @@ void UENodeStatusHandler::SendStatus() const
 	if (!(Client && Client->nodeId.IsValid()) )
 		return;
 	flatbuffers::grpc::MessageBuilder Builder;
-	mz::TNodeUpdateRequest UpdateRequest;
+	mz::TPartialNodeUpdate UpdateRequest;
 	UpdateRequest.node_id = std::make_unique<mz::fb::UUID>(*((mz::fb::UUID*)&Client->nodeId));
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	auto Message = MakeAppEvent(Builder, mz::CreateNodeUpdateRequest(Builder, &UpdateRequest));
+	auto Message = MakeAppEvent(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest));
 	Client->Write(Message);
 }
 

@@ -59,7 +59,7 @@ public:
 	virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override;
 
 
-	virtual void OnNodeUpdate(mz::NodeUpdated const& archive) override;
+	virtual void OnNodeUpdate(mz::FullNodeUpdate const& archive) override;
 
 
 	void OnTextureCreated(mz::app::TextureCreated const& texture);
