@@ -3,7 +3,7 @@
 #include "MZClient.h"
 
 // std
-#include <format>
+#include <cstdio>
 
 // UE
 #include "TimerManager.h"
@@ -496,18 +496,17 @@ void FMZClient::Disconnected()
 
 void FMZClient::InitConnection()
 {
+	if (!IsWorldInitialized)
+		return;
 
     if (Client)
     {
-        if (!ctsBound && (Client->nodeId.IsValid()))
+        if (!CustomTimeStepBound && (Client->nodeId.IsValid()))
         {
             CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
 			CustomTimeStepImpl->PluginClient = this;
-            auto tis = GEngine->SetCustomTimeStep(CustomTimeStepImpl);
-            if (tis)
-            {
-                ctsBound = true;
-            }
+            if (GEngine->SetCustomTimeStep(CustomTimeStepImpl))
+				CustomTimeStepBound = true;
         }
 
         if (Client->shutdown)
@@ -518,15 +517,15 @@ void FMZClient::InitConnection()
     }
 	
     std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
-    Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
+    // memleak
+	Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
 	Client->PluginClient = this;
 	LOG("AppClient instance is created");
 }
 
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
 {
-
-
+	IsWorldInitialized = true;
 	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZClient::OnActorSpawned);
 	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZClient::OnActorDestroyed);
 	world->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
@@ -596,8 +595,6 @@ void FMZClient::StartupModule() {
 		static auto* const g_core_codegen = new CoreCodegen();
 		grpc::g_core_codegen_interface = g_core_codegen;
 	}
-
-	InitConnection();
 
 	UENodeStatusHandler.SetClient(Client);
 

@@ -299,11 +299,12 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Custom time step implementation for mediaZ controlling the unreal editor in play mode
 	 class UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
-	 bool ctsBound = false;
+	 bool CustomTimeStepBound = false;
 
 protected:
 	FPSCounter FPSCounter;
 	UENodeStatusHandler UENodeStatusHandler;
+	bool IsWorldInitialized = false;
 };
 
 #endif
