@@ -162,7 +162,28 @@ void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 
 void MZProperty::SetProperty_InCont(void* container, void* val) { return; }
 
-void MZBoolProperty::SetProperty_InCont(void* container, void* val) { boolprop->SetPropertyValue_InContainer(container, *(bool*)val); }
+std::vector<uint8> MZBoolProperty::UpdatePinValue(uint8* customContainer)
+{
+	if (customContainer)
+	{
+		auto val = !!(* Property->ContainerPtrToValuePtr<bool>(customContainer));
+		memcpy(data.data(), &val, data.size());
+	}
+	else if (Container)
+	{
+		auto val = !!(*Property->ContainerPtrToValuePtr< bool >(Container));
+		memcpy(data.data(), &val, data.size());
+	}
+	else if (StructPtr)
+	{
+		auto val = !!(*Property->ContainerPtrToValuePtr< bool >(StructPtr));
+		memcpy(data.data(), &val, data.size());
+	}
+
+	return data;
+}
+
+void MZBoolProperty::SetProperty_InCont(void* container, void* val) { boolprop->SetPropertyValue_InContainer(container, !!(*(bool*)val)); }
 
 void MZFloatProperty::SetProperty_InCont(void* container, void* val) { floatprop->SetPropertyValue_InContainer(container, *(float*)val); }
 
@@ -570,7 +591,7 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 			auto defobj = actor->GetClass()->GetDefaultObject();
 			if (defobj)
 			{
-				auto val = *uproperty->ContainerPtrToValuePtr<bool>(defobj);
+				auto val = !!( *uproperty->ContainerPtrToValuePtr<bool>(defobj) );
 				if (prop->default_val.size() != uproperty->GetSize())
 				{
 					prop->default_val = std::vector<uint8>(uproperty->GetSize(), 0);
@@ -601,7 +622,8 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 			auto defobj = sceneComponent->GetClass()->GetDefaultObject();
 			if (defobj)
 			{
-				auto val = *uproperty->ContainerPtrToValuePtr<bool>(defobj);
+				auto val = !!( *uproperty->ContainerPtrToValuePtr<bool>(defobj) );
+
 				if (prop->default_val.size() != uproperty->GetSize())
 				{
 					prop->default_val = std::vector<uint8>(uproperty->GetSize(), 0);

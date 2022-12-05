@@ -59,6 +59,7 @@ public:
 	}
 
 	FBoolProperty* boolprop;
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
 protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;

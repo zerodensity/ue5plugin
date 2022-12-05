@@ -49,20 +49,7 @@
 #include "Elements/Framework/TypedElementRegistry.h"
 #include "Elements/Actor/ActorElementData.h"
 
-enum FunctionContextMenuActions
-{
-	BOOKMARK
-};
 
-enum FunctionContextMenuActionsOnRoot
-{
-	DELETE_BOOKMARK
-};
-
-enum ActorContextMenuActions
-{
-	DELETE_ACTOR,
-};
 
 
 
@@ -617,6 +604,7 @@ void FMZClient::StartupModule() {
 		mzcf->params.Add(actorPinId, "Spawn Actor");
 		mzcf->serialize = [funcid = mzcf->id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
+			//todo remove unneccessary code
 			FString val("");
 			auto s = StringCast<ANSICHAR>(*val);
 			auto data = std::vector<uint8_t>(s.Length() + 1, 0);
