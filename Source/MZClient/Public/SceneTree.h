@@ -35,7 +35,6 @@ struct TreeNode {
 
 struct ActorNode : TreeNode
 {
-	UPROPERTY()
 	AActor* actor = nullptr;
 	std::vector<MZProperty*> Properties;
 	std::vector<MZFunction*> Functions;

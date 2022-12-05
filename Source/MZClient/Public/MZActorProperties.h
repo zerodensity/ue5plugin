@@ -22,7 +22,6 @@ public:
 	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;
-	UPROPERTY()
 	UObject* Container;
 	uint8* StructPtr = nullptr;
 
@@ -43,6 +42,7 @@ public:
 	std::vector<MZProperty*> childProperties;
 	TMap<FString, FString> mzMetaDataMap;
 	bool transient = true;
+	bool IsChanged = false;
 
 protected:
 	virtual void SetProperty_InCont(void* container, void* val);

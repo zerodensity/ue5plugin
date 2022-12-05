@@ -143,6 +143,7 @@ void MZProperty::MarkState()
 
 void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
+	IsChanged = true;
 	CHECK_PROP_SIZE();
 	if (Container)
 	{
@@ -166,17 +167,17 @@ std::vector<uint8> MZBoolProperty::UpdatePinValue(uint8* customContainer)
 {
 	if (customContainer)
 	{
-		auto val = !!(* Property->ContainerPtrToValuePtr<bool>(customContainer));
+		auto val = !!(boolprop->GetPropertyValue_InContainer(customContainer));
 		memcpy(data.data(), &val, data.size());
 	}
 	else if (Container)
 	{
-		auto val = !!(*Property->ContainerPtrToValuePtr< bool >(Container));
+		auto val = !!(boolprop->GetPropertyValue_InContainer(Container));
 		memcpy(data.data(), &val, data.size());
 	}
 	else if (StructPtr)
 	{
-		auto val = !!(*Property->ContainerPtrToValuePtr< bool >(StructPtr));
+		auto val = !!(boolprop->GetPropertyValue_InContainer(StructPtr));
 		memcpy(data.data(), &val, data.size());
 	}
 
@@ -347,6 +348,7 @@ void MZObjectProperty::SetPropValue(void* val, size_t size, uint8* customContain
 
 void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
+	IsChanged = true;
 	if (Container)
 	{
 		FString newval((char*)val);
@@ -394,6 +396,7 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 
 void MZTextProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
+	IsChanged = true;
 	if (Container)
 	{
 		FString newval((char*)val);
@@ -564,7 +567,12 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 			registeredProperties->Add(it->id, it);
 		}
 	}
-
+	if (prop->TypeName == "mz.fb.Void")
+	{
+		prop->data.clear();
+		prop->default_val.clear();
+	}
+#if 0 //default properties from objects
 	if (prop->TypeName == "mz.fb.Void")
 	{
 		prop->data.clear();
@@ -634,6 +642,7 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		}
 		//uproperty->ContainerPtrToValuePtrForDefaults()
 	}
+#endif
 
 	//update metadata
 	prop->mzMetaDataMap.Add("property", uproperty->GetFName().ToString());
@@ -644,6 +653,10 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		{
 			prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
 		}
+	}
+	else if (auto actor = Cast<AActor>(container))
+	{
+		prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
 	}
 
 	

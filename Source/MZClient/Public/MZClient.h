@@ -291,7 +291,6 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 TMap<FGuid, MZCustomFunction*> CustomFunctions;
 
 	 //Spawnable class list to spawn them from mediaZ
-	 UPROPERTY()
 	 TMap<FString, UObject*> SpawnableClasses;
 	 TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
 

@@ -271,11 +271,12 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 	{
 		out.push_back(node);
 	}
-
+#if 0 //load only the root node
 	for (auto child : *node->contents_as_Graph()->nodes())
 	{
 		GetNodesWithProperty(child, out);
 	}
+#endif
 }
 
 struct PropUpdate
@@ -284,7 +285,10 @@ struct PropUpdate
 	FString componentName;
 	FString propName;
 	void* newVal;
-	size_t size;
+	size_t newValSize;
+	void* defVal;
+	size_t defValSize;
+	mz::fb::ShowAs pinShowAs;
 };
 
 void FMZClient::OnNodeImported(const mz::fb::Node* node)
@@ -301,8 +305,10 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 			{
 				FString componentName;
 				FString propName;
-				char* copy = new char[prop->data()->size()];
-				memcpy(copy, prop->data()->data(), prop->data()->size());
+				char* valcopy = new char[prop->data()->size()];
+				char* defcopy = new char[prop->def()->size()];
+				memcpy(valcopy, prop->data()->data(), prop->data()->size());
+				memcpy(defcopy, prop->def()->data(), prop->def()->size());
 
 				if (auto entry = prop->meta_data_map()->LookupByKey("property"))
 				{
@@ -323,7 +329,7 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 					//componentName = FString(entry->value()->c_str());
 				}
 
-				updates.push_back({ id, componentName, propName, copy, prop->data()->size()});
+				updates.push_back({ id, componentName, propName, valcopy, prop->data()->size(), defcopy, prop->def()->size(), prop->show_as()});
 			}
 			
 		}
@@ -420,18 +426,29 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 					}
 					if (mzprop)
 					{
-						mzprop->SetPropValue(update.newVal, update.size);
+						mzprop->SetPropValue(update.newVal, update.newValSize);
 					}
-					delete mzprop;
+					mzprop->UpdatePinValue();
+					mzprop->PinShowAs = update.pinShowAs;
+					mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
+					memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
+					Pins.Add(mzprop->id, mzprop);
+					RegisteredProperties.Add(mzprop->id, mzprop);
 				}
 
 
 				delete update.newVal;
+				delete update.defVal;
 			}
+			auto tmpPins = Pins;
+			auto tmpRegisteredProperties = Pins;
 
 			PopulateSceneTree();
+			Pins = tmpPins;
+			RegisteredProperties = tmpRegisteredProperties;
 			SendNodeUpdate(Client->nodeId);
 			SendAssetList();
+
 		});
 }
 
@@ -448,9 +465,28 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 	char* copy = new char[size];
 	memcpy(copy, newval, size);
 
-	TaskQueue.Enqueue([mzprop, copy, size]()
+	TaskQueue.Enqueue([mzprop, copy, size, this]()
 		{
+			bool isChangedBefore = mzprop->IsChanged;
 			mzprop->SetPropValue(copy, size);
+			if (!isChangedBefore && mzprop->IsChanged)
+			{
+				//changed first time 
+				MZProperty* newmzprop = MZPropertyFactory::CreateProperty(mzprop->Container, mzprop->Property, &(RegisteredProperties));
+				if (newmzprop)
+				{
+					newmzprop->default_val = mzprop->default_val;
+					newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
+					newmzprop->DisplayName += FString(" (") + mzprop->Container->GetFName().ToString() + FString(")");
+					newmzprop->CategoryName = mzprop->Container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+					newmzprop->transient = false;
+					Pins.Add(newmzprop->id, newmzprop);
+					RegisteredProperties.Add(newmzprop->id, newmzprop);
+					SendPinAdded(Client->nodeId, mzprop);
+				}
+
+			}
+
 			delete[] copy;
 		});
 }
@@ -756,6 +792,7 @@ void FMZClient::StartupModule() {
 			{
 				mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
 				//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+				mzprop->transient = false;
 				mzclient->Pins.Add(mzprop->id, mzprop);
 				mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
 			}
@@ -818,6 +855,7 @@ void FMZClient::StartupModule() {
 			{
 				mzprop->DisplayName = projectionCube->GetActorLabel() + " | " + mzprop->DisplayName;
 				//mzclient->RegisteredProperties.Add(mzprop->id, mzprop);
+				mzprop->transient = false;
 				mzclient->Pins.Add(mzprop->id, mzprop);
 				mzclient->SendPinAdded(mzclient->Client->nodeId, mzprop);
 			}
@@ -1281,6 +1319,7 @@ void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 					newmzprop->PinShowAs = newShowAs;
 					//RegisteredProperties.Remove(newmzprop->id);
 					//newmzprop->id = FGuid::NewGuid();
+					newmzprop->transient = false;
 					Pins.Add(newmzprop->id, newmzprop);
 					RegisteredProperties.Add(newmzprop->id, newmzprop);
 					SendPinUpdate();
