@@ -529,7 +529,9 @@ void FMZClient::InitConnection()
             CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
 			CustomTimeStepImpl->PluginClient = this;
             if (GEngine->SetCustomTimeStep(CustomTimeStepImpl))
+			{
 				CustomTimeStepBound = true;
+			}
         }
 
         if (Client->shutdown)
@@ -561,7 +563,18 @@ void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValue
 		SendNodeUpdate(Client->nodeId);
 	}
 }
+
+void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
+{
+	Reset();
+	if (Client)
+	{
+		SendNodeUpdate(Client->nodeId);
+	}
+}
+
 bool IsActorDisplayable(const AActor* Actor);
+
 void FMZClient::OnActorSpawned(AActor* InActor)
 {
 	if (IsActorDisplayable(InActor))
@@ -624,6 +637,7 @@ void FMZClient::StartupModule() {
 	//Add Delegates
 	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
+	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZClient::OnPreWorldFinishDestroy);
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZClient::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZClient::HandleEndPIE);
 
@@ -928,6 +942,12 @@ void FMZClient::TestAction()
 
 bool FMZClient::Tick(float dt)
 {
+	// Uncomment when partial node updates are broadcasted by the mediaz engine.
+	//if (FPSCounter.Update(dt))
+	//{
+	//	UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
+	//}
+
     InitConnection();
 
 	while (!TaskQueue.IsEmpty()) {
@@ -960,10 +980,7 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZClient::PopulateSceneTree() //Runs in game thread
 {
-	MZTextureShareManager::GetInstance()->Reset();
-	sceneTree.Clear();
-	Pins.Empty();
-	RegisteredProperties.Empty();
+	Reset();
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
@@ -1004,13 +1021,21 @@ void FMZClient::PopulateSceneTree() //Runs in game thread
 	}
 }
 
+void FMZClient::Reset()
+{
+	MZTextureShareManager::GetInstance()->Reset();
+	sceneTree.Clear();
+	Pins.Empty();
+	RegisteredProperties.Empty();
+}
+
 void FMZClient::SendNodeUpdate(FGuid nodeId)
 {
-	if (!Client || !Client->nodeId.IsValid())
+	if (!IsConnected())
 	{
 		return;
 	}
-	
+
 	if (nodeId == sceneTree.Root->id)
 	{
 		MessageBuilder mb;
@@ -1930,16 +1955,15 @@ bool FPSCounter::Update(float dt)
 
 mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 {
+	flatbuffers::grpc::MessageBuilder Builder;
 	mz::fb::TNodeStatusMessage FpsStatusMessage;
-	return FpsStatusMessage;
-	//flatbuffers::grpc::MessageBuilder Builder;
-	//mz::fb::TNodeStatusMessage FpsStatusMessage;
 
-	//char fps[40] = {0};
-	//::sprintf(fps, "%.2f FPS", FramesPerSecond);
-	//FpsStatusMessage.text = fps;
-	//FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
-	//return FpsStatusMessage;
+	FpsStatusMessage.text.resize(32);
+	::snprintf(FpsStatusMessage.text.data(), 32, "%.2f FPS", FramesPerSecond);
+	FpsStatusMessage.text.shrink_to_fit();
+
+	FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
+	return FpsStatusMessage;
 }
 
 #pragma optimize("", on)

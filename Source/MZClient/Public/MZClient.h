@@ -94,6 +94,8 @@ public:
 	virtual void OnNodeImported(mz::app::NodeImported const& action) override;
 
 	FMZClient* PluginClient;
+	// (Samil:) Will every app client have one node attached to it?
+	// If so we can move this node ID to mediaZ SDK.
 	FGuid nodeId;
 	std::atomic_bool shutdown = true;
 };
@@ -125,6 +127,7 @@ public:
 			});
 		ActorMenu.Add(deleteAction);
 	}
+
 	void ExecuteActorAction(uint32 command, AActor* actor)
 	{
 		if (ActorMenu.IsValidIndex(command))
@@ -226,6 +229,9 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 
 	 //Called when the level is initiated
 	 void OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues);
+	 
+	 //Called when the level destruction began
+	 void OnPreWorldFinishDestroy(UWorld* world);
 
 	 //Called when an actor is spawned into the world
 	 void OnActorSpawned(AActor* InActor);
@@ -263,9 +269,6 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Sends pin to add to a node
 	 void SendPinAdded(FGuid nodeId, MZProperty* mzprop);
 
-	 // Sends current node status to mediaz engine
-	 void SendNodeStatusUpdate();
-
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
 
@@ -301,6 +304,8 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 bool CustomTimeStepBound = false;
 
 protected:
+	void Reset();
+
 	FPSCounter FPSCounter;
 	UENodeStatusHandler UENodeStatusHandler;
 	bool IsWorldInitialized = false;
