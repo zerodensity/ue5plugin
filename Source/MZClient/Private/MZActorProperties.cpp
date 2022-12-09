@@ -269,7 +269,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			}
 
 			UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-			MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
+			MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr,  CategoryName + "|" + DisplayName, StructInst, this);
 			if (mzprop)
 			{
 				childProperties.push_back(mzprop);
@@ -298,7 +298,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			}
 
 			UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-			MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
+			MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
 			if (mzprop)
 			{
 				childProperties.push_back(mzprop);
@@ -448,7 +448,7 @@ void MZEnumProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 
 
 
-MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* uproperty, TMap<FGuid, MZProperty*>* registeredProperties, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
+MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* uproperty, TMap<FGuid, MZProperty*>* registeredProperties, TMap<FProperty*, MZProperty*>* propertiesMap, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
 {
 	MZProperty* prop = nullptr;
 
@@ -565,6 +565,14 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		for (auto it : prop->childProperties)
 		{
 			registeredProperties->Add(it->id, it);
+		}
+	}
+	if (propertiesMap)
+	{
+		propertiesMap->Add(prop->Property, prop);
+		for (auto it : prop->childProperties)
+		{
+			propertiesMap->Add(it->Property, it);
 		}
 	}
 	if (prop->TypeName == "mz.fb.Void")

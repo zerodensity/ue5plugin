@@ -356,7 +356,7 @@ protected:
 class MZPropertyFactory
 {
 public:
-	static MZProperty* CreateProperty(UObject* container, FProperty* uproperty, TMap<FGuid, MZProperty*>* registeredProperties = nullptr, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	static MZProperty* CreateProperty(UObject* container, FProperty* uproperty, TMap<FGuid, MZProperty*>* registeredProperties = nullptr, TMap<FProperty*, MZProperty*>* secondPropertyMap = nullptr, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 };
 
 

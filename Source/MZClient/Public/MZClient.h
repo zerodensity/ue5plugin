@@ -266,6 +266,11 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //Sends pin to add to a node
 	 void SendPinAdded(FGuid nodeId, MZProperty* mzprop);
 
+	 //delegate called when a property is changed from unreal engine editor
+	 //it updates thecorresponding property in mediaz
+	 void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
+	 
+
 	 //Grpc client to communicate
 	 class ClientImpl* Client = 0;
 
@@ -295,6 +300,8 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
 
 	 ContextMenuActions menuActions;
+
+	 FDelegateHandle OnPropertyChangedHandle;
 
 	 //Custom time step implementation for mediaZ controlling the unreal editor in play mode
 	 class UMZCustomTimeStep* MZTimeStep = nullptr;
