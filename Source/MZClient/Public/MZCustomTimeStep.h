@@ -38,9 +38,9 @@ public:
 
 	void Step()
 	{
-		//std::unique_lock lock(Mutex);
-		//IsReadyForNextStep = true;
-		//lock.unlock();
+		std::unique_lock lock(Mutex);
+		IsReadyForNextStep = true;
+		lock.unlock();
 		CV.notify_one();
 	}
 
@@ -55,9 +55,8 @@ public:
 		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
 			std::unique_lock lock(Mutex);
-			//CV.wait(lock, [this] { return IsReadyForNextStep; });
-			//IsReadyForNextStep = false;
-			CV.wait(lock);
+			CV.wait(lock, [this] { return IsReadyForNextStep; });
+			IsReadyForNextStep = false;
 		}
 #endif
 		return true;
@@ -91,6 +90,6 @@ private:
 
 	std::mutex Mutex;
 	std::condition_variable CV;
-	//bool IsReadyForNextStep = false;
+	bool IsReadyForNextStep = false;
 };
 
