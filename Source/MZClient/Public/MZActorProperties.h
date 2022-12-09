@@ -8,9 +8,10 @@
 
 class MZStructProperty;
 
-class MZProperty {
+class MZProperty : public TSharedFromThis<MZProperty>
+{
 public:
-	MZProperty(UObject* container, FProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	MZProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 
@@ -39,7 +40,7 @@ public:
 	std::vector<uint8_t> min_val; //wrt mediaZ standarts
 	std::vector<uint8_t> max_val; //wrt mediaZ standarts
 	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
-	std::vector<MZProperty*> childProperties;
+	std::vector<TSharedPtr<MZProperty>> childProperties;
 	TMap<FString, FString> mzMetaDataMap;
 	bool transient = true;
 	bool IsChanged = false;
@@ -356,7 +357,13 @@ protected:
 class MZPropertyFactory
 {
 public:
-	static MZProperty* CreateProperty(UObject* container, FProperty* uproperty, TMap<FGuid, MZProperty*>* registeredProperties = nullptr, TMap<FProperty*, MZProperty*>* secondPropertyMap = nullptr, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	static TSharedPtr<MZProperty> CreateProperty(UObject* Container, 
+		FProperty* UProperty, 
+		TMap<FGuid, TSharedPtr<MZProperty>>* RegisteredProperties = nullptr,
+		TMap<FProperty*, TSharedPtr<MZProperty>>* PropertiesMap = nullptr,
+		FString ParentCategory = FString(), 
+		uint8* StructPtr = nullptr, 
+		MZStructProperty* ParentProperty = nullptr);
 };
 
 

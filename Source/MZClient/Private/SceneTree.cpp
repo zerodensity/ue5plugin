@@ -4,21 +4,21 @@
 
 SceneTree::SceneTree()
 {
-	Root = new FolderNode;
+	Root = TSharedPtr<FolderNode>(new FolderNode);
 	Root->Name = FString("UE5");
 	Root->Parent = nullptr;
 }
 
-FolderNode* SceneTree::FindOrAddChildFolder(TreeNode* node, FString name)
+TSharedPtr<FolderNode> SceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name)
 {
 	for (auto child : node->Children)
 	{
 		if (child->Name == name && child->GetAsFolderNode())
 		{
-			return child->GetAsFolderNode();
+			return StaticCastSharedPtr<FolderNode>(child);
 		}
 	}
-	FolderNode* newChild = new FolderNode;
+	TSharedPtr<FolderNode> newChild(new FolderNode);
 	newChild->Parent = node;
 	newChild->Name = name;
 	newChild->id = FGuid::NewGuid();
@@ -36,7 +36,7 @@ void SceneTree::Clear()
 	nodeMap.Add(Root->id, Root);
 }
 
-void SceneTree::ClearRecursive(TreeNode* node)
+void SceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 {
 	for (auto child : node->Children)
 	{
@@ -47,10 +47,9 @@ void SceneTree::ClearRecursive(TreeNode* node)
 		Root->Children.clear();
 		return;
 	}
-	delete node;
 }
 
-ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
+TSharedPtr<ActorNode> SceneTree::AddActor(FString folderPath, AActor* actor)
 {
 #if WITH_EDITOR
 	if (!actor)
@@ -63,13 +62,13 @@ ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
 	TArray<FString> folders;
 	folderPath.ParseIntoArray(folders, TEXT("/"));
 	
-	TreeNode* ptr = Root;
+	TSharedPtr<TreeNode> ptr = Root;
 	for (auto item : folders)
 	{
 		ptr = FindOrAddChildFolder(ptr, item);
 	}
 
-	ActorNode* newChild = new ActorNode;
+	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = ptr;
 	newChild->Name = actor->GetActorLabel();
 	newChild->id = actor->GetActorGuid();
@@ -80,7 +79,7 @@ ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
 
 	if (actor->GetRootComponent())
 	{
-		SceneComponentNode* loadingChild = new SceneComponentNode;
+		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 		loadingChild->Name = "Loading...";
 		loadingChild->id = FGuid::NewGuid();
 		loadingChild->Parent = newChild;
@@ -93,7 +92,7 @@ ActorNode* SceneTree::AddActor(FString folderPath, AActor* actor)
 #endif // WITH_EDITOR
 }
 
-ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)
+TSharedPtr<ActorNode> SceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* actor)
 {
 	if (!actor)
 	{
@@ -104,7 +103,7 @@ ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)
 		parent = Root;
 	}
 
-	ActorNode* newChild = new ActorNode;
+	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = parent;
 #if WITH_EDITOR
 	newChild->Name = actor->GetActorLabel();
@@ -120,7 +119,7 @@ ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)
 
 	if (actor->GetRootComponent())
 	{
-		SceneComponentNode* loadingChild = new SceneComponentNode;
+		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 		loadingChild->Name = "Loading...";
 		loadingChild->id = FGuid::NewGuid();
 		loadingChild->Parent = newChild;
@@ -130,9 +129,9 @@ ActorNode* SceneTree::AddActor(TreeNode* parent, AActor* actor)
 	return newChild;
 }
 
-SceneComponentNode* SceneTree::AddSceneComponent(ActorNode* parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> SceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent)
 {
-	SceneComponentNode* newComponentNode = new SceneComponentNode;
+	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
 	newComponentNode->sceneComponent = sceneComponent;
 	newComponentNode->id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
@@ -141,7 +140,7 @@ SceneComponentNode* SceneTree::AddSceneComponent(ActorNode* parent, USceneCompon
 	parent->Children.push_back(newComponentNode);
 	nodeMap.Add(newComponentNode->id, newComponentNode);
 
-	SceneComponentNode* loadingChild = new SceneComponentNode;
+	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 	loadingChild->Name = "Loading...";
 	loadingChild->id = FGuid::NewGuid();
 	loadingChild->Parent = newComponentNode;
@@ -150,9 +149,9 @@ SceneComponentNode* SceneTree::AddSceneComponent(ActorNode* parent, USceneCompon
 	return newComponentNode;
 }
 
-SceneComponentNode* SceneTree::AddSceneComponent(SceneComponentNode* parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> SceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
 {
-	SceneComponentNode* newComponentNode = new SceneComponentNode;
+	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
 	newComponentNode->sceneComponent = sceneComponent;
 	newComponentNode->id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
@@ -161,7 +160,7 @@ SceneComponentNode* SceneTree::AddSceneComponent(SceneComponentNode* parent, USc
 	parent->Children.push_back(newComponentNode);
 	nodeMap.Add(newComponentNode->id, newComponentNode);
 
-	SceneComponentNode* loadingChild = new SceneComponentNode;
+	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 	loadingChild->Name = "Loading...";
 	loadingChild->id = FGuid::NewGuid();
 	loadingChild->Parent = newComponentNode;

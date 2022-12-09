@@ -20,8 +20,6 @@ bool PropertyVisibleExp(FProperty* ueproperty)
 
 MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentCategory, uint8* structPtr, MZStructProperty* parentProperty)
 {
-
-
 	Property = uproperty;
 	
 	if (Property->HasAnyPropertyFlags(CPF_OutParm))
@@ -225,9 +223,6 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	}
 }
 
-
-
-
 flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 
@@ -269,7 +264,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			}
 
 			UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-			MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr,  CategoryName + "|" + DisplayName, StructInst, this);
+			auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
 			if (mzprop)
 			{
 				childProperties.push_back(mzprop);
@@ -298,7 +293,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			}
 
 			UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-			MZProperty* mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
+			auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
 			if (mzprop)
 			{
 				childProperties.push_back(mzprop);
@@ -315,8 +310,6 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 	data = std::vector<uint8_t>(1, 0);
 	TypeName = "mz.fb.Void";
 }
-
-
 
 void MZStructProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
@@ -446,73 +439,77 @@ void MZEnumProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 	//TODO
 }
 
-
-
-MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* uproperty, TMap<FGuid, MZProperty*>* registeredProperties, TMap<FProperty*, MZProperty*>* propertiesMap, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
+TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
+	FProperty* uproperty, 
+	TMap<FGuid, TSharedPtr<MZProperty>>* registeredProperties, 
+	TMap<FProperty*, TSharedPtr<MZProperty>>* propertiesMap,
+	FString parentCategory, 
+	uint8* StructPtr, 
+	MZStructProperty* parentProperty)
 {
-	MZProperty* prop = nullptr;
+	TSharedPtr<MZProperty> prop = nullptr;
 
 	//CAST THE PROPERTY ACCORDINGLY
 	uproperty->GetClass();
 	if (FFloatProperty* floatprop = Cast<FFloatProperty>(uproperty) ) 
 	{
-		prop = new MZFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FDoubleProperty* doubleprop = Cast<FDoubleProperty>(uproperty))
 	{
-		prop = new MZDoubleProperty(container, doubleprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZDoubleProperty(container, doubleprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FInt8Property* int8prop = Cast<FInt8Property>(uproperty))
 	{
-		prop = new MZInt8Property(container, int8prop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZInt8Property(container, int8prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FInt16Property* int16prop = Cast<FInt16Property>(uproperty))
 	{
-		prop = new MZInt16Property(container, int16prop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZInt16Property(container, int16prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FIntProperty* intprop = Cast<FIntProperty>(uproperty))
 	{
-		prop = new MZIntProperty(container, intprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZIntProperty(container, intprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FInt64Property* int64prop = Cast<FInt64Property>(uproperty))
 	{
-		prop = new MZInt64Property(container, int64prop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZInt64Property(container, int64prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FByteProperty* byteprop = Cast<FByteProperty>(uproperty))
 	{
-		prop = new MZByteProperty(container, byteprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZByteProperty(container, byteprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FUInt16Property* uint16prop = Cast<FUInt16Property>(uproperty))
 	{
-		prop = new MZUInt16Property(container, uint16prop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZUInt16Property(container, uint16prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FUInt32Property* uint32prop = Cast<FUInt32Property>(uproperty))
 	{
-		prop = new MZUInt32Property(container, uint32prop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZUInt32Property(container, uint32prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FUInt64Property* uint64prop = Cast<FUInt64Property>(uproperty))
 	{
-		prop = new MZUInt64Property(container, uint64prop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZUInt64Property(container, uint64prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FBoolProperty* boolprop = Cast<FBoolProperty>(uproperty))
 	{
-		prop = new MZBoolProperty(container, boolprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZBoolProperty(container, boolprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FEnumProperty* enumprop = Cast<FEnumProperty>(uproperty))
 	{
-		prop = new MZEnumProperty(container, enumprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, enumprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FTextProperty* textprop = Cast<FTextProperty>(uproperty))
 	{
-		prop = new MZTextProperty(container, textprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZTextProperty(container, textprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FNameProperty* nameprop = Cast<FNameProperty>(uproperty))
 	{
-		prop = new MZNameProperty(container, nameprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZNameProperty(container, nameprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FObjectProperty* objectprop = Cast<FObjectProperty>(uproperty))
 	{
-		prop = new MZObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty);
+		prop = TSharedPtr<MZProperty>(new MZObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FStructProperty* structprop = Cast<FStructProperty>(uproperty))
 	{
@@ -520,15 +517,15 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		//TODO ADD SUPPORT FOR FTRANSFORM
 		if (structprop->Struct == TBaseStructure<FVector2D>::Get()) //vec2
 		{
-			prop = new MZVec2Property(container, structprop, parentCategory, StructPtr, parentProperty);
+			prop = TSharedPtr<MZProperty>(new MZVec2Property(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FVector>::Get()) //vec3
 		{
-			prop = new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty);
+			prop = TSharedPtr<MZProperty>(new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FRotator>::Get())
 		{
-			prop = new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty);
+			prop = TSharedPtr<MZProperty>(new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty));
 			FVector min(0, 0, 0);
 			FVector max(359.999, 359.999, 359.999);
 			prop->min_val = prop->data;
@@ -538,17 +535,16 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		}
 		else if (structprop->Struct == TBaseStructure<FVector4>::Get() || structprop->Struct == TBaseStructure<FQuat>::Get()) //vec4
 		{
-			prop = new MZVec4Property(container, structprop, parentCategory, StructPtr, parentProperty);
+			prop = TSharedPtr<MZProperty>(new MZVec4Property(container, structprop, parentCategory, StructPtr, parentProperty));
 
 		}
 		else if (structprop->Struct == FRealityTrack::StaticStruct()) //track
 		{
-			prop = new MZTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty);
+			prop = TSharedPtr<MZProperty>(new MZTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else //auto construct
 		{
-			auto mzstructprop = new MZStructProperty(container, structprop, parentCategory, StructPtr, parentProperty);
-			prop = mzstructprop;
+			prop = TSharedPtr<MZProperty>(new MZStructProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 	}
 
@@ -562,7 +558,7 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 	if (registeredProperties)
 	{
 		registeredProperties->Add(prop->id, prop);
-		for (auto it : prop->childProperties)
+		for (auto& it : prop->childProperties)
 		{
 			registeredProperties->Add(it->id, it);
 		}
@@ -570,7 +566,7 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 	if (propertiesMap)
 	{
 		propertiesMap->Add(prop->Property, prop);
-		for (auto it : prop->childProperties)
+		for (auto& it : prop->childProperties)
 		{
 			propertiesMap->Add(it->Property, it);
 		}
@@ -667,29 +663,12 @@ MZProperty* MZPropertyFactory::CreateProperty(UObject* container, FProperty* upr
 		prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
 	}
 
-	
 	//prop->mzMetaDataMap.Add("component", prop->PropertyName);
 	//	mz::fb::CreateMetaDataEntryDirect(fbb, "propertyPath", TCHAR_TO_UTF8(*Property->GetPathName())),
 	//	mz::fb::CreateMetaDataEntryDirect(fbb, "property", TCHAR_TO_UTF8(*Property->GetName())) };
 
-
 	return prop;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #endif
 

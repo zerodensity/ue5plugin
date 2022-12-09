@@ -2,8 +2,8 @@
 #if WITH_EDITOR
 #include "MZActorProperties.h"
 
-struct MZFunction {
-
+struct MZFunction
+{
 	MZFunction(UObject* container, UFunction* function);
 
 	UFunction* Function;
@@ -13,8 +13,8 @@ struct MZFunction {
 	FString CategoryName;
 	FGuid id;
 	uint8* Parameters = nullptr;
-	std::vector<MZProperty*> Properties;
-	std::vector<MZProperty*> OutProperties;
+	std::vector<TSharedPtr<MZProperty>> Properties;
+	std::vector<TSharedPtr<MZProperty>> OutProperties;
 
 	flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
@@ -22,7 +22,8 @@ struct MZFunction {
 	//todo can call the function and change the arguments
 };
 
-struct MZCustomFunction {
+struct MZCustomFunction
+{
 	FGuid id;
 	std::function<void(TMap<FGuid, std::vector<uint8>> pins)> function;
 	TMap<FGuid, std::string> params;

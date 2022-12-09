@@ -44,10 +44,4 @@ void MZFunction::Invoke() // runs in game thread
 	Container->ProcessEvent(Function, Parameters);
 }
 
-
-
-
-
-
-
 #endif
