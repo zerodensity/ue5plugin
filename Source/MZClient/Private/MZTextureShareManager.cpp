@@ -311,7 +311,7 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands();
 
-			if (!events.empty() && client && client->nodeId.IsValid() && !client->shutdown)
+			if (!events.empty() && client && client->IsChannelReady && client->nodeId.IsValid())
 			{
 				client->Write(MakeAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}

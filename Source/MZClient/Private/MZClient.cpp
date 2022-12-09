@@ -156,19 +156,18 @@ void ClientImpl::OnTextureCreated(mz::app::TextureCreated const& texture)
 void ClientImpl::Done(grpc::Status const& Status) 
 {
 	LOG("Connection with mediaz is finished.");
-
-	PluginClient->Disconnected();
-	shutdown = true;
+	IsChannelReady = false;
 	nodeId = {};
+	PluginClient->Disconnected();
 }
 
 void ClientImpl::OnNodeRemoved(mz::app::NodeRemovedEvent const& action) 
 {
 	LOG("Plugin node removed from mediaz");
 	nodeId = {};
-	if (PluginClient && PluginClient->CustomTimeStepImpl)
+	if (PluginClient && PluginClient->MZTimeStep)
 	{
-		PluginClient->CustomTimeStepImpl->CV.notify_one();
+		PluginClient->MZTimeStep->Step();
 	}
 }
 
@@ -494,7 +493,7 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 
 bool FMZClient::IsConnected()
 {
-	return Client && Client->nodeId.IsValid() && !Client->shutdown;
+	return Client && Client->IsChannelReady && Client->nodeId.IsValid();
 }
 
 void FMZClient::Connected()
@@ -509,43 +508,45 @@ void FMZClient::Connected()
 
 void FMZClient::Disconnected() 
 {
-    Client->nodeId = {};
-	if (CustomTimeStepImpl)
+	if (MZTimeStep)
 	{
-		CustomTimeStepImpl->CV.notify_one();
+		MZTimeStep->Step();
 	}
-
 }
 
-void FMZClient::InitConnection()
+void FMZClient::TryConnect()
 {
 	if (!IsWorldInitialized)
+	{
 		return;
+	}
 
-    if (Client)
+	if (!Client)
+	{
+		std::string ProtoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
+		// memleak
+		Client = new ClientImpl("UE5", "UE5", ProtoPath.c_str());
+		Client->PluginClient = this;
+		LOG("AppClient instance is created");
+	}
+
+	// (Samil) TODO: This connection logic should be provided by the SDK itself. 
+	// App developers should not be required implement 'always connect' behaviour.
+    if (!Client->IsChannelReady)
     {
-        if (!CustomTimeStepBound && (Client->nodeId.IsValid()))
-        {
-            CustomTimeStepImpl = NewObject<UMZCustomTimeStep>();
-			CustomTimeStepImpl->PluginClient = this;
-            if (GEngine->SetCustomTimeStep(CustomTimeStepImpl))
-			{
-				CustomTimeStepBound = true;
-			}
-        }
-
-        if (Client->shutdown)
-        {
-            Client->shutdown = (GRPC_CHANNEL_READY != Client->Connect());
-        }
-        return;
+        Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
     }
-	
-    std::string protoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
-    // memleak
-	Client = new ClientImpl("UE5", "UE5", protoPath.c_str());
-	Client->PluginClient = this;
-	LOG("AppClient instance is created");
+
+	if (!CustomTimeStepBound && IsConnected())
+	{
+		MZTimeStep = NewObject<UMZCustomTimeStep>();
+		MZTimeStep->PluginClient = this;
+		if (GEngine->SetCustomTimeStep(MZTimeStep))
+		{
+			CustomTimeStepBound = true;
+		}
+	}
+    return;
 }
 
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
@@ -935,7 +936,7 @@ bool FMZClient::Tick(float dt)
 	//	UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
 	//}
 
-    InitConnection();
+    TryConnect();
 
 	while (!TaskQueue.IsEmpty()) {
 		Task task;
@@ -1446,9 +1447,9 @@ void FMZClient::OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates)
 		}
 
 	});
-	if (CustomTimeStepImpl)
+	if (MZTimeStep)
 	{
-		CustomTimeStepImpl->CV.notify_one();
+		MZTimeStep->Step();
 	}
 }
 
@@ -1956,7 +1957,7 @@ mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 #pragma optimize("", on)
 #undef LOCTEXT_NAMESPACE
 
-IMPLEMENT_MODULE(FMZClient, MZClient)
+IMPLEMENT_MODULE(FMZClient, ClientImpl)
 
 //
 //#include "DispelUnrealMadnessPostlude.h"

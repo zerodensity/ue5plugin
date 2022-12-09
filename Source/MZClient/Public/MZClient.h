@@ -61,12 +61,9 @@ public:
 
 	virtual void OnNodeUpdate(mz::FullNodeUpdate const& archive) override;
 
+	void OnTextureCreated(mz::app::TextureCreated const& texture) override;
 
-	void OnTextureCreated(mz::app::TextureCreated const& texture);
-
-
-	virtual void Done(grpc::Status const& Status) override;
-
+	void Done(grpc::Status const& status) override;
 
 	virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override;
 
@@ -97,7 +94,7 @@ public:
 	// (Samil:) Will every app client have one node attached to it?
 	// If so we can move this node ID to mediaZ SDK.
 	FGuid nodeId;
-	std::atomic_bool shutdown = true;
+	std::atomic_bool IsChannelReady = false;
 };
 
 class ContextMenuActions
@@ -179,11 +176,11 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 //This function is called when the connection with the MediaZ Engine is finished
 	 virtual void Disconnected();
 	 
-	 /// @return Connection status with MediaZ Engine 
+	 /// @return Connection status with MediaZ Engine
 	 virtual bool IsConnected();
 
 	 //Tries to initialize connection with the MediaZ engine
-	 void InitConnection();
+	 void TryConnect();
 
 	 //Sends node updates to the MediaZ
 	 void SendNodeUpdate(FGuid nodeId);
@@ -300,7 +297,7 @@ class MZCLIENT_API FMZClient : public IModuleInterface {
 	 ContextMenuActions menuActions;
 
 	 //Custom time step implementation for mediaZ controlling the unreal editor in play mode
-	 class UMZCustomTimeStep* CustomTimeStepImpl = nullptr;
+	 class UMZCustomTimeStep* MZTimeStep = nullptr;
 	 bool CustomTimeStepBound = false;
 
 protected:
