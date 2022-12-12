@@ -23,8 +23,8 @@ struct TreeNode {
 	
 	FString Name;
 	TSharedPtr<TreeNode> Parent;
-	FGuid id;
-	bool needsReload = true;
+	FGuid Id;
+	bool NeedsReload = true;
 	std::vector<TSharedPtr<TreeNode>> Children;
 
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
@@ -67,15 +67,15 @@ struct FolderNode : TreeNode
 	virtual ~FolderNode();
 };
 
-class SceneTree {
+class MZSceneTree {
 
 public:
-	SceneTree();
+	MZSceneTree();
 
 	TSharedPtr<TreeNode> Root;
 	bool IsSorted = false;
-	TMap<FGuid, TSharedPtr<TreeNode>> nodeMap;
-	TMap<FGuid, TSet<AActor*>> childMap;
+	TMap<FGuid, TSharedPtr<TreeNode>> NodeMap;
+	TMap<FGuid, TSet<AActor*>> ChildMap;
 
 	TSharedPtr<FolderNode> FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name);
 	TSharedPtr<ActorNode> AddActor(FString folderPath, AActor* actor);
@@ -89,11 +89,6 @@ public:
 private:
 	void ClearRecursive(TSharedPtr<TreeNode> node);
 };
-
-
-
-
-
 
 #endif
 

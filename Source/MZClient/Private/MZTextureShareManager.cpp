@@ -115,7 +115,7 @@ void MZTextureShareManager::AddTexturePin(MZProperty* mzprop, mz::fb::Texture* t
 	MzTextureInfo info = GetResourceInfo(mzprop);
 	{
 		std::unique_lock lock(PendingCopyQueueMutex);
-		PendingCopyQueue.Add(mzprop->id, mzprop);
+		PendingCopyQueue.Add(mzprop->Id, mzprop);
 	}
 	tex->mutate_size(mz::fb::SizePreset::CUSTOM);
 	tex->mutate_width(info.width);
@@ -159,7 +159,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture
 	auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 	if (!URT) return;
 
-	PendingCopyQueue.Remove(mzprop->id);
+	PendingCopyQueue.Remove(mzprop->Id);
 	CopyOnTick.Add(URT, copyInfo);
 }
 
@@ -304,14 +304,14 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 				tbl<mz::app::AppEvent> msg;
 				if (!pin.ReadOnly)
 				{
-					auto id = pin.SrcMzp->id;
+					auto id = pin.SrcMzp->Id;
 					events.push_back(CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
 				}
 			}
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands();
 
-			if (!events.empty() && client && client->IsChannelReady && client->nodeId.IsValid())
+			if (!events.empty() && client && client->IsChannelReady && client->NodeId.IsValid())
 			{
 				client->Write(MakeAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
@@ -327,7 +327,6 @@ void MZTextureShareManager::Initiate()
 		return;
 	}
 
-	
 	//Dev = (ID3D12Device*)GDynamicRHI->RHIGetNativeDevice();
 	Dev = (ID3D12Device*)GetID3D12DynamicRHI()->RHIGetNativeDevice();
 	HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAlloc));

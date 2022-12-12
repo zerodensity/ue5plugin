@@ -34,7 +34,7 @@ public:
 	bool IsAdvanced = false;
 	bool ReadOnly = false;
 	std::string TypeName;
-	FGuid id;
+	FGuid Id;
 	std::vector<uint8_t> data; //wrt mediaZ standarts
 	std::vector<uint8_t> default_val; //wrt mediaZ standarts
 	std::vector<uint8_t> min_val; //wrt mediaZ standarts

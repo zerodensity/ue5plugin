@@ -13,7 +13,6 @@
 #include <numeric>
 #include "Containers/Queue.h"
 #include "Logging/LogMacros.h"
-#include "SceneTree.h"
 #include "Subsystems/PlacementSubsystem.h"
 //#include "mediaz.h"
 //#include "Engine/TextureRenderTarget2D.h"
@@ -32,17 +31,14 @@
 //#include "D3D12RHI.h"
 //#include "D3D12Resources.h"
 
-#include "SceneTree.h"
+#include "MZSceneTree.h"
 
 #include "AppClient.h"
 #include <mzFlatBuffersCommon.h>
 
-
-
 #include <functional> 
+
 typedef std::function<void()> Task;
-
-
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
 /**
@@ -57,7 +53,6 @@ public:
 	using mz::app::AppClient::AppClient;
 
 	virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override;
-
 
 	virtual void OnNodeUpdate(mz::FullNodeUpdate const& archive) override;
 
@@ -93,7 +88,7 @@ public:
 	FMZClient* PluginClient;
 	// (Samil:) Will every app client have one node attached to it?
 	// If so we can move this node ID to mediaZ SDK.
-	FGuid nodeId;
+	FGuid NodeId;
 	std::atomic_bool IsChannelReady = false;
 };
 
@@ -183,7 +178,7 @@ public:
 	void TryConnect();
 
 	//Sends node updates to the MediaZ
-	void SendNodeUpdate(FGuid nodeId);
+	void SendNodeUpdate(FGuid NodeId);
 
 	//Sends the spawnable actor list to MediaZ
 	void SendAssetList();
@@ -210,7 +205,7 @@ public:
 	void PopulateSceneTree();
 
 	//Fills the specified node information to the root graph
-	bool PopulateNode(FGuid nodeId);
+	bool PopulateNode(FGuid NodeId);
 
 	//Tick is called every frame once and handles the tasks queued from grpc threads
 	bool Tick(float dt);
@@ -221,7 +216,7 @@ public:
 	//Set a properties value
 	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 	 
-	//Populate root graph using sceneTree 
+	//Populate root graph using SceneTree 
 	//void PopulateRootGraphWithSceneTree();
 
 	//Called when the level is initiated
@@ -246,11 +241,11 @@ public:
 		TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
 
 	//Called when the actor is selected on the mediaZ hierarchy pane
-	void OnNodeSelected(FGuid nodeId);
+	void OnNodeSelected(FGuid NodeId);
 
 	//Called when a pin show as change action is fired from mediaZ 
 	//We make that property a pin in the root node with the same GUID
-	void OnPinShowAsChanged(FGuid nodeId, mz::fb::ShowAs newShowAs);
+	void OnPinShowAsChanged(FGuid NodeId, mz::fb::ShowAs newShowAs);
 
 	//Called when a function is called from mediaZ
 	void OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> properties);
@@ -268,7 +263,7 @@ public:
 	void OnNodeImported(const mz::fb::Node* node);
 
 	//Sends pin to add to a node
-	void SendPinAdded(FGuid nodeId, TSharedPtr<MZProperty> const& mzprop);
+	void SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop);
 
 	//delegate called when a property is changed from unreal engine editor
 	//it updates thecorresponding property in mediaz
@@ -281,7 +276,7 @@ public:
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;
 
 	//Scene tree holds the information to mimic the outliner in mediaz
-	SceneTree sceneTree;
+	MZSceneTree SceneTree;
 
 	//all the properties registered 
 	TMap<FGuid, TSharedPtr<MZProperty>> RegisteredProperties;

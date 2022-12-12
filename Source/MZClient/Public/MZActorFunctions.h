@@ -11,7 +11,7 @@ struct MZFunction
 	FString FunctionName;
 	FString DisplayName;
 	FString CategoryName;
-	FGuid id;
+	FGuid Id;
 	uint8* Parameters = nullptr;
 	std::vector<TSharedPtr<MZProperty>> Properties;
 	std::vector<TSharedPtr<MZProperty>> OutProperties;
@@ -24,10 +24,10 @@ struct MZFunction
 
 struct MZCustomFunction
 {
-	FGuid id;
-	std::function<void(TMap<FGuid, std::vector<uint8>> pins)> function;
-	TMap<FGuid, std::string> params;
-	std::function<flatbuffers::Offset<mz::fb::Node>(flatbuffers::FlatBufferBuilder& fbb)> serialize;
+	FGuid Id;
+	std::function<void(TMap<FGuid, std::vector<uint8>> pins)> Function;
+	TMap<FGuid, std::string> Params;
+	std::function<flatbuffers::Offset<mz::fb::Node>(flatbuffers::FlatBufferBuilder& fbb)> Serialize;
 };
 
 

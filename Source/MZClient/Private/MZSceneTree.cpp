@@ -1,15 +1,14 @@
 #if WITH_EDITOR
-#include "SceneTree.h"
+#include "MZSceneTree.h"
 
-
-SceneTree::SceneTree()
+MZSceneTree::MZSceneTree()
 {
 	Root = TSharedPtr<FolderNode>(new FolderNode);
 	Root->Name = FString("UE5");
 	Root->Parent = nullptr;
 }
 
-TSharedPtr<FolderNode> SceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name)
+TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name)
 {
 	for (auto child : node->Children)
 	{
@@ -21,22 +20,22 @@ TSharedPtr<FolderNode> SceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node
 	TSharedPtr<FolderNode> newChild(new FolderNode);
 	newChild->Parent = node;
 	newChild->Name = name;
-	newChild->id = FGuid::NewGuid();
+	newChild->Id = FGuid::NewGuid();
 	node->Children.push_back(newChild);
-	nodeMap.Add(newChild->id, newChild);
+	NodeMap.Add(newChild->Id, newChild);
 	return newChild;
 }
 
 
 
-void SceneTree::Clear()
+void MZSceneTree::Clear()
 {
 	ClearRecursive(Root);
-	nodeMap.Empty();
-	nodeMap.Add(Root->id, Root);
+	NodeMap.Empty();
+	NodeMap.Add(Root->Id, Root);
 }
 
-void SceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
+void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 {
 	for (auto child : node->Children)
 	{
@@ -49,7 +48,7 @@ void SceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 	}
 }
 
-TSharedPtr<ActorNode> SceneTree::AddActor(FString folderPath, AActor* actor)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 {
 #if WITH_EDITOR
 	if (!actor)
@@ -71,17 +70,17 @@ TSharedPtr<ActorNode> SceneTree::AddActor(FString folderPath, AActor* actor)
 	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = ptr;
 	newChild->Name = actor->GetActorLabel();
-	newChild->id = actor->GetActorGuid();
+	newChild->Id = actor->GetActorGuid();
 	newChild->actor = actor;
-	newChild->needsReload = true;
+	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
-	nodeMap.Add(newChild->id, newChild);
+	NodeMap.Add(newChild->Id, newChild);
 
 	if (actor->GetRootComponent())
 	{
 		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 		loadingChild->Name = "Loading...";
-		loadingChild->id = FGuid::NewGuid();
+		loadingChild->Id = FGuid::NewGuid();
 		loadingChild->Parent = newChild;
 		newChild->Children.push_back(loadingChild);
 	}
@@ -92,7 +91,7 @@ TSharedPtr<ActorNode> SceneTree::AddActor(FString folderPath, AActor* actor)
 #endif // WITH_EDITOR
 }
 
-TSharedPtr<ActorNode> SceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* actor)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* actor)
 {
 	if (!actor)
 	{
@@ -107,21 +106,21 @@ TSharedPtr<ActorNode> SceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* a
 	newChild->Parent = parent;
 #if WITH_EDITOR
 	newChild->Name = actor->GetActorLabel();
-	newChild->id = actor->GetActorGuid();
+	newChild->Id = actor->GetActorGuid();
 #else
 	newChild->Name = actor->GetFName().ToString();
-	newChild->id = FGuid::NewGuid();
+	newChild->Id = FGuid::NewGuid();
 #endif
 	newChild->actor = actor;
-	newChild->needsReload = true;
+	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
-	nodeMap.Add(newChild->id, newChild);
+	NodeMap.Add(newChild->Id, newChild);
 
 	if (actor->GetRootComponent())
 	{
 		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 		loadingChild->Name = "Loading...";
-		loadingChild->id = FGuid::NewGuid();
+		loadingChild->Id = FGuid::NewGuid();
 		loadingChild->Parent = newChild;
 		newChild->Children.push_back(loadingChild);
 	}
@@ -129,40 +128,40 @@ TSharedPtr<ActorNode> SceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* a
 	return newChild;
 }
 
-TSharedPtr<SceneComponentNode> SceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
 	newComponentNode->sceneComponent = sceneComponent;
-	newComponentNode->id = FGuid::NewGuid();
+	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
 	newComponentNode->Parent = parent;
-	newComponentNode->needsReload = true;
+	newComponentNode->NeedsReload = true;
 	parent->Children.push_back(newComponentNode);
-	nodeMap.Add(newComponentNode->id, newComponentNode);
+	NodeMap.Add(newComponentNode->Id, newComponentNode);
 
 	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 	loadingChild->Name = "Loading...";
-	loadingChild->id = FGuid::NewGuid();
+	loadingChild->Id = FGuid::NewGuid();
 	loadingChild->Parent = newComponentNode;
 	newComponentNode->Children.push_back(loadingChild);
 
 	return newComponentNode;
 }
 
-TSharedPtr<SceneComponentNode> SceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
 	newComponentNode->sceneComponent = sceneComponent;
-	newComponentNode->id = FGuid::NewGuid();
+	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
 	newComponentNode->Parent = parent;
-	newComponentNode->needsReload = true;
+	newComponentNode->NeedsReload = true;
 	parent->Children.push_back(newComponentNode);
-	nodeMap.Add(newComponentNode->id, newComponentNode);
+	NodeMap.Add(newComponentNode->Id, newComponentNode);
 
 	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
 	loadingChild->Name = "Loading...";
-	loadingChild->id = FGuid::NewGuid();
+	loadingChild->Id = FGuid::NewGuid();
 	loadingChild->Parent = newComponentNode;
 	newComponentNode->Children.push_back(loadingChild);
 
@@ -173,7 +172,7 @@ TSharedPtr<SceneComponentNode> SceneTree::AddSceneComponent(TSharedPtr<SceneComp
 flatbuffers::Offset<mz::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
 }
 
 flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
@@ -186,7 +185,7 @@ flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBu
 
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0, 0, 0, &metadata);
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0, 0, 0, &metadata);
 }
 
 std::vector<flatbuffers::Offset<mz::fb::Pin>> ActorNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
@@ -207,7 +206,7 @@ flatbuffers::Offset<mz::fb::Node> SceneComponentNode::Serialize(flatbuffers::Fla
 {
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
 }
 
 std::vector<flatbuffers::Offset<mz::fb::Pin>> SceneComponentNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
