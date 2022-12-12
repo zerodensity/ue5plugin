@@ -14,8 +14,17 @@ public:
 	MZActorReference(TObjectPtr<AActor> actor);
 	MZActorReference();
 	
-	TWeakObjectPtr<AActor> Get();
+	AActor* Get();
 	
+	explicit operator bool() {
+		return !!(Get());
+	}
+
+	AActor* operator->()
+	{
+		return Get();
+	}
+
 private:
 	bool UpdateActualActorPointer();
 	
@@ -34,8 +43,17 @@ public:
 	MZComponentReference(TObjectPtr<UActorComponent> actorComponent);
 	MZComponentReference();
 
-	TWeakObjectPtr<UActorComponent> Get();
-	TWeakObjectPtr<AActor> GetOwnerActor();
+	UActorComponent* Get();
+	AActor* GetOwnerActor();
+
+	explicit operator bool() {
+		return !!(Get());
+	}
+
+	UActorComponent* operator->()
+	{
+		return Get();
+	}
 
 private:
 	bool UpdateActualComponentPointer();

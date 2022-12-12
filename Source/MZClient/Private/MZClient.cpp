@@ -465,13 +465,9 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 			{
 				//changed first time 
 				TSharedPtr<MZProperty> newmzprop = nullptr;
-				if (mzprop->ActorContainer.Get().IsValid())
+				if (mzprop->GetRawObjectContainer())
 				{
-					newmzprop = MZPropertyFactory::CreateProperty(mzprop->ActorContainer.Get().Get(), mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
-				}
-				else if (mzprop->ComponentContainer.Get().IsValid())
-				{
-					newmzprop = MZPropertyFactory::CreateProperty(mzprop->ComponentContainer.Get().Get(), mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
+					newmzprop = MZPropertyFactory::CreateProperty(mzprop->GetRawObjectContainer(), mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
 				}
 				else if (mzprop->StructPtr)
 				{
@@ -481,15 +477,12 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 				{
 					newmzprop->default_val = mzprop->default_val;
 					newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
-					if (mzprop->ComponentContainer.Get().IsValid())
+
+					UObject* container = mzprop->GetRawObjectContainer();
+					if (container)
 					{
-						newmzprop->DisplayName += FString(" (") + mzprop->ComponentContainer.Get()->GetFName().ToString() + FString(")");
-						newmzprop->CategoryName = mzprop->ComponentContainer.Get()->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
-					}
-					else if (mzprop->ActorContainer.Get().IsValid())
-					{
-						newmzprop->DisplayName += FString(" (") + mzprop->ActorContainer.Get()->GetFName().ToString() + FString(")");
-						newmzprop->CategoryName = mzprop->ActorContainer.Get()->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+						newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
+						newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
 					}
 
 					newmzprop->transient = false;
@@ -1223,7 +1216,7 @@ void FMZClient::RemoveProperties(TSharedPtr<TreeNode> Node,
 	{
 		for (auto& [id, pin] : Pins)
 		{
-			if (pin->ComponentContainer.Get().Get() == componentNode->sceneComponent)
+			if (pin->ComponentContainer.Get() == componentNode->sceneComponent)
 			{
 				PinsToRemove.Add(pin);
 			}
@@ -1239,7 +1232,7 @@ void FMZClient::RemoveProperties(TSharedPtr<TreeNode> Node,
 	{
 		for (auto& [id, pin] : Pins)
 		{
-			if (pin->ActorContainer.Get().Get() == actorNode->actor)
+			if (pin->ActorContainer.Get() == actorNode->actor)
 			{
 				PinsToRemove.Add(pin);
 			}
@@ -1264,11 +1257,7 @@ void FMZClient::CheckPins(TSet<UObject*>& RemovedObjects,
 {
 	for (auto& [id, pin] : Pins)
 	{
-		UObject* container = pin->ComponentContainer.Get().Get();
-		if (!container)
-		{
-			container = pin->ActorContainer.Get().Get();
-		}
+		UObject* container = pin->GetRawObjectContainer();
 		if (!container)
 		{
 			continue;
@@ -1298,11 +1287,7 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 		{
 			if (auto objProp = Cast<FObjectProperty>(prop->Property))
 			{
-				UObject* container = prop->ComponentContainer.Get().Get();
-				if (!container)
-				{
-					container = prop->ActorContainer.Get().Get();
-				}
+				UObject* container = prop->GetRawObjectContainer();
 				if (!container)
 				{
 					continue;
@@ -1408,11 +1393,7 @@ void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 			{
 				
 				auto mzprop = RegisteredProperties.FindRef(pinId);
-				UObject* container = mzprop->ComponentContainer.Get().Get();
-				if (!container)
-				{
-					container = mzprop->ActorContainer.Get().Get();
-				}
+				UObject* container = mzprop->GetRawObjectContainer();
 				if (!container)
 				{
 					return;

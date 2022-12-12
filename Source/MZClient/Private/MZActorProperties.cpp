@@ -121,36 +121,26 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 
 std::vector<uint8> MZProperty::UpdatePinValue(uint8* customContainer)
 {
-	if (customContainer)
-	{
-		void* val = Property->ContainerPtrToValuePtr<void>(customContainer);
-		memcpy(data.data(), val, data.size());
-	}
-	else if (ComponentContainer.Get().IsValid())
-	{
-		void* val = Property->ContainerPtrToValuePtr< void >(ComponentContainer.Get().Get());
-		memcpy(data.data(), val, data.size());
-	}
-	else if (ActorContainer.Get().IsValid())
-	{
-		void* val = Property->ContainerPtrToValuePtr< void >(ActorContainer.Get().Get());
-		memcpy(data.data(), val, data.size());
-	}
-	else if (StructPtr)
-	{
-		void* val = Property->ContainerPtrToValuePtr< void >(StructPtr);
-		memcpy(data.data(), val, data.size());
-	}
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
 
+	if (container)
+	{
+		void* val = Property->ContainerPtrToValuePtr<void>(container);
+		memcpy(data.data(), val, data.size());
+	}
 	return data;
 }
 
 void MZProperty::MarkState()
 {
-	if (ComponentContainer.Get().IsValid())
+	if (ComponentContainer)
 	{
-		ComponentContainer.Get()->MarkRenderStateDirty();
-		ComponentContainer.Get()->UpdateComponentToWorld();
+		ComponentContainer->MarkRenderStateDirty();
+		ComponentContainer->UpdateComponentToWorld();
 	}
 
 }
@@ -160,36 +150,30 @@ void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 	IsChanged = true;
 	CHECK_PROP_SIZE();
 
-	if (ComponentContainer.Get().IsValid())
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	SetProperty_InCont(container, val);
+	
+	if (!customContainer && container)
 	{
-		SetProperty_InCont(ComponentContainer.Get().Get(), val);
 		MarkState();
 	}
-	else if (ActorContainer.Get().IsValid())
-	{
-		SetProperty_InCont(ActorContainer.Get().Get(), val);
-		MarkState();
-	}
-	else if (StructPtr)
-	{
-		SetProperty_InCont(StructPtr, val);
-		MarkState();
-	}
-	else if (customContainer)
-	{
-		SetProperty_InCont(customContainer, val);
-	}
+
 }
 
 UObject* MZProperty::GetRawObjectContainer()
 {
-	if (ActorContainer.Get().IsValid())
+	if (ActorContainer)
 	{
-		return ActorContainer.Get().Get();
+		return ActorContainer.Get();
 	}
-	else if (ComponentContainer.Get().IsValid())
+	else if (ComponentContainer)
 	{
-		return ComponentContainer.Get().Get();
+		return ComponentContainer.Get();
 	}
 
 	return nullptr;
@@ -199,24 +183,16 @@ void MZProperty::SetProperty_InCont(void* container, void* val) { return; }
 
 std::vector<uint8> MZBoolProperty::UpdatePinValue(uint8* customContainer)
 {
-	if (customContainer)
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
 	{
-		auto val = !!(boolprop->GetPropertyValue_InContainer(customContainer));
-		memcpy(data.data(), &val, data.size());
-	}
-	else if (ComponentContainer.Get().IsValid())
-	{
-		auto val = !!(boolprop->GetPropertyValue_InContainer(ComponentContainer.Get().Get()));
-		memcpy(data.data(), &val, data.size());
-	}
-	else if (ActorContainer.Get().IsValid())
-	{
-		auto val = !!(boolprop->GetPropertyValue_InContainer(ActorContainer.Get().Get()));
-		memcpy(data.data(), &val, data.size());
-	}
-	else if (StructPtr)
-	{
-		auto val = !!(boolprop->GetPropertyValue_InContainer(StructPtr));
+		auto val = !!(boolprop->GetPropertyValue_InContainer(container));
 		memcpy(data.data(), &val, data.size());
 	}
 
@@ -256,9 +232,9 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FRealityTrack*)val); 
 	FRealityTrack newTrack = *(FRealityTrack*)val;
 
-	if (ActorContainer.Get().IsValid())
+	if (ActorContainer.Get())
 	{
-		ActorContainer.Get()->SetActorRelativeLocation(newTrack.location);
+		ActorContainer->SetActorRelativeLocation(newTrack.location);
 		//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
 		//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
 	}
@@ -289,10 +265,10 @@ std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> MZProperty::SerializeMet
 MZStructProperty::MZStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
 	: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 {
-	UObject* Container = ActorContainer.Get().Get();
+	UObject* Container = ActorContainer.Get();
 	if (!Container)
 	{
-		Container = ComponentContainer.Get().Get();
+		Container = ComponentContainer.Get();
 	}
 	
 	if (Container)
@@ -389,53 +365,38 @@ void MZObjectProperty::SetPropValue(void* val, size_t size, uint8* customContain
 void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
-	if (ComponentContainer.Get().IsValid())
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
 	{
 		FString newval((char*)val);
-		nameprop->SetPropertyValue_InContainer(ComponentContainer.Get().Get(), FName(newval));
-		MarkState();
+		nameprop->SetPropertyValue_InContainer(container, FName(newval));
 	}
-	if (ActorContainer.Get().IsValid())
+	if (!customContainer && container)
 	{
-		FString newval((char*)val);
-		nameprop->SetPropertyValue_InContainer(ActorContainer.Get().Get(), FName(newval));
 		MarkState();
-	}
-	else if (StructPtr)
-	{
-		FString newval((char*)val);
-		nameprop->SetPropertyValue_InContainer(StructPtr, FName(newval));
-		MarkState();
-	}
-	else if (customContainer)
-	{
-		FString newval((char*)val);
-		nameprop->SetPropertyValue_InContainer(customContainer, FName(newval));
 	}
 	return;
-
 }
 
 std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 {
-	FString val(" ");
-	if (customContainer)
-	{
-		val = nameprop->GetPropertyValue_InContainer(customContainer).ToString();
-	}
-	else if (ComponentContainer.Get().IsValid())
-	{
-		val = nameprop->GetPropertyValue_InContainer(ComponentContainer.Get().Get()).ToString();
-	}
-	else if (ActorContainer.Get().IsValid())
-	{
-		val = nameprop->GetPropertyValue_InContainer(ActorContainer.Get().Get()).ToString();
-	}
-	else if(StructPtr)
-	{
-		val = nameprop->GetPropertyValue_InContainer(StructPtr).ToString();
-	}
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
 
+	FString val(" ");
+	if (container)
+	{
+		val = nameprop->GetPropertyValue_InContainer(container).ToString();
+	}
 	auto s = StringCast<ANSICHAR>(*val);
 	data = std::vector<uint8_t>(s.Length() + 1, 0);
 	memcpy(data.data(), s.Get(), s.Length());
@@ -446,50 +407,39 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 void MZTextProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
-	if (ComponentContainer.Get().IsValid())
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
 	{
 		FString newval((char*)val);
-		textprop->SetPropertyValue_InContainer(ComponentContainer.Get().Get(), FText::FromString(newval));
+		textprop->SetPropertyValue_InContainer(container, FText::FromString(newval));
+	}
+
+	if (!customContainer && container)
+	{
 		MarkState();
 	}
-	else if (ActorContainer.Get().IsValid())
-	{
-		FString newval((char*)val);
-		textprop->SetPropertyValue_InContainer(ActorContainer.Get().Get(), FText::FromString(newval));
-		MarkState();
-	}
-	else if (StructPtr)
-	{
-		FString newval((char*)val);
-		textprop->SetPropertyValue_InContainer(StructPtr, FText::FromString(newval));
-		MarkState();
-	}
-	else if (customContainer)
-	{
-		FString newval((char*)val);
-		textprop->SetPropertyValue_InContainer(customContainer, FText::FromString(newval));
-	}
+
 	return;
 }
 
 std::vector<uint8> MZTextProperty::UpdatePinValue(uint8* customContainer)
 {
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
 	FString val(" ");
-	if (customContainer)
+	if (container)
 	{
-		val = textprop->GetPropertyValue_InContainer(customContainer).ToString();
-	}
-	else if (ComponentContainer.Get().IsValid())
-	{
-		val = textprop->GetPropertyValue_InContainer(ComponentContainer.Get().Get()).ToString();
-	}
-	else if (ActorContainer.Get().IsValid())
-	{
-		val = textprop->GetPropertyValue_InContainer(ActorContainer.Get().Get()).ToString();
-	}
-	else if (StructPtr)
-	{
-		val = textprop->GetPropertyValue_InContainer(StructPtr).ToString();
+		val = textprop->GetPropertyValue_InContainer(container).ToString();
 	}
 
 	auto s = StringCast<ANSICHAR>(*val);
@@ -750,17 +700,17 @@ MZActorReference::MZActorReference()
 
 }
 
-TWeakObjectPtr<AActor> MZActorReference::Get()
+AActor* MZActorReference::Get()
 {
 	if (Actor.IsValid())
 	{
-		return Actor;
+		return Actor.Get();
 	}
 	else if (UpdateActualActorPointer())
 	{
-		return Actor;
+		return Actor.Get();
 	}
-	return TWeakObjectPtr<AActor>();
+	return nullptr;
 }
 
 bool MZActorReference::UpdateActualActorPointer()
@@ -796,7 +746,7 @@ MZComponentReference::MZComponentReference(TObjectPtr<UActorComponent> actorComp
 	{
 		Component = TWeakObjectPtr<UActorComponent>(actorComponent);
 		ComponentProperty = Component->GetFName();
-		PathToComponent = Component->GetPathName(Actor.Get().Get());
+		PathToComponent = Component->GetPathName(Actor.Get());
 	}
 }
 
@@ -805,34 +755,34 @@ MZComponentReference::MZComponentReference()
 
 }
 
-TWeakObjectPtr<UActorComponent> MZComponentReference::Get()
+UActorComponent* MZComponentReference::Get()
 {
 	if (Component.IsValid())
 	{
-		return Component;
+		return Component.Get();
 	}
 	else if (UpdateActualComponentPointer())
 	{
-		return Component;
+		return Component.Get();
 	}
 
-	return TWeakObjectPtr<UActorComponent>();
+	return nullptr;
 }
 
-TWeakObjectPtr<AActor> MZComponentReference::GetOwnerActor()
+AActor* MZComponentReference::GetOwnerActor()
 {
 	return Actor.Get();
 }
 
 bool MZComponentReference::UpdateActualComponentPointer()
 {
-	if (!Actor.Get().IsValid() || PathToComponent.IsEmpty())
+	if (!Actor.Get() || PathToComponent.IsEmpty())
 	{
 		InvalidReference = true;
 		return false;
 	}
 
-	auto comp = FindObject<UActorComponent>(Actor.Get().Get(), *PathToComponent);
+	auto comp = FindObject<UActorComponent>(Actor.Get(), *PathToComponent);
 	if (comp)
 	{
 		Component = TWeakObjectPtr<UActorComponent>(comp);
