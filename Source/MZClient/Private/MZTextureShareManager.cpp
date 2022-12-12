@@ -7,7 +7,6 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-void MemoryBarrier();
 #include "Windows/AllowWindowsPlatformTypes.h"
 #pragma intrinsic(_InterlockedCompareExchange64)
 #define InterlockedCompareExchange64 _InterlockedCompareExchange64
@@ -129,7 +128,7 @@ void MZTextureShareManager::AddTexturePin(MZProperty* mzprop, mz::fb::Texture* t
 void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture* tex)
 {
 	memcpy(mzprop->data.data(), tex, sizeof(mz::fb::Texture));
-	std::unique_lock lock2(CopyOnTickMutex);
+	std::unique_lock lock(CopyOnTickMutex);
 	MzTextureShareInfo info = {
 	.type = tex->type(),
 	.handle = tex->handle(),
@@ -190,13 +189,14 @@ void MZTextureShareManager::TextureDestroyed(UTextureRenderTarget2D* texture)
 
 void MZTextureShareManager::Reset()
 {
+	std::unique_lock lock(CopyOnTickMutex);
 	CopyOnTick.Empty();
 	PendingCopyQueue.Empty();
 }
 
 void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 {
-
+	std::shared_lock lock(CopyOnTickMutex);
 	if (CopyOnTick.IsEmpty())
 	{
 		return;
@@ -204,7 +204,7 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this, client](FRHICommandListImmediate& RHICmdList)
 		{
-			std::unique_lock lock(CopyOnTickMutex);
+			std::shared_lock lock(CopyOnTickMutex);
 			WaitCommands();
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			flatbuffers::grpc::MessageBuilder fbb;

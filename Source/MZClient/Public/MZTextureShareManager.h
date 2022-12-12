@@ -68,7 +68,7 @@ public:
 	std::mutex PendingCopyQueueMutex;
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
-	std::mutex CopyOnTickMutex;
+	std::shared_mutex CopyOnTickMutex;
 	TMultiMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTick;
 
 private:
