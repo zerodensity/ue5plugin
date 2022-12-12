@@ -8,13 +8,56 @@
 
 class MZStructProperty;
 
+class MZActorReference
+{
+public:
+	MZActorReference(TObjectPtr<AActor> actor);
+	MZActorReference();
+	
+	TWeakObjectPtr<AActor> Get();
+	
+private:
+	bool UpdateActualActorPointer();
+	
+	UPROPERTY()
+	TWeakObjectPtr<AActor> Actor;
+	
+	FGuid ActorGuid;
+	bool InvalidReference = false;
+	
+};
+
+class MZComponentReference
+{
+
+public:
+	MZComponentReference(TObjectPtr<UActorComponent> actorComponent);
+	MZComponentReference();
+
+	TWeakObjectPtr<UActorComponent> Get();
+	TWeakObjectPtr<AActor> GetOwnerActor();
+
+private:
+	bool UpdateActualComponentPointer();
+
+	UPROPERTY()
+	TWeakObjectPtr<UActorComponent> Component;
+	
+	MZActorReference Actor;
+
+	FName ComponentProperty;
+	FString PathToComponent;
+
+	bool InvalidReference = false;
+};
+
 class MZProperty : public TSharedFromThis<MZProperty>
 {
 public:
 	MZProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
-
+	UObject* GetRawObjectContainer();
 
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr);
 	//std::vector<uint8> GetValue(uint8* customContainer = nullptr);
@@ -23,7 +66,9 @@ public:
 	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
 
 	FProperty* Property;
-	UObject* Container;
+
+	MZActorReference ActorContainer;
+	MZComponentReference ComponentContainer;
 	uint8* StructPtr = nullptr;
 
 	FString PropertyName;

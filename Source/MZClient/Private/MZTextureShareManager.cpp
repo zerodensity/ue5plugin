@@ -28,7 +28,7 @@ MZTextureShareManager* MZTextureShareManager::singleton;
 
 MzTextureInfo GetResourceInfo(MZProperty* mzprop)
 {
-	UObject* obj = mzprop->Container;
+	UObject* obj = mzprop->GetRawObjectContainer();
 	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
 
 	if (!obj)
@@ -151,7 +151,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture
 
 	mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
 
-	UObject* obj = mzprop->Container;
+	UObject* obj = mzprop->GetRawObjectContainer();
 	if (!obj) return;
 	auto prop = CastField<FObjectProperty>(mzprop->Property);
 	if (!prop) return;

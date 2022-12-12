@@ -465,22 +465,31 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 			{
 				//changed first time 
 				TSharedPtr<MZProperty> newmzprop = nullptr;
-				if (mzprop->Container)
+				if (mzprop->ActorContainer.Get().IsValid())
 				{
-					newmzprop = MZPropertyFactory::CreateProperty(mzprop->Container, mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
+					newmzprop = MZPropertyFactory::CreateProperty(mzprop->ActorContainer.Get().Get(), mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
+				}
+				else if (mzprop->ComponentContainer.Get().IsValid())
+				{
+					newmzprop = MZPropertyFactory::CreateProperty(mzprop->ComponentContainer.Get().Get(), mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
 				}
 				else if (mzprop->StructPtr)
 				{
-					newmzprop = MZPropertyFactory::CreateProperty(mzprop->Container, mzprop->Property, &(RegisteredProperties), 0 /*, &(mzclient->PropertiesMap)*/, FString(""), mzprop->StructPtr);
+					newmzprop = MZPropertyFactory::CreateProperty(nullptr, mzprop->Property, &(RegisteredProperties), 0 /*, &(mzclient->PropertiesMap)*/, FString(""), mzprop->StructPtr);
 				}
 				if (newmzprop)
 				{
 					newmzprop->default_val = mzprop->default_val;
 					newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
-					if (mzprop->Container)
+					if (mzprop->ComponentContainer.Get().IsValid())
 					{
-						newmzprop->DisplayName += FString(" (") + mzprop->Container->GetFName().ToString() + FString(")");
-						newmzprop->CategoryName = mzprop->Container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+						newmzprop->DisplayName += FString(" (") + mzprop->ComponentContainer.Get()->GetFName().ToString() + FString(")");
+						newmzprop->CategoryName = mzprop->ComponentContainer.Get()->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+					}
+					else if (mzprop->ActorContainer.Get().IsValid())
+					{
+						newmzprop->DisplayName += FString(" (") + mzprop->ActorContainer.Get()->GetFName().ToString() + FString(")");
+						newmzprop->CategoryName = mzprop->ActorContainer.Get()->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
 					}
 
 					newmzprop->transient = false;
@@ -1214,7 +1223,7 @@ void FMZClient::RemoveProperties(TSharedPtr<TreeNode> Node,
 	{
 		for (auto& [id, pin] : Pins)
 		{
-			if (pin->Container == componentNode->sceneComponent)
+			if (pin->ComponentContainer.Get().Get() == componentNode->sceneComponent)
 			{
 				PinsToRemove.Add(pin);
 			}
@@ -1230,7 +1239,7 @@ void FMZClient::RemoveProperties(TSharedPtr<TreeNode> Node,
 	{
 		for (auto& [id, pin] : Pins)
 		{
-			if (pin->Container == actorNode->actor)
+			if (pin->ActorContainer.Get().Get() == actorNode->actor)
 			{
 				PinsToRemove.Add(pin);
 			}
@@ -1255,7 +1264,16 @@ void FMZClient::CheckPins(TSet<UObject*>& RemovedObjects,
 {
 	for (auto& [id, pin] : Pins)
 	{
-		if (RemovedObjects.Contains(pin->Container))
+		UObject* container = pin->ComponentContainer.Get().Get();
+		if (!container)
+		{
+			container = pin->ActorContainer.Get().Get();
+		}
+		if (!container)
+		{
+			continue;
+		}
+		if (RemovedObjects.Contains(container))
 		{
 			PinsToRemove.Add(pin);
 		}
@@ -1280,7 +1298,16 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 		{
 			if (auto objProp = Cast<FObjectProperty>(prop->Property))
 			{
-				if (auto URT = Cast<UTextureRenderTarget2D>(objProp->GetObjectPropertyValue(objProp->ContainerPtrToValuePtr<UTextureRenderTarget2D>(prop->Container))))
+				UObject* container = prop->ComponentContainer.Get().Get();
+				if (!container)
+				{
+					container = prop->ActorContainer.Get().Get();
+				}
+				if (!container)
+				{
+					continue;
+				}
+				if (auto URT = Cast<UTextureRenderTarget2D>(objProp->GetObjectPropertyValue(objProp->ContainerPtrToValuePtr<UTextureRenderTarget2D>(container))))
 				{
 					removedTextures.insert(URT);
 				}
@@ -1381,7 +1408,16 @@ void FMZClient::OnPinShowAsChanged(FGuid pinId, mz::fb::ShowAs newShowAs)
 			{
 				
 				auto mzprop = RegisteredProperties.FindRef(pinId);
-				auto newmzprop = MZPropertyFactory::CreateProperty(mzprop->Container, mzprop->Property, &(RegisteredProperties));
+				UObject* container = mzprop->ComponentContainer.Get().Get();
+				if (!container)
+				{
+					container = mzprop->ActorContainer.Get().Get();
+				}
+				if (!container)
+				{
+					return;
+				}
+				auto newmzprop = MZPropertyFactory::CreateProperty(container, mzprop->Property, &(RegisteredProperties));
 				if (newmzprop)
 				{
 					//memcpy(newmzprop, mzprop, sizeof(MZProperty));
