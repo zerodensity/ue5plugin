@@ -159,7 +159,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture
 	if (!URT) return;
 
 	PendingCopyQueue.Remove(mzprop->Id);
-	CopyOnTick.Add(URT, copyInfo);
+	CopyOnTick.Add(mzprop, copyInfo);
 }
 
 void MZTextureShareManager::WaitCommands()
@@ -181,10 +181,10 @@ void MZTextureShareManager::ExecCommands()
 	CmdQueue->Signal(CmdFence, ++CmdFenceValue);
 }
 
-void MZTextureShareManager::TextureDestroyed(UTextureRenderTarget2D* texture)
+void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
 	std::unique_lock lock(CopyOnTickMutex);
-	CopyOnTick.Remove(texture);
+	CopyOnTick.Remove(textureProp);
 }
 
 void MZTextureShareManager::Reset()
@@ -196,22 +196,40 @@ void MZTextureShareManager::Reset()
 
 void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 {
-	std::shared_lock lock(CopyOnTickMutex);
-	if (CopyOnTick.IsEmpty())
 	{
-		return;
-	}
-	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
-		[this, client](FRHICommandListImmediate& RHICmdList)
+		std::shared_lock lock(CopyOnTickMutex);
+		if (CopyOnTick.IsEmpty())
 		{
-			std::shared_lock lock(CopyOnTickMutex);
+			return;
+		}
+	}
+
+	TMultiMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTickFiltered;
+	{
+		std::unique_lock lock(CopyOnTickMutex);
+		for (auto [mzprop, info] : CopyOnTick)
+		{
+			UObject* obj = mzprop->GetRawObjectContainer();
+			if (!obj) return;
+			auto prop = CastField<FObjectProperty>(mzprop->Property);
+			if (!prop) return;
+			auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+			if (!URT) return;
+
+			CopyOnTickFiltered.Add(URT, info);
+		}
+	}
+
+	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+		[this, client, CopyOnTickFiltered](FRHICommandListImmediate& RHICmdList)
+		{
+			//std::shared_lock lock(CopyOnTickMutex);
 			WaitCommands();
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			flatbuffers::grpc::MessageBuilder fbb;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
-			for (auto& [URT, pin] : CopyOnTick)
+			for (auto& [URT, pin] : CopyOnTickFiltered)
 			{
-
 				auto rt = URT->GetRenderTargetResource();
 				if (!rt) return;
 				auto RHIResource = rt->GetTexture2DRHI();
@@ -270,8 +288,8 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 					URT->ClearColor = FLinearColor::Black;
 					URT->bGPUSharedFlag = 1;
 					RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
-					URT->Resource->TextureRHI = Texture2DRHI;
-					URT->Resource->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
+					URT->GetResource()->TextureRHI = Texture2DRHI;
+					URT->GetResource()->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
 					continue;
 				}
 

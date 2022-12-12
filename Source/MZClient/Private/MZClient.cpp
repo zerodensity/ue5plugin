@@ -397,7 +397,7 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 					TSharedPtr<MZProperty> mzprop = nullptr;
 					if (update.componentName.IsEmpty())
 					{
-						auto prp = FindField<FProperty>(actor->GetClass(), TCHAR_TO_UTF8(*update.propName));
+						auto prp = FindFProperty<FProperty>(actor->GetClass(), TCHAR_TO_UTF8(*update.propName));
 						if (prp)
 						{
 							mzprop = MZPropertyFactory::CreateProperty(actor, prp);
@@ -406,7 +406,7 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 					else
 					{
 						auto component = FindObject<USceneComponent>(actor, *update.componentName);
-						auto prp = FindField<FProperty>(component->GetClass(), TCHAR_TO_UTF8(*update.propName));
+						auto prp = FindFProperty<FProperty>(component->GetClass(), TCHAR_TO_UTF8(*update.propName));
 						if (component && prp)
 						{
 							mzprop = MZPropertyFactory::CreateProperty(component, prp);
@@ -494,9 +494,12 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 			}
 			if (Pins.Contains(mzprop->Id))
 			{
-				auto otherProp = PropertiesMap.FindRef(mzprop->Property);
-				otherProp->UpdatePinValue();
-				SendPinValueChanged(otherProp->Id, otherProp->data);
+				if (PropertiesMap.Contains(mzprop->Property))
+				{
+					auto otherProp = PropertiesMap.FindRef(mzprop->Property);
+					otherProp->UpdatePinValue();
+					SendPinValueChanged(otherProp->Id, otherProp->data);
+				}
 
 			}
 			else
@@ -546,6 +549,7 @@ void FMZClient::TryConnect()
 
 	if (!Client)
 	{
+		
 		std::string ProtoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
 		// memleak
 		Client = new ClientImpl("UE5", "UE5", ProtoPath.c_str());
@@ -599,6 +603,10 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 
 void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
 {
+	if (!PropertyChangedEvent.Property->IsValidLowLevel())
+	{
+		return;
+	}
 	if (PropertiesMap.Contains(PropertyChangedEvent.Property))
 	{
 		auto mzprop = PropertiesMap.FindRef(PropertyChangedEvent.Property);
@@ -608,7 +616,19 @@ void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChanged
 	}
 	for (auto [id, pin] :  Pins)
 	{
-		if (pin->Property == PropertyChangedEvent.Property)
+		if (PropertyChangedEvent.MemberProperty && PropertyChangedEvent.MemberProperty->IsA<FStructProperty>())
+		{
+			auto structProp = (FStructProperty*)PropertyChangedEvent.MemberProperty;
+			uint8* StructInst = structProp->ContainerPtrToValuePtr<uint8>(ObjectBeingModified);
+			if (pin->StructPtr == StructInst)
+			{
+				pin->UpdatePinValue();
+				SendPinValueChanged(pin->Id, pin->data);
+				LOG("PIN FOUND HURRRAAAH");
+				break;
+			}
+		}
+		else if (pin->Property == PropertyChangedEvent.Property)
 		{
 			pin->UpdatePinValue();
 			SendPinValueChanged(pin->Id, pin->data);
@@ -681,7 +701,7 @@ void FMZClient::StartupModule() {
 	UENodeStatusHandler.SetClient(Client);
 
 	//Add Delegates
-	FTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZClient::OnPreWorldFinishDestroy);
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZClient::HandleBeginPIE);
@@ -794,7 +814,7 @@ void FMZClient::StartupModule() {
 			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
 			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
 			{
-				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
 				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
 				if (mzprop)
 				{
@@ -803,7 +823,7 @@ void FMZClient::StartupModule() {
 				}
 			}
 			{
-				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
+				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
 				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
 				if (mzprop)
 				{
@@ -812,7 +832,7 @@ void FMZClient::StartupModule() {
 				}
 			}
 			{
-				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
+				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
 				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
 				if (mzprop)
 				{
@@ -821,7 +841,7 @@ void FMZClient::StartupModule() {
 				}
 			}
 			{
-				auto texture = FindField<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
+				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
 				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
 				if (mzprop)
 				{
@@ -830,7 +850,7 @@ void FMZClient::StartupModule() {
 				}
 			}
 			{
-				auto track = FindField<FProperty>(videoCamera->GetClass(), "Track");
+				auto track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
 				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
 				if (mzprop)
 				{
@@ -880,7 +900,7 @@ void FMZClient::StartupModule() {
 			}
 			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
 			{
-				auto texture = FindField<FObjectProperty>(LoadedBpAsset, "VideoInput");
+				auto texture = FindFProperty<FObjectProperty>(LoadedBpAsset, "VideoInput");
 				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
 				RenderTarget2D->InitAutoFormat(1920, 1080);
 				texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
@@ -1281,11 +1301,11 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 		RemoveProperties(node, pinsToRemove, propertiesToRemove);
 		CheckPins(RemovedObjects, pinsToRemove, propertiesToRemove);
 
-		std::set<UTextureRenderTarget2D*> removedTextures;
+		std::set<MZProperty*> removedTextures;
 		
 		for (auto prop : pinsToRemove)
 		{
-			if (auto objProp = Cast<FObjectProperty>(prop->Property))
+			if (auto objProp = CastField<FObjectProperty>(prop->Property))
 			{
 				UObject* container = prop->GetRawObjectContainer();
 				if (!container)
@@ -1294,15 +1314,15 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 				}
 				if (auto URT = Cast<UTextureRenderTarget2D>(objProp->GetObjectPropertyValue(objProp->ContainerPtrToValuePtr<UTextureRenderTarget2D>(container))))
 				{
-					removedTextures.insert(URT);
+					removedTextures.insert(prop.Get());
 				}
 			}
 		}
 		auto texman = MZTextureShareManager::GetInstance();
 
-		for (auto texture : removedTextures)
+		for (auto prop : removedTextures)
 		{
-			texman->TextureDestroyed(texture);
+			texman->TextureDestroyed(prop);
 		}
 
 		//delete from parent
@@ -1859,16 +1879,31 @@ void FMZClient::SendAssetList()
 	//ContentPaths.Add(TEXT("/All"));
 	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
 	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
+	
+	//FName BaseClassName = AActor::StaticClass()->GetFName();
+	//TSet< FName > DerivedNames;
+	//{
+	//	TArray< FName > BaseNames;
+	//	BaseNames.Add(BaseClassName);
 
-	FName BaseClassName = AActor::StaticClass()->GetFName();
-	TSet< FName > DerivedNames;
+	//	TSet< FName > Excluded;
+	//	AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
+	//}
+	FTopLevelAssetPath BaseClassName = FTopLevelAssetPath(AActor::StaticClass());
+	TSet< FTopLevelAssetPath > DerivedAssetPaths;
 	{
-		TArray< FName > BaseNames;
+		TArray< FTopLevelAssetPath > BaseNames;
 		BaseNames.Add(BaseClassName);
 
-		TSet< FName > Excluded;
-		AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
+		TSet< FTopLevelAssetPath > Excluded;
+		AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedAssetPaths);
 	}
+	TSet< FName > DerivedNames;
+	for (auto assetPath : DerivedAssetPaths)
+	{
+		DerivedNames.Add(assetPath.GetAssetName());
+	}
+	
 
 	for (auto& className : DerivedNames)
 	{

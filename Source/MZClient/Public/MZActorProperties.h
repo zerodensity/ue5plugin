@@ -108,8 +108,10 @@ public:
 	bool transient = true;
 	bool IsChanged = false;
 
+	virtual ~MZProperty() {}
 protected:
 	virtual void SetProperty_InCont(void* container, void* val);
+
 };
 
 class MZBoolProperty : public MZProperty
@@ -127,6 +129,7 @@ public:
 
 protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
+
 };
 
 class MZFloatProperty : public MZProperty
@@ -142,6 +145,7 @@ public:
 
 protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
+	
 };
 
 class MZDoubleProperty : public MZProperty

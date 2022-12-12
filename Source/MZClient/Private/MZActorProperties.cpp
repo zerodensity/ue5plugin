@@ -466,67 +466,67 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 
 	//CAST THE PROPERTY ACCORDINGLY
 	uproperty->GetClass();
-	if (FFloatProperty* floatprop = Cast<FFloatProperty>(uproperty) ) 
+	if (FFloatProperty* floatprop = CastField<FFloatProperty>(uproperty) ) 
 	{
 		prop = TSharedPtr<MZProperty>(new MZFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FDoubleProperty* doubleprop = Cast<FDoubleProperty>(uproperty))
+	else if (FDoubleProperty* doubleprop = CastField<FDoubleProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZDoubleProperty(container, doubleprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FInt8Property* int8prop = Cast<FInt8Property>(uproperty))
+	else if (FInt8Property* int8prop = CastField<FInt8Property>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZInt8Property(container, int8prop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FInt16Property* int16prop = Cast<FInt16Property>(uproperty))
+	else if (FInt16Property* int16prop = CastField<FInt16Property>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZInt16Property(container, int16prop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FIntProperty* intprop = Cast<FIntProperty>(uproperty))
+	else if (FIntProperty* intprop = CastField<FIntProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZIntProperty(container, intprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FInt64Property* int64prop = Cast<FInt64Property>(uproperty))
+	else if (FInt64Property* int64prop = CastField<FInt64Property>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZInt64Property(container, int64prop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FByteProperty* byteprop = Cast<FByteProperty>(uproperty))
+	else if (FByteProperty* byteprop = CastField<FByteProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZByteProperty(container, byteprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FUInt16Property* uint16prop = Cast<FUInt16Property>(uproperty))
+	else if (FUInt16Property* uint16prop = CastField<FUInt16Property>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZUInt16Property(container, uint16prop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FUInt32Property* uint32prop = Cast<FUInt32Property>(uproperty))
+	else if (FUInt32Property* uint32prop = CastField<FUInt32Property>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZUInt32Property(container, uint32prop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FUInt64Property* uint64prop = Cast<FUInt64Property>(uproperty))
+	else if (FUInt64Property* uint64prop = CastField<FUInt64Property>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZUInt64Property(container, uint64prop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FBoolProperty* boolprop = Cast<FBoolProperty>(uproperty))
+	else if (FBoolProperty* boolprop = CastField<FBoolProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZBoolProperty(container, boolprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FEnumProperty* enumprop = Cast<FEnumProperty>(uproperty))
+	else if (FEnumProperty* enumprop = CastField<FEnumProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, enumprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FTextProperty* textprop = Cast<FTextProperty>(uproperty))
+	else if (FTextProperty* textprop = CastField<FTextProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZTextProperty(container, textprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FNameProperty* nameprop = Cast<FNameProperty>(uproperty))
+	else if (FNameProperty* nameprop = CastField<FNameProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZNameProperty(container, nameprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FObjectProperty* objectprop = Cast<FObjectProperty>(uproperty))
+	else if (FObjectProperty* objectprop = CastField<FObjectProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty));
 	}
-	else if (FStructProperty* structprop = Cast<FStructProperty>(uproperty))
+	else if (FStructProperty* structprop = CastField<FStructProperty>(uproperty))
 	{
 
 		//TODO ADD SUPPORT FOR FTRANSFORM

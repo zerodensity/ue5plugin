@@ -54,7 +54,7 @@ public:
 	void WaitCommands();
 	void ExecCommands();
 	void EnqueueCommands(ClientImpl* client);
-	void TextureDestroyed(UTextureRenderTarget2D* texture);
+	void TextureDestroyed(MZProperty* texture);
 
 
 	struct ID3D12Device* Dev;
@@ -69,7 +69,7 @@ public:
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
 	std::shared_mutex CopyOnTickMutex;
-	TMultiMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTick;
+	TMultiMap<MZProperty*, ResourceInfo> CopyOnTick;
 
 private:
 	void Initiate();
