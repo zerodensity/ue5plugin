@@ -202,7 +202,7 @@ public:
 	void HandleEndPIE(bool bIsSimulating);
 
 	//Fills the root graph with first level information (Only the names of the actors without parents) 
-	void PopulateSceneTree();
+	void PopulateSceneTree(bool reset = true);
 
 	//Fills the specified node information to the root graph
 	bool PopulateNode(FGuid NodeId);

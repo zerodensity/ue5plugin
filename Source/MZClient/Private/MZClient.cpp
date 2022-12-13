@@ -271,6 +271,7 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 struct PropUpdate
 {
 	FGuid actorId;
+	FString displayName;
 	FString componentName;
 	FString propName;
 	void* newVal;
@@ -293,6 +294,7 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 			if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_META_DATA_MAP))
 			{
 				FString componentName;
+				FString displayName;
 				FString propName;
 				char* valcopy = new char[prop->data()->size()];
 				char* defcopy = new char[prop->def()->size()];
@@ -318,7 +320,12 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 					//componentName = FString(entry->value()->c_str());
 				}
 
-				updates.push_back({ id, componentName, propName, valcopy, prop->data()->size(), defcopy, prop->def()->size(), prop->show_as()});
+				if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_NAME))
+				{
+					displayName = FString(prop->name()->c_str());
+				}
+
+				updates.push_back({ id, displayName, componentName, propName, valcopy, prop->data()->size(), defcopy, prop->def()->size(), prop->show_as()});
 			}
 			
 		}
@@ -417,6 +424,10 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 					{
 						mzprop->SetPropValue(update.newVal, update.newValSize);
 					}
+					if (!update.displayName.IsEmpty())
+					{
+						mzprop->DisplayName = update.displayName;
+					}
 					mzprop->UpdatePinValue();
 					mzprop->PinShowAs = update.pinShowAs;
 					mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
@@ -431,13 +442,12 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 				delete update.newVal;
 				delete update.defVal;
 			}
-			auto tmpPins = Pins;
-			auto tmpRegisteredProperties = Pins;
+			
+			SceneTree.Clear();
+			RegisteredProperties = Pins;
+			PropertiesMap.Empty();
+			PopulateSceneTree(false);
 
-
-			PopulateSceneTree();
-			Pins = tmpPins;
-			RegisteredProperties = tmpRegisteredProperties;
 			SendNodeUpdate(Client->NodeId);
 			SendAssetList();
 
@@ -968,7 +978,9 @@ void FMZClient::StartupModule() {
 			FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().PopulateRootGraph,
-			FExecuteAction::CreateRaw(this, &FMZClient::PopulateSceneTree));
+			FExecuteAction::CreateLambda([=]() {
+				PopulateSceneTree();
+				}));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().SendRootUpdate,
 			FExecuteAction::CreateLambda([=](){
@@ -1054,9 +1066,12 @@ bool IsActorDisplayable(const AActor* Actor)
 		//!Actor->IsHidden();
 }
 
-void FMZClient::PopulateSceneTree() //Runs in game thread
+void FMZClient::PopulateSceneTree(bool reset) //Runs in game thread
 {
-	Reset();
+	if (reset)
+	{
+		Reset();
+	}
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
