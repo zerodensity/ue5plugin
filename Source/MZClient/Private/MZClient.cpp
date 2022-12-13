@@ -614,6 +614,13 @@ void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChanged
 		SendPinValueChanged(mzprop->Id, mzprop->data);
 		LOG("PROPERTY FOUND HURRRAAAH");
 	}
+	if (PropertiesMap.Contains(PropertyChangedEvent.MemberProperty))
+	{
+		auto mzprop = PropertiesMap.FindRef(PropertyChangedEvent.MemberProperty);
+		mzprop->UpdatePinValue();
+		SendPinValueChanged(mzprop->Id, mzprop->data);
+		LOG("PROPERTY FOUND HURRRAAAH");
+	}
 	for (auto [id, pin] :  Pins)
 	{
 		if (pin->Property == PropertyChangedEvent.MemberProperty)

@@ -362,6 +362,48 @@ void MZObjectProperty::SetPropValue(void* val, size_t size, uint8* customContain
 {
 }
 
+void MZStringProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+{
+	IsChanged = true;
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
+	{
+		FString newval((char*)val);
+		stringprop->SetPropertyValue_InContainer(container, newval);
+	}
+	if (!customContainer && container)
+	{
+		MarkState();
+	}
+	return;
+}
+
+std::vector<uint8> MZStringProperty::UpdatePinValue(uint8* customContainer)
+{
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	FString val(" ");
+	if (container)
+	{
+		val = stringprop->GetPropertyValue_InContainer(container);
+	}
+	auto s = StringCast<ANSICHAR>(*val);
+	data = std::vector<uint8_t>(s.Length() + 1, 0);
+	memcpy(data.data(), s.Get(), s.Length());
+
+	return data;
+}
+
 void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
@@ -521,6 +563,10 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	else if (FNameProperty* nameprop = CastField<FNameProperty>(uproperty))
 	{
 		prop = TSharedPtr<MZProperty>(new MZNameProperty(container, nameprop, parentCategory, StructPtr, parentProperty));
+	}
+	else if (FStrProperty* stringProp = CastField<FStrProperty>(uproperty))
+	{
+		prop = TSharedPtr<MZProperty>(new MZStringProperty(container, stringProp, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FObjectProperty* objectprop = CastField<FObjectProperty>(uproperty))
 	{

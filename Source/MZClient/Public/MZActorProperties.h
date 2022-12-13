@@ -339,6 +339,22 @@ public:
 
 };
 
+class MZStringProperty : public MZProperty
+{
+public:
+	MZStringProperty(UObject* container, FStrProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), stringprop(uproperty)
+	{
+		data = std::vector<uint8_t>(1, 0);
+		TypeName = "string";
+	}
+
+	FStrProperty* stringprop;
+	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
+
+};
+
 class MZObjectProperty : public MZProperty
 {
 public:
