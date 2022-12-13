@@ -616,7 +616,21 @@ void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChanged
 	}
 	for (auto [id, pin] :  Pins)
 	{
-		if (PropertyChangedEvent.MemberProperty && PropertyChangedEvent.MemberProperty->IsA<FStructProperty>())
+		if (pin->Property == PropertyChangedEvent.MemberProperty)
+		{
+			pin->UpdatePinValue();
+			SendPinValueChanged(pin->Id, pin->data);
+			LOG("PIN FOUND HURRRAAAH");
+			break;
+		}
+		else if (pin->Property == PropertyChangedEvent.Property)
+		{
+			pin->UpdatePinValue();
+			SendPinValueChanged(pin->Id, pin->data);
+			LOG("PIN FOUND HURRRAAAH");
+			break;
+		}
+		else if (PropertyChangedEvent.MemberProperty && PropertyChangedEvent.MemberProperty->IsA<FStructProperty>())
 		{
 			auto structProp = (FStructProperty*)PropertyChangedEvent.MemberProperty;
 			uint8* StructInst = structProp->ContainerPtrToValuePtr<uint8>(ObjectBeingModified);
@@ -627,13 +641,6 @@ void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChanged
 				LOG("PIN FOUND HURRRAAAH");
 				break;
 			}
-		}
-		else if (pin->Property == PropertyChangedEvent.Property)
-		{
-			pin->UpdatePinValue();
-			SendPinValueChanged(pin->Id, pin->data);
-			LOG("PIN FOUND HURRRAAAH");
-			break;
 		}
 	}
 	
