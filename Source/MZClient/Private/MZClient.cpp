@@ -479,16 +479,16 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 					newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
 
 					UObject* container = mzprop->GetRawObjectContainer();
-					if (container)
-					{
-						newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
-						newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
-					}
+if (container)
+{
+	newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
+	newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+}
 
-					newmzprop->transient = false;
-					Pins.Add(newmzprop->Id, newmzprop);
-					//RegisteredProperties.Add(newmzprop->Id, newmzprop);
-					SendPinAdded(Client->NodeId, newmzprop);
+newmzprop->transient = false;
+Pins.Add(newmzprop->Id, newmzprop);
+//RegisteredProperties.Add(newmzprop->Id, newmzprop);
+SendPinAdded(Client->NodeId, newmzprop);
 				}
 
 			}
@@ -532,7 +532,7 @@ void FMZClient::Connected()
 		});
 }
 
-void FMZClient::Disconnected() 
+void FMZClient::Disconnected()
 {
 	if (MZTimeStep)
 	{
@@ -549,7 +549,7 @@ void FMZClient::TryConnect()
 
 	if (!Client)
 	{
-		
+
 		std::string ProtoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
 		// memleak
 		Client = new ClientImpl("UE5", "UE5", ProtoPath.c_str());
@@ -559,10 +559,10 @@ void FMZClient::TryConnect()
 
 	// (Samil) TODO: This connection logic should be provided by the SDK itself. 
 	// App developers should not be required implement 'always connect' behaviour.
-    if (!Client->IsChannelReady)
-    {
-        Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
-    }
+	if (!Client->IsChannelReady)
+	{
+		Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
+	}
 
 	if (!CustomTimeStepBound && IsConnected())
 	{
@@ -573,11 +573,16 @@ void FMZClient::TryConnect()
 			CustomTimeStepBound = true;
 		}
 	}
-    return;
+	return;
 }
 
 void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
 {
+	if (world != GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World())
+	{
+		return;
+	}
+
 	IsWorldInitialized = true;
 	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZClient::OnActorSpawned);
 	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZClient::OnActorDestroyed);
