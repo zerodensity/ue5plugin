@@ -1108,7 +1108,7 @@ void FMZClient::PopulateSceneTree(bool reset) //Runs in game thread
 			auto newNode = SceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
 			if (newNode)
 			{
-				newNode->actor = *ActorItr;
+				newNode->actor = MZActorReference(*ActorItr);
 			}
 		}
 	}
@@ -1569,8 +1569,12 @@ void FMZClient::OnContexMenuActionFired(FGuid itemId, uint32 actionId)
 	{
 		if (auto actorNode = SceneTree.NodeMap.FindRef(itemId)->GetAsActorNode())
 		{
-			TaskQueue.Enqueue([this, actor = actorNode->actor, actionId]()
+			TaskQueue.Enqueue([this, actor = actorNode->actor.Get(), actionId]()
 				{
+					if (!actor)
+					{
+						return;
+					}
 					menuActions.ExecuteActorAction(actionId, actor);
 				});
 		}
@@ -1654,7 +1658,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				continue;
 			}
 #endif
-			auto mzprop = MZPropertyFactory::CreateProperty(actorNode->actor, AProperty, &(RegisteredProperties), &(PropertiesMap));
+			auto mzprop = MZPropertyFactory::CreateProperty(actorNode->actor.Get(), AProperty, &(RegisteredProperties), &(PropertiesMap));
 			if (!mzprop)
 			{
 				AProperty = AProperty->PropertyLinkNext;
@@ -1737,7 +1741,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				//	//continue; // export only BP functions //? what we will show in mediaz
 				//}
 				
-				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor, UEFunction));
+				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor.Get(), UEFunction));
 				
 				// Parse all function parameters.
 
@@ -1771,7 +1775,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 			SceneTree.AddActor(actorNode, child);
 		}
 
-		AActor* ActorContext = actorNode->actor;
+		AActor* ActorContext = actorNode->actor.Get();
 		TSet<UActorComponent*> ComponentsToAdd(ActorContext->GetComponents());
 
 		const bool bHideConstructionScriptComponentsInDetailsView = false; //GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView;
@@ -1898,7 +1902,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 				continue;
 			}
 				
-			auto mzprop = MZPropertyFactory::CreateProperty(Component, Property, &(RegisteredProperties), &(PropertiesMap));
+			auto mzprop = MZPropertyFactory::CreateProperty(Component.Get(), Property, &(RegisteredProperties), &(PropertiesMap));
 			if (mzprop)
 			{
 				//RegisteredProperties.Add(mzprop->Id, mzprop);

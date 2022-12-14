@@ -35,7 +35,7 @@ struct TreeNode {
 
 struct ActorNode : TreeNode
 {
-	AActor* actor = nullptr;
+	MZActorReference actor;
 	std::vector<TSharedPtr<MZProperty>> Properties;
 	std::vector<TSharedPtr<MZFunction>> Functions;
 	TMap<FString, FString> mzMetaData;
@@ -49,7 +49,7 @@ struct ActorNode : TreeNode
 
 struct SceneComponentNode : TreeNode
 {
-	USceneComponent* sceneComponent = nullptr;
+	MZComponentReference sceneComponent;
 	std::vector<TSharedPtr<MZProperty>> Properties;
 	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
 	virtual SceneComponentNode* GetAsSceneComponentNode() override { return this; };

@@ -71,7 +71,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 	newChild->Parent = ptr;
 	newChild->Name = actor->GetActorLabel();
 	newChild->Id = actor->GetActorGuid();
-	newChild->actor = actor;
+	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
@@ -111,7 +111,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor*
 	newChild->Name = actor->GetFName().ToString();
 	newChild->Id = FGuid::NewGuid();
 #endif
-	newChild->actor = actor;
+	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
@@ -131,7 +131,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor*
 TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
-	newComponentNode->sceneComponent = sceneComponent;
+	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
 	newComponentNode->Parent = parent;
@@ -151,7 +151,7 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNo
 TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
-	newComponentNode->sceneComponent = sceneComponent;
+	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
 	newComponentNode->Parent = parent;
