@@ -609,7 +609,9 @@ void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValue
 
 void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 {
-	Reset();
+	LOG("World is destroyed");
+
+	PopulateSceneTree();
 	if (Client)
 	{
 		SendNodeUpdate(Client->NodeId);
