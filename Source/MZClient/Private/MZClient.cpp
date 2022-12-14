@@ -1270,7 +1270,11 @@ void FMZClient::RemoveProperties(TSharedPtr<TreeNode> Node,
 	{
 		for (auto& [id, pin] : Pins)
 		{
-			if (pin->ComponentContainer.Get() == componentNode->sceneComponent)
+			//if (pin->ComponentContainer.Get() == componentNode->sceneComponent)
+			//{
+			//	PinsToRemove.Add(pin);
+			//}
+			if (!pin->GetRawObjectContainer())
 			{
 				PinsToRemove.Add(pin);
 			}
@@ -1286,7 +1290,11 @@ void FMZClient::RemoveProperties(TSharedPtr<TreeNode> Node,
 	{
 		for (auto& [id, pin] : Pins)
 		{
-			if (pin->ActorContainer.Get() == actorNode->actor)
+			//if (pin->ActorContainer.Get() == actorNode->actor)
+			//{
+			//	PinsToRemove.Add(pin);
+			//}
+			if (!pin->GetRawObjectContainer())
 			{
 				PinsToRemove.Add(pin);
 			}
@@ -1359,6 +1367,13 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 			texman->TextureDestroyed(prop);
 		}
 
+		auto tmp = pinsToRemove;
+		for (auto pin : tmp)
+		{
+			Pins.Remove(pin->Id);
+			RegisteredProperties.Remove(pin->Id);
+		}
+		
 		//delete from parent
 		FGuid parentId = Client->NodeId;
 		if (auto parent = node->Parent)

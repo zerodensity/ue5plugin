@@ -240,6 +240,38 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	}
 }
 
+
+void MZRotatorProperty::SetProperty_InCont(void* container, void* val)
+{
+	double x = ((double*)val)[0];
+	double y = ((double*)val)[1];
+	double z = ((double*)val)[2];
+	FRotator rotator = FRotator(y,z,x);
+	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &rotator);
+}
+
+std::vector<uint8> MZRotatorProperty::UpdatePinValue(uint8* customContainer)
+{
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
+	{
+		void* val = Property->ContainerPtrToValuePtr<void>(container);
+		double x = ((double*)val)[0];
+		double y = ((double*)val)[1];
+		double z = ((double*)val)[2];
+		FRotator rotator = FRotator(z, x, y);
+
+
+		memcpy(data.data(), &rotator, data.size());
+	}
+	return data;
+}
+
 flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 
@@ -586,7 +618,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 		}
 		else if (structprop->Struct == TBaseStructure<FRotator>::Get())
 		{
-			prop = TSharedPtr<MZProperty>(new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<MZProperty>(new MZRotatorProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 			FVector min(0, 0, 0);
 			FVector max(359.999, 359.999, 359.999);
 			prop->min_val = prop->data;
@@ -840,3 +872,5 @@ bool MZComponentReference::UpdateActualComponentPointer()
 }
 
 #endif
+
+
