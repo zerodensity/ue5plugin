@@ -620,6 +620,14 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 
 void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
 {
+	if (PropertyChangedEvent.MemberProperty && !ObjectBeingModified->IsA(PropertyChangedEvent.MemberProperty->GetOwner<UClass>()))
+	{
+		return;
+	}
+	if (PropertyChangedEvent.Property && !ObjectBeingModified->IsA(PropertyChangedEvent.Property->GetOwner<UClass>()))
+	{
+		return;
+	}
 	if (!PropertyChangedEvent.Property->IsValidLowLevel())
 	{
 		return;
