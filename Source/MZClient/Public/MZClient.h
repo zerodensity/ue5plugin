@@ -135,10 +135,12 @@ public:
 	void SetClient(TSharedPtr<ClientImpl> GrpcClient);
 	void Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status);
 	void Remove(std::string const& Id);
+	void Update();
 private:
-	void SendStatus() const;
+	void SendStatus();
 	TSharedPtr<ClientImpl> Client = nullptr;
 	std::unordered_map<std::string, mz::fb::TNodeStatusMessage> StatusMessages;
+	bool Dirty = false;
 };
 
 class FPSCounter

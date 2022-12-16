@@ -587,9 +587,10 @@ void FMZClient::TryConnect()
 	return;
 }
 
-void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValues initValues)
+void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues initValues)
 {
-	if (world != GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World())
+	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+	if (World != WorldContext->World())
 	{
 		return;
 	}
@@ -597,8 +598,13 @@ void FMZClient::OnPostWorldInit(UWorld* world, const UWorld::InitializationValue
 	IsWorldInitialized = true;
 	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZClient::OnActorSpawned);
 	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZClient::OnActorDestroyed);
-	world->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
-	world->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+
+	mz::fb::TNodeStatusMessage MapNameStatus;
+	MapNameStatus.text = TCHAR_TO_UTF8(*World->GetMapName());
+	MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+	UENodeStatusHandler.Add("map_name", MapNameStatus);
 
 	PopulateSceneTree();
 	if (Client)
@@ -1040,10 +1046,10 @@ void FMZClient::TestAction()
 bool FMZClient::Tick(float dt)
 {
 	// Uncomment when partial node updates are broadcasted by the mediaz engine.
-	if (FPSCounter.Update(dt))
-	{
-		UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
-	}
+	//if (FPSCounter.Update(dt))
+	//{
+	//	UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
+	//}
 
     TryConnect();
 
@@ -1054,6 +1060,8 @@ bool FMZClient::Tick(float dt)
 	}
 
 	MZTextureShareManager::GetInstance()->EnqueueCommands(Client.Get());
+
+	UENodeStatusHandler.Update();
 
 	return true;
 }
@@ -2063,7 +2071,7 @@ void UENodeStatusHandler::SetClient(TSharedPtr<ClientImpl> GrpcClient)
 void UENodeStatusHandler::Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status)
 {
 	StatusMessages[Id] = Status;
-	SendStatus();
+	Dirty = true;
 }
 
 void UENodeStatusHandler::Remove(std::string const& Id)
@@ -2072,11 +2080,19 @@ void UENodeStatusHandler::Remove(std::string const& Id)
 	if (it != StatusMessages.end())
 	{
 		StatusMessages.erase(it);
+		Dirty = true;
+	}
+}
+
+void UENodeStatusHandler::Update()
+{
+	if (Dirty)
+	{
 		SendStatus();
 	}
 }
 
-void UENodeStatusHandler::SendStatus() const
+void UENodeStatusHandler::SendStatus()
 {
 	if (!(Client && Client->NodeId.IsValid()) )
 		return;
@@ -2089,6 +2105,7 @@ void UENodeStatusHandler::SendStatus() const
 	}
 	auto Message = MakeAppEvent(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest));
 	Client->Write(Message);
+	Dirty = false;
 }
 
 bool FPSCounter::Update(float dt)
