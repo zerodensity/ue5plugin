@@ -132,12 +132,12 @@ public:
 class UENodeStatusHandler
 {
 public:
-	void SetClient(class ClientImpl* GrpcClient);
+	void SetClient(TSharedPtr<ClientImpl> GrpcClient);
 	void Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status);
 	void Remove(std::string const& Id);
 private:
 	void SendStatus() const;
-	class ClientImpl* Client = nullptr;
+	TSharedPtr<ClientImpl> Client = nullptr;
 	std::unordered_map<std::string, mz::fb::TNodeStatusMessage> StatusMessages;
 };
 
@@ -270,7 +270,7 @@ public:
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 	 
 	//Grpc client to communicate
-	class ClientImpl* Client = 0;
+	TSharedPtr<ClientImpl> Client = 0;
 
 	//Task queue
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;

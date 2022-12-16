@@ -562,8 +562,9 @@ void FMZClient::TryConnect()
 
 		std::string ProtoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
 		// memleak
-		Client = new ClientImpl("UE5", "UE5", ProtoPath.c_str());
+		Client = TSharedPtr<ClientImpl>(new ClientImpl("UE5", "UE5", ProtoPath.c_str()));
 		Client->PluginClient = this;
+		UENodeStatusHandler.SetClient(Client);
 		LOG("AppClient instance is created");
 	}
 
@@ -736,8 +737,6 @@ void FMZClient::StartupModule() {
 		static auto* const g_core_codegen = new CoreCodegen();
 		grpc::g_core_codegen_interface = g_core_codegen;
 	}
-
-	UENodeStatusHandler.SetClient(Client);
 
 	//Add Delegates
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
@@ -1041,10 +1040,10 @@ void FMZClient::TestAction()
 bool FMZClient::Tick(float dt)
 {
 	// Uncomment when partial node updates are broadcasted by the mediaz engine.
-	//if (FPSCounter.Update(dt))
-	//{
-	//	UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
-	//}
+	if (FPSCounter.Update(dt))
+	{
+		UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
+	}
 
     TryConnect();
 
@@ -1054,7 +1053,7 @@ bool FMZClient::Tick(float dt)
 		task();
 	}
 
-	MZTextureShareManager::GetInstance()->EnqueueCommands(Client);
+	MZTextureShareManager::GetInstance()->EnqueueCommands(Client.Get());
 
 	return true;
 }
@@ -2056,7 +2055,7 @@ void FMZClient::SendAssetList()
 	return;
 }
 
-void UENodeStatusHandler::SetClient(ClientImpl* GrpcClient)
+void UENodeStatusHandler::SetClient(TSharedPtr<ClientImpl> GrpcClient)
 {
 	this->Client = GrpcClient;
 }
