@@ -31,6 +31,9 @@
 #include "EditorStyleSet.h"
 #include "EditorCategoryUtils.h"
 
+#include "Blueprint/UserWidget.h"
+
+#include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 
 #define LOCTEXT_NAMESPACE "FMZClient"
 
@@ -48,6 +51,11 @@
 #include "Elements/Interfaces/TypedElementObjectInterface.h" //experiment
 #include "Elements/Framework/TypedElementRegistry.h"
 #include "Elements/Actor/ActorElementData.h"
+
+
+#include "MZUMGRenderManager.h"
+#include "MZUMGRenderer.h"
+#include "MZUMGRendererComponent.h"
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
@@ -751,6 +759,11 @@ void FMZClient::StartupModule() {
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZClient::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZClient::HandleEndPIE);
 
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZClient::OnAssetCreated);
+	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMZClient::OnAssetDeleted);
+
+
 	FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate OnPropertyChangedDelegate = FCoreUObjectDelegates::FOnObjectPropertyChanged::FDelegate::CreateRaw(this, &FMZClient::OnPropertyChanged);
 	OnPropertyChangedHandle = FCoreUObjectDelegates::OnObjectPropertyChanged.Add(OnPropertyChangedDelegate);
 
@@ -978,6 +991,103 @@ void FMZClient::StartupModule() {
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
+	//add umg renderer function
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		mzcf->Id = FGuid::NewGuid();
+		FGuid actorPinId = FGuid::NewGuid();
+		mzcf->Params.Add(actorPinId, "UMG to spawn");
+		mzcf->Serialize = [funcid = mzcf->Id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		{
+			//todo remove unneccessary code
+			FString val("");
+			auto s = StringCast<ANSICHAR>(*val);
+			auto data = std::vector<uint8_t>(s.Length() + 1, 0);
+			memcpy(data.data(), s.Get(), s.Length());
+			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
+				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data),
+			};
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
+		};
+		mzcf->Function = [mzclient = this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
+		{
+			FString umgName((char*)properties.FindRef(actorPinId).data());
+			static AActor* UMGManager = nullptr;
+			if (!IsValid(UMGManager))
+			{
+				UMGManager = nullptr;
+			}
+			//check if manager already present in the scene
+			if (!UMGManager)
+			{
+				TArray<AActor*> FoundActors;
+				UGameplayStatics::GetAllActorsOfClass(GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World(), AMZUMGRenderManager::StaticClass(), FoundActors);
+			
+				if (!FoundActors.IsEmpty())
+				{
+					UMGManager = FoundActors[0];
+				}
+			}
+
+			if (!UMGManager)
+			{
+				UMGManager = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(AMZUMGRenderManager::StaticClass());
+				UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("MZUMGRenderManager")).ToString());
+				UMGManager->SetActorLabel(TEXT("MZUMGRenderManager"));
+				
+				USceneComponent* newRoot = NewObject<USceneComponent>(UMGManager);
+				newRoot->Rename(TEXT("UMGs"));
+				UMGManager->SetRootComponent(newRoot);
+				newRoot->CreationMethod = EComponentCreationMethod::Instance;
+				newRoot->RegisterComponent();
+				UMGManager->AddInstanceComponent(newRoot);
+			}
+			
+			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
+			if(UMGManager)
+			{
+				if (mzclient->UMGs.Contains(umgName))
+				{
+					auto umgPath = mzclient->UMGs.FindRef(umgName);
+					
+					TSoftClassPtr<UUserWidget> WidgetClass = TSoftClassPtr<UUserWidget>(FSoftObjectPath(umgPath));
+					UClass* LoadedWidget = WidgetClass.LoadSynchronous();
+
+					UMZUMGRendererComponent* NewRendererComp = NewObject<UMZUMGRendererComponent>(UMGManager);
+
+					UUserWidget* newWidget = CreateWidget(UMGManager->GetWorld(), WidgetClass.Get());
+					NewRendererComp->Widget = newWidget;
+					
+					NewRendererComp->SetupAttachment(UMGManager->GetRootComponent());
+					NewRendererComp->CreationMethod = EComponentCreationMethod::Instance;
+					NewRendererComp->RegisterComponent();
+					UMGManager->AddInstanceComponent(NewRendererComp);
+					{
+						auto texture = FindFProperty<FProperty>(NewRendererComp->GetClass(), "UMGRenderTarget");
+						auto mzprop = MZPropertyFactory::CreateProperty(NewRendererComp, texture, &(mzclient->RegisteredProperties));
+						mzprop->DisplayName = newWidget->GetFName().ToString() + " | " + mzprop->DisplayName;
+
+						if (mzprop)
+						{
+							mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+							pinsToSpawn.push_back(mzprop);
+						}
+					}
+				}
+			}
+
+			for (auto const& mzprop : pinsToSpawn)
+			{
+				mzprop->transient = false;
+				mzclient->Pins.Add(mzprop->Id, mzprop);
+				mzclient->SendPinAdded(mzclient->Client->NodeId, mzprop);
+			}
+
+			//mzclient->PopulateSceneTree();
+			//mzclient->SendNodeUpdate(mzclient->Client->NodeId);
+		};
+		CustomFunctions.Add(mzcf->Id, mzcf);
+	}
 
 #if WITH_EDITOR
 	
@@ -1195,6 +1305,20 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 	Client->Write(msg);
 
 	//Send list actors on the scene 
+}
+
+void FMZClient::OnAssetCreated(const FAssetData& createdAsset)
+{
+	SendAssetList();
+}
+
+void FMZClient::OnAssetDeleted(const FAssetData& removedAsset)
+{
+	TaskQueue.Enqueue([this]()
+		{
+			SendAssetList();
+		});
+	
 }
 
 void FMZClient::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
@@ -1937,8 +2061,78 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 	return false;
 }
 
+void FMZClient::SendUMGList()
+{
+	if (!IsConnected())
+	{
+		return;
+	}
+
+	UMGs.Empty();
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	TArray< FString > ContentPaths;
+	ContentPaths.Add(TEXT("/Game"));
+	ContentPaths.Add(TEXT("/Script"));
+	ContentPaths.Add(TEXT("/mediaz"));
+	ContentPaths.Add(TEXT("/RealityEngine"));
+	//ContentPaths.Add(TEXT("/All"));
+	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
+
+	FTopLevelAssetPath BaseClassName = FTopLevelAssetPath(UUserWidget::StaticClass());
+	TSet< FTopLevelAssetPath > DerivedAssetPaths;
+	{
+		TArray< FTopLevelAssetPath > BaseNames;
+		BaseNames.Add(BaseClassName);
+
+		TSet< FTopLevelAssetPath > Excluded;
+		AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedAssetPaths);
+	}
+
+	for (auto assetPath : DerivedAssetPaths)
+	{
+		FString prettyName = assetPath.GetAssetName().ToString();
+
+		if (prettyName.StartsWith(TEXT("SKEL_")))
+		{
+			continue;
+		}
+		prettyName.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
+		UMGs.Add(prettyName, assetPath);
+	}
+
+	UMGs.KeySort([](FString a, FString b)
+		{
+			if (a.Compare(b) > 0) return false;
+			else return true;
+		});
+
+	MessageBuilder mb;
+	std::vector<mz::fb::String256> NameList;
+	for (auto [name, ptr] : UMGs)
+	{
+		mz::fb::String256 str256;
+		auto val = str256.mutable_val();
+		auto size = name.Len() < 256 ? name.Len() : 256;
+		memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
+		NameList.push_back(str256);
+	}
+	mz::fb::String256 listName;
+	strcat((char*)listName.mutable_val()->data(), "UE5_UMG_LIST");
+	Client->Write(MakeAppEvent(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+
+	return;
+}
+
 void FMZClient::SendAssetList()
 {
+	if (!IsConnected())
+	{
+		return;
+	}
+	SendUMGList();
+
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
 	TArray< FString > ContentPaths;
@@ -1949,7 +2143,7 @@ void FMZClient::SendAssetList()
 	//ContentPaths.Add(TEXT("/All"));
 	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
 	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
-	
+
 	//FName BaseClassName = AActor::StaticClass()->GetFName();
 	//TSet< FName > DerivedNames;
 	//{
@@ -1959,6 +2153,7 @@ void FMZClient::SendAssetList()
 	//	TSet< FName > Excluded;
 	//	AssetRegistryModule.Get().GetDerivedClassNames(BaseNames, Excluded, DerivedNames);
 	//}
+
 	FTopLevelAssetPath BaseClassName = FTopLevelAssetPath(AActor::StaticClass());
 	TSet< FTopLevelAssetPath > DerivedAssetPaths;
 	{

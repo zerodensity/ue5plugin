@@ -95,6 +95,9 @@ public class MZClient : ModuleRules
                     "TypedElementFramework",
 					"RealityEditor",
 					"Reality",
+					"Slate",
+					"SlateCore",
+					"UMG",
 					}
 					);
 
@@ -127,6 +130,9 @@ public class MZClient : ModuleRules
                     "TypedElementFramework",
 					"RealityEditor",
 					"Reality",
+					"Slate",
+					"SlateCore",
+					"UMG",
 					}
 					);
 

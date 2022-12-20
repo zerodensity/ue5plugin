@@ -182,8 +182,17 @@ public:
 	//Sends node updates to the MediaZ
 	void SendNodeUpdate(FGuid NodeId);
 
+	//update asset lists when a new asset is created
+	void OnAssetCreated(const FAssetData& createdAsset);
+
+	//update asset lists when an asset deleted
+	void OnAssetDeleted(const FAssetData& removedAsset);
+
 	//Sends the spawnable actor list to MediaZ
 	void SendAssetList();
+
+	//Sends the user widget list to MediaZ
+	void SendUMGList();
 
 	//Sends pin value changed event to MediaZ (now only used for function return values)
 	void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
@@ -298,6 +307,9 @@ public:
 	//Spawnable class list to spawn them from mediaZ
 	TMap<FString, UObject*> SpawnableClasses;
 	TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
+
+	//UMG asset list map
+	TMap<FString, FTopLevelAssetPath> UMGs;
 
 	ContextMenuActions menuActions;
 
