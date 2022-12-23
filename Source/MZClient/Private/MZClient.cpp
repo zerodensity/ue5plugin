@@ -4,6 +4,8 @@
 
 // std
 #include <cstdio>
+#include <string>
+#include <filesystem>
 
 // UE
 #include "TimerManager.h"
@@ -44,7 +46,6 @@
 #include "MZSceneTree.h"
 #include "MZActorProperties.h"
 #include "MZActorFunctions.h"
-#include "AppTemplates.h"
 
 #include "Kismet2/ComponentEditorUtils.h"
 
@@ -52,6 +53,7 @@
 #include "Elements/Framework/TypedElementRegistry.h"
 #include "Elements/Actor/ActorElementData.h"
 
+#include "mzFlatBuffersCommon.h"
 
 #include "MZUMGRenderManager.h"
 #include "MZUMGRenderer.h"
@@ -60,6 +62,16 @@
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMediaZ, Warning, TEXT(x), y)
+
+template<typename T>
+inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
+{
+	builder.Finish(offset);
+	auto buf = builder.Release();
+	return *flatbuffers::GetRoot<T>(buf.data());
+}
+
+FGuid FMZClient::NodeId = {};
 
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
 {
@@ -110,34 +122,28 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-void ClientImpl::OnAppConnected(mz::app::AppConnectedEvent const& event) 
+void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 {
-    //FMessageDialog::Debugf(FText::FromString("Connected to mzEngine"), 0);
-		
+
 	UE_LOG(LogMediaZ, Warning, TEXT("Connected to mzEngine"));
-    if (flatbuffers::IsFieldPresent(&event, mz::app::AppConnectedEvent::VT_NODE))
-    {
-        NodeId = *(FGuid*)event.node()->id();
-		PluginClient->SceneTree.Root->Id = *(FGuid*)event.node()->id();
-		PluginClient->Connected();
-    }
+	FMZClient::NodeId = *(FGuid*)appNode.id();
+	PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
+	PluginClient->Connected();
+    
 }
 
-void ClientImpl::OnNodeUpdate(mz::FullNodeUpdate const& archive) 
+void MZEventDelegates::OnNodeUpdated(mz::fb::Node const& appNode)
 {
 	LOG("Node update from mediaz");
-	if (!NodeId.IsValid())
+	if (!FMZClient::NodeId.IsValid())
 	{
-		if (flatbuffers::IsFieldPresent(&archive, mz::FullNodeUpdate::VT_NODE))
-		{
-			NodeId = *(FGuid*)archive.node()->id();
-			PluginClient->SceneTree.Root->Id = *(FGuid*)archive.node()->id();
-			PluginClient->Connected();
-		}
+		FMZClient::NodeId = *(FGuid*)appNode.id();
+		PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
+		PluginClient->Connected();
 	}
 	auto texman = MZTextureShareManager::GetInstance();
 	std::unique_lock lock1(texman->PendingCopyQueueMutex);
-	for (auto& [id, pin] : ParsePins(archive.node()))
+	for (auto& [id, pin] : ParsePins(&appNode))
 	{
 		if (texman->PendingCopyQueue.Contains(id))
 		{
@@ -147,77 +153,69 @@ void ClientImpl::OnNodeUpdate(mz::FullNodeUpdate const& archive)
 	}
 }
 
-void ClientImpl::OnTextureCreated(mz::app::TextureCreated const& texture) 
-{
-	LOG("Texture created from mediaz");
-
-}
-
-void ClientImpl::Done(grpc::Status const& Status) 
+void MZEventDelegates::OnConnectionClosed()
 {
 	LOG("Connection with mediaz is finished.");
-	IsChannelReady = false;
-	NodeId = {};
+	FMZClient::NodeId = {};
 	PluginClient->Disconnected();
 }
 
-void ClientImpl::OnNodeRemoved(mz::app::NodeRemovedEvent const& action) 
+void MZEventDelegates::OnNodeRemoved()
 {
 	LOG("Plugin node removed from mediaz");
-	NodeId = {};
+	FMZClient::NodeId = {};
 	if (PluginClient && PluginClient->MZTimeStep)
 	{
 		PluginClient->MZTimeStep->Step();
 	}
 }
 
-void ClientImpl::OnPinValueChanged(mz::PinValueChanged const& action) 
+void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
 {
 	LOG("Pin value changed from mediaz editor");
 	if (PluginClient)
 	{
-		PluginClient->SetPropertyValue(*(FGuid*)action.pin_id(), (void*)action.value()->data(), action.value()->size());
+		PluginClient->SetPropertyValue(*(FGuid*)&pinId, (void*)data, size);
 	}
 }
 
-void ClientImpl::OnPinShowAsChanged(mz::PinShowAsChanged const& action) 
+void MZEventDelegates::OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs)
 {
 	LOG("Pin show as changed from mediaz");
 	if (PluginClient)
 	{
-		PluginClient->OnPinShowAsChanged(*(FGuid*)action.pin_id(), action.show_as());
+		PluginClient->OnPinShowAsChanged(*(FGuid*)&pinId, newShowAs);
 	}
 }
 
-void ClientImpl::OnFunctionCall(mz::app::FunctionCall const& action) 
+void MZEventDelegates::OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function)
 {
 	LOG("Function called from mediaz");
 	if (PluginClient)
 	{
 
-		PluginClient->OnFunctionCall(*(FGuid*)action.function()->id(), ParsePins(*action.function()));
+		PluginClient->OnFunctionCall(*(FGuid*)function.id(), ParsePins(function));
 	}
 }
 
-void ClientImpl::OnExecute(mz::app::AppExecute const& aE) 
+void MZEventDelegates::OnExecuteApp(mz::fb::Node const& appNode)
 {
-	
 	if (PluginClient)
 	{
-		PluginClient->OnUpdatedNodeExecuted(ParsePins(*aE.node()));
+		PluginClient->OnUpdatedNodeExecuted(ParsePins(appNode));
 	}
 }
 
-void ClientImpl::OnNodeSelected(mz::NodeSelected const& action) 
+void MZEventDelegates::OnNodeSelected(mz::fb::UUID const& nodeId)
 {
 	LOG("Node selected from mediaz");
 	if (PluginClient)
 	{
-		PluginClient->OnNodeSelected(*(FGuid*)action.node_id());
+		PluginClient->OnNodeSelected(*(FGuid*)&nodeId);
 	}
 }
 
-void ClientImpl::OnMenuFired(mz::ContextMenuRequest const& request) 
+void MZEventDelegates::OnContextMenuRequested(mz::ContextMenuRequest const& request)
 {
 	LOG("Context menu fired from MediaZ");
 	if (PluginClient)
@@ -227,7 +225,7 @@ void ClientImpl::OnMenuFired(mz::ContextMenuRequest const& request)
 	}
 }
 
-void ClientImpl::OnCommandFired(mz::ContextMenuAction const& action)
+void MZEventDelegates::OnContextMenuCommandFired(mz::ContextMenuAction const& action)
 {
 	LOG("Context menu command fired from MediaZ");
 	if (PluginClient)
@@ -236,12 +234,12 @@ void ClientImpl::OnCommandFired(mz::ContextMenuAction const& action)
 	}
 }
 
-void ClientImpl::OnNodeImported(mz::app::NodeImported const& action)
+void MZEventDelegates::OnNodeImported(mz::fb::Node const& appNode)
 {
 	LOG("Node imported from MediaZ");
 	if (PluginClient)
 	{
-		PluginClient->OnNodeImported(action.node());
+		PluginClient->OnNodeImported(&appNode);
 	}
 }
 
@@ -456,7 +454,7 @@ void FMZClient::OnNodeImported(const mz::fb::Node* node)
 			PropertiesMap.Empty();
 			PopulateSceneTree(false);
 
-			SendNodeUpdate(Client->NodeId);
+			SendNodeUpdate(FMZClient::NodeId);
 			SendAssetList();
 
 		});
@@ -497,16 +495,16 @@ void FMZClient::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 					newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
 
 					UObject* container = mzprop->GetRawObjectContainer();
-if (container)
-{
-	newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
-	newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
-}
+					if (container)
+					{
+						newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
+						newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+					}
 
-newmzprop->transient = false;
-Pins.Add(newmzprop->Id, newmzprop);
-//RegisteredProperties.Add(newmzprop->Id, newmzprop);
-SendPinAdded(Client->NodeId, newmzprop);
+					newmzprop->transient = false;
+					Pins.Add(newmzprop->Id, newmzprop);
+					//RegisteredProperties.Add(newmzprop->Id, newmzprop);
+					SendPinAdded(FMZClient::NodeId, newmzprop);
 				}
 
 			}
@@ -537,7 +535,7 @@ SendPinAdded(Client->NodeId, newmzprop);
 
 bool FMZClient::IsConnected()
 {
-	return Client && Client->IsChannelReady && Client->NodeId.IsValid();
+	return AppServiceClient && AppServiceClient->IsConnected();
 }
 
 void FMZClient::Connected()
@@ -545,7 +543,7 @@ void FMZClient::Connected()
 	TaskQueue.Enqueue([&]()
 		{
 			PopulateSceneTree();
-			SendNodeUpdate(Client->NodeId);
+			SendNodeUpdate(FMZClient::NodeId);
 			SendAssetList();
 		});
 }
@@ -565,23 +563,27 @@ void FMZClient::TryConnect()
 		return;
 	}
 
-	if (!Client)
+	if (!AppServiceClient)
 	{
-
-		std::string ProtoPath = (std::filesystem::path(std::getenv("PROGRAMDATA")) / "mediaz" / "core" / "Applications" / "Unreal Engine 5").string();
-		// memleak
-		Client = TSharedPtr<ClientImpl>(new ClientImpl("UE5", "UE5", ProtoPath.c_str()));
+		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(mz::app::MakeAppServiceClient("localhost:50053", "UE5", "UE5"));
+		Client = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		Client->PluginClient = this;
-		UENodeStatusHandler.SetClient(Client);
+		UENodeStatusHandler.SetClient(AppServiceClient);
+		AppServiceClient->RegisterEventDelegates(Client.Get());
 		LOG("AppClient instance is created");
+	}
+
+	if (AppServiceClient)
+	{
+		AppServiceClient->TryConnect();
 	}
 
 	// (Samil) TODO: This connection logic should be provided by the SDK itself. 
 	// App developers should not be required implement 'always connect' behaviour.
-	if (!Client->IsChannelReady)
-	{
-		Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
-	}
+	//if (!Client->IsChannelReady)
+	//{
+	//	Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
+	//}
 
 	if (!CustomTimeStepBound && IsConnected())
 	{
@@ -618,7 +620,7 @@ void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValue
 	if (Client)
 	{
 		//SendAssetList();
-		SendNodeUpdate(Client->NodeId);
+		SendNodeUpdate(FMZClient::NodeId);
 	}
 }
 
@@ -629,7 +631,7 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 	PopulateSceneTree();
 	if (Client)
 	{
-		SendNodeUpdate(Client->NodeId);
+		SendNodeUpdate(FMZClient::NodeId);
 	}
 }
 
@@ -739,17 +741,6 @@ void FMZClient::StartupModule() {
 	{
 		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
 		return;
-	}
-
-	using namespace grpc;
-	using namespace grpc::internal;
-	if (grpc::g_glip == nullptr) {
-		static auto* const g_gli = new GrpcLibrary();
-		grpc::g_glip = g_gli;
-	}
-	if (grpc::g_core_codegen_interface == nullptr) {
-		static auto* const g_core_codegen = new CoreCodegen();
-		grpc::g_core_codegen_interface = g_core_codegen;
 	}
 
 	//Add Delegates
@@ -922,7 +913,7 @@ void FMZClient::StartupModule() {
 				//mzclient->RegisteredProperties.Add(mzprop->Id, mzprop);
 				mzprop->transient = false;
 				mzclient->Pins.Add(mzprop->Id, mzprop);
-				mzclient->SendPinAdded(mzclient->Client->NodeId, mzprop);
+				mzclient->SendPinAdded(FMZClient::NodeId, mzprop);
 			}
 					
 
@@ -985,7 +976,7 @@ void FMZClient::StartupModule() {
 				//mzclient->RegisteredProperties.Add(mzprop->Id, mzprop);
 				mzprop->transient = false;
 				mzclient->Pins.Add(mzprop->Id, mzprop);
-				mzclient->SendPinAdded(mzclient->Client->NodeId, mzprop);
+				mzclient->SendPinAdded(FMZClient::NodeId, mzprop);
 			}
 					
 		};
@@ -1080,7 +1071,7 @@ void FMZClient::StartupModule() {
 			{
 				mzprop->transient = false;
 				mzclient->Pins.Add(mzprop->Id, mzprop);
-				mzclient->SendPinAdded(mzclient->Client->NodeId, mzprop);
+				mzclient->SendPinAdded(FMZClient::NodeId, mzprop);
 			}
 
 			//mzclient->PopulateSceneTree();
@@ -1109,7 +1100,7 @@ void FMZClient::StartupModule() {
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().SendRootUpdate,
 			FExecuteAction::CreateLambda([=](){
-					SendNodeUpdate(Client->NodeId);
+					SendNodeUpdate(FMZClient::NodeId);
 				}));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().SendAssetList,
@@ -1169,7 +1160,7 @@ bool FMZClient::Tick(float dt)
 		task();
 	}
 
-	MZTextureShareManager::GetInstance()->EnqueueCommands(Client.Get());
+	MZTextureShareManager::GetInstance()->EnqueueCommands(AppServiceClient.Get());
 
 	UENodeStatusHandler.Update();
 
@@ -1250,14 +1241,14 @@ void FMZClient::Reset()
 
 void FMZClient::SendNodeUpdate(FGuid nodeId)
 {
-	if (!IsConnected())
+	if (!AppServiceClient)
 	{
 		return;
 	}
 
 	if (nodeId == SceneTree.Root->Id)
 	{
-		MessageBuilder mb;
+		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
 		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
 		for (auto& [_, pin] : Pins)
@@ -1268,10 +1259,11 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		for (auto& [_, cfunc] : CustomFunctions)
 		{
 			graphFunctions.push_back(cfunc->Serialize(mb));
+
 		}
 
-		auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
-		Client->Write(msg);
+		AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes)));
+		
 		return;
 	}
 
@@ -1282,7 +1274,7 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 		return;
 	}
 
-	MessageBuilder mb;
+	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = treeNode->SerializeChildren(mb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
 	if (treeNode->GetAsActorNode() )
@@ -1301,8 +1293,8 @@ void FMZClient::SendNodeUpdate(FGuid nodeId)
 			graphFunctions.push_back(mzfunc->Serialize(mb));
 		}
 	}
-	auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes));
-	Client->Write(msg);
+	AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes)));
+	
 
 	//Send list actors on the scene 
 }
@@ -1323,33 +1315,32 @@ void FMZClient::OnAssetDeleted(const FAssetData& removedAsset)
 
 void FMZClient::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
 {
-	if (!Client || !Client->NodeId.IsValid())
+	if (!AppServiceClient)
 	{
 		return;
 	}
 
-	MessageBuilder mb;
-	auto msg = MakeAppEvent(mb, mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data));
-	Client->Write(msg);
+	flatbuffers::FlatBufferBuilder mb;
+	AppServiceClient->NotifyPinValueChanged(FinishBuffer(mb, mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data)));
 }
 
 void FMZClient::SendPinUpdate() //runs in game thread
 {
-	if (!Client || !Client->NodeId.IsValid())
+	if (!AppServiceClient)
 	{
 		return;
 	}
 
-	auto nodeId = Client->NodeId;
+	auto nodeId = FMZClient::NodeId;
 
-	MessageBuilder mb;
+	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
 	for (auto& [_, pin] : Pins)
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
-	auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0));
-	Client->Write(msg);
+	AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0)));
+	
 	
 }
 
@@ -1370,14 +1361,14 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 			{
 				newNode->mzMetaData.Add("spawnTag", spawnTag);
 			}
-			if (!Client || !Client->NodeId.IsValid())
+			if (!AppServiceClient)
 			{
 				return;
 			}
-			MessageBuilder mb;
+			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-			auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
-			Client->Write(msg);
+			AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+			
 		}
 	}
 	else
@@ -1391,14 +1382,14 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 		{
 			newNode->mzMetaData.Add("spawnTag", spawnTag);
 		}
-		if (!Client || !Client->NodeId.IsValid())
+		if (!AppServiceClient)
 		{
 			return;
 		}
-		MessageBuilder mb;
+		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-		auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&Client->NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes));
-		Client->Write(msg);
+		AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+		
 	}
 
 	return;
@@ -1516,7 +1507,7 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 		}
 		
 		//delete from parent
-		FGuid parentId = Client->NodeId;
+		FGuid parentId = FMZClient::NodeId;
 		if (auto parent = node->Parent)
 		{
 			parentId = parent->Id;
@@ -1528,15 +1519,15 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 		//delete from map
 		SceneTree.NodeMap.Remove(node->Id);
 
-		if (!Client || !Client->NodeId.IsValid())
+		if (!AppServiceClient)
 		{
 			return;
 		}
 
-		MessageBuilder mb;
+		flatbuffers::FlatBufferBuilder mb;
 		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->Id };
-		auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0));
-		Client->Write(msg);
+		AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0)));
+		
 
 		if (!pinsToRemove.IsEmpty())
 		{
@@ -1545,8 +1536,8 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 			{
 				pinsToDelete.push_back(*(mz::fb::UUID*)&pin->Id);
 			}
-			auto msgg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&Client->NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0));
-			Client->Write(msgg);
+			AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
+			
 		}
 
 	}
@@ -1560,7 +1551,7 @@ void FMZClient::HandleBeginPIE(bool bIsSimulating)
 			PopulateSceneTree();
 			if (Client)
 			{
-				SendNodeUpdate(Client->NodeId);
+				SendNodeUpdate(FMZClient::NodeId);
 			}
 		});
 }
@@ -1572,7 +1563,7 @@ void FMZClient::HandleEndPIE(bool bIsSimulating)
 	PopulateSceneTree();
 	if (Client)
 	{
-		SendNodeUpdate(Client->NodeId);
+		SendNodeUpdate(FMZClient::NodeId);
 	}
 
 }
@@ -1687,17 +1678,17 @@ void FMZClient::OnContexMenuFired(FGuid itemId, FVector2D pos, uint32 instigator
 	{
 		if (auto actorNode = SceneTree.NodeMap.FindRef(itemId)->GetAsActorNode())
 		{
-			if (!Client || !Client->NodeId.IsValid())
+			if (!AppServiceClient)
 			{
 				return;
 			}
-			MessageBuilder mb;
+			flatbuffers::FlatBufferBuilder mb;
 			//auto deleteAction = 
 			//std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = { mz::CreateContextMenuItemDirect(mb, "Destroy", 0, 0) };
 			std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
 			auto posx = mz::fb::vec2(pos.X, pos.Y);
-			auto msg = MakeAppEvent(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions));
-			Client->Write(msg);
+			AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
+			
 		}
 	}
 }
@@ -1742,14 +1733,14 @@ void FMZClient::OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates)
 
 void FMZClient::SendPinAdded(FGuid nodeId, TSharedPtr<MZProperty> const& mzprop)
 {
-	if (!Client || !Client->NodeId.IsValid())
+	if (!AppServiceClient)
 	{
 		return;
 	}
-	MessageBuilder mb;
+	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = {mzprop->Serialize(mb)};
-	auto msg = MakeAppEvent(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0));
-	Client->Write(msg);
+	AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
+	
 	return;
 }
 
@@ -2108,7 +2099,7 @@ void FMZClient::SendUMGList()
 			else return true;
 		});
 
-	MessageBuilder mb;
+	flatbuffers::FlatBufferBuilder mb;
 	std::vector<mz::fb::String256> NameList;
 	for (auto [name, ptr] : UMGs)
 	{
@@ -2120,7 +2111,7 @@ void FMZClient::SendUMGList()
 	}
 	mz::fb::String256 listName;
 	strcat((char*)listName.mutable_val()->data(), "UE5_UMG_LIST");
-	Client->Write(MakeAppEvent(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+	AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
 
 	return;
 }
@@ -2241,7 +2232,7 @@ void FMZClient::SendAssetList()
 			else return true;
 		});
 
-	MessageBuilder mb;
+	flatbuffers::FlatBufferBuilder mb;
 	std::vector<mz::fb::String256> NameList;
 	for (auto [name, ptr] : SpawnableClasses)
 	{
@@ -2253,12 +2244,12 @@ void FMZClient::SendAssetList()
 	}
 	mz::fb::String256 listName;
 	strcat((char*)listName.mutable_val()->data(), "UE5_ACTOR_LIST");
-	Client->Write(MakeAppEvent(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+	AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
 
 	return;
 }
 
-void UENodeStatusHandler::SetClient(TSharedPtr<ClientImpl> GrpcClient)
+void UENodeStatusHandler::SetClient(TSharedPtr<mz::app::IAppServiceClient> GrpcClient)
 {
 	this->Client = GrpcClient;
 }
@@ -2289,17 +2280,16 @@ void UENodeStatusHandler::Update()
 
 void UENodeStatusHandler::SendStatus()
 {
-	if (!(Client && Client->NodeId.IsValid()) )
+	if (!Client && !Client->IsConnected())
 		return;
-	flatbuffers::grpc::MessageBuilder Builder;
+	flatbuffers::FlatBufferBuilder Builder;
 	mz::TPartialNodeUpdate UpdateRequest;
-	UpdateRequest.node_id = std::make_unique<mz::fb::UUID>(*((mz::fb::UUID*)&Client->NodeId));
+	UpdateRequest.node_id = std::make_unique<mz::fb::UUID>(*((mz::fb::UUID*)&FMZClient::NodeId));
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	auto Message = MakeAppEvent(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest));
-	Client->Write(Message);
+	Client->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
 	Dirty = false;
 }
 
@@ -2321,7 +2311,6 @@ bool FPSCounter::Update(float dt)
 
 mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 {
-	flatbuffers::grpc::MessageBuilder Builder;
 	mz::fb::TNodeStatusMessage FpsStatusMessage;
 
 	FpsStatusMessage.text.resize(32);

@@ -33,7 +33,9 @@
 
 #include "MZSceneTree.h"
 
-#include "AppClient.h"
+#include "MediaZ/AppInterface.h"
+#include "AppEvents_generated.h"
+
 #include <mzFlatBuffersCommon.h>
 
 #include <functional> 
@@ -47,49 +49,27 @@ DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
 
 class FMZClient;
 
-class MZCLIENT_API ClientImpl : public mz::app::AppClient
+class MZCLIENT_API MZEventDelegates : public mz::app::IEventDelegates
 {
 public:
-	using mz::app::AppClient::AppClient;
+	virtual void OnAppConnected(mz::fb::Node const& appNode) override;
+	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
+	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
+	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
+	virtual void OnNodeRemoved() override;
+	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size) override;
+	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
+	virtual void OnExecuteApp(mz::fb::Node const& appNode) override; // Why do we need the whole node?
+	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;
+	virtual void OnNodeSelected(mz::fb::UUID const& nodeId) override;
+	virtual void OnNodeImported(mz::fb::Node const& appNode) override;
+	virtual void OnConnectionClosed() override;
 
-	virtual void OnAppConnected(mz::app::AppConnectedEvent const& event) override;
-
-	virtual void OnNodeUpdate(mz::FullNodeUpdate const& archive) override;
-
-	void OnTextureCreated(mz::app::TextureCreated const& texture) override;
-
-	void Done(grpc::Status const& status) override;
-
-	virtual void OnNodeRemoved(mz::app::NodeRemovedEvent const& action) override;
-
-
-	virtual void OnPinValueChanged(mz::PinValueChanged const& action) override;
-
-
-	virtual void OnPinShowAsChanged(mz::PinShowAsChanged const& action) override;
-
-
-	virtual void OnFunctionCall(mz::app::FunctionCall const& action) override;
-
-
-	virtual void OnExecute(mz::app::AppExecute const& aE) override;
-
-
-	virtual void OnNodeSelected(mz::NodeSelected const& action) override;
-
-
-	virtual void OnMenuFired(mz::ContextMenuRequest const& request) override;
-
-
-	virtual void OnCommandFired(mz::ContextMenuAction const& action) override;
-
-	virtual void OnNodeImported(mz::app::NodeImported const& action) override;
 
 	FMZClient* PluginClient;
 	// (Samil:) Will every app client have one node attached to it?
 	// If so we can move this node ID to mediaZ SDK.
-	FGuid NodeId;
-	std::atomic_bool IsChannelReady = false;
+	//std::atomic_bool IsChannelReady = false;
 };
 
 class ContextMenuActions
@@ -132,13 +112,13 @@ public:
 class UENodeStatusHandler
 {
 public:
-	void SetClient(TSharedPtr<ClientImpl> GrpcClient);
+	void SetClient(TSharedPtr<mz::app::IAppServiceClient> GrpcClient);
 	void Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status);
 	void Remove(std::string const& Id);
 	void Update();
 private:
 	void SendStatus();
-	TSharedPtr<ClientImpl> Client = nullptr;
+	TSharedPtr<mz::app::IAppServiceClient> Client = nullptr;
 	std::unordered_map<std::string, mz::fb::TNodeStatusMessage> StatusMessages;
 	bool Dirty = false;
 };
@@ -281,7 +261,10 @@ public:
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 	 
 	//Grpc client to communicate
-	TSharedPtr<ClientImpl> Client = 0;
+	TSharedPtr<MZEventDelegates> Client = 0;
+
+	//To send events to mediaz and communication
+	TSharedPtr<mz::app::IAppServiceClient> AppServiceClient = nullptr;
 
 	//Task queue
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;
@@ -318,6 +301,9 @@ public:
 	//Custom time step implementation for mediaZ controlling the unreal editor in play mode
 	class UMZCustomTimeStep* MZTimeStep = nullptr;
 	bool CustomTimeStepBound = false;
+
+	//MediaZ root node id
+	static FGuid NodeId;
 
 protected:
 	void Reset();

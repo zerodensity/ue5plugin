@@ -13,10 +13,11 @@ void MemoryBarrier();
 #include <d3d12.h>
 #include "Windows/HideWindowsPlatformTypes.h"
 
-#include "mediaz.h"
+#include <shared_mutex>
+#include "MediaZ/MediaZ.h"
 
 #include "MZActorProperties.h"
-#include "AppClient.h"
+#include "MediaZ/AppInterface.h" 
 #include <mzFlatBuffersCommon.h>
 #include "MZClient.h"
 #include "RHI.h"
@@ -53,7 +54,7 @@ public:
 	void Reset();
 	void WaitCommands();
 	void ExecCommands();
-	void EnqueueCommands(ClientImpl* client);
+	void EnqueueCommands(mz::app::IAppServiceClient* client);
 	void TextureDestroyed(MZProperty* texture);
 
 

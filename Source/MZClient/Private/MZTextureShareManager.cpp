@@ -2,7 +2,6 @@
 #include "MZTextureShareManager.h"
 
 #include "HardwareInfo.h"
-#include "AppTemplates.h"
 
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
@@ -21,6 +20,8 @@
 #include "MZActorProperties.h"
 
 #include "MZClient.h"
+
+#include "MediaZ/MediaZ.h"
 
 
 MZTextureShareManager* MZTextureShareManager::singleton;
@@ -194,7 +195,7 @@ void MZTextureShareManager::Reset()
 	PendingCopyQueue.Empty();
 }
 
-void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
+void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 {
 	{
 		std::shared_lock lock(CopyOnTickMutex);
@@ -221,12 +222,12 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 	}
 
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
-		[this, client, CopyOnTickFiltered](FRHICommandListImmediate& RHICmdList)
+		[this, Client, CopyOnTickFiltered](FRHICommandListImmediate& RHICmdList)
 		{
 			//std::shared_lock lock(CopyOnTickMutex);
 			WaitCommands();
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
-			flatbuffers::grpc::MessageBuilder fbb;
+			flatbuffers::FlatBufferBuilder fbb;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
 			for (auto& [URT, pin] : CopyOnTickFiltered)
 			{
@@ -323,15 +324,15 @@ void MZTextureShareManager::EnqueueCommands(ClientImpl* client)
 				if (!pin.ReadOnly)
 				{
 					auto id = pin.SrcMzp->Id;
-					events.push_back(CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
+					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
 				}
 			}
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands();
 
-			if (!events.empty() && client && client->IsChannelReady && client->NodeId.IsValid())
+			if (!events.empty() && Client && Client->IsConnected())
 			{
-				client->Write(MakeAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
 		});
 
