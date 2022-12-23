@@ -566,10 +566,10 @@ void FMZClient::TryConnect()
 	if (!AppServiceClient)
 	{
 		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(mz::app::MakeAppServiceClient("localhost:50053", "UE5", "UE5"));
-		Client = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
-		Client->PluginClient = this;
-		UENodeStatusHandler.SetClient(AppServiceClient);
-		AppServiceClient->RegisterEventDelegates(Client.Get());
+		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
+		EventDelegates->PluginClient = this;
+		UENodeStatusHandler.SetClient(this);
+		AppServiceClient->RegisterEventDelegates(EventDelegates.Get());
 		LOG("AppClient instance is created");
 	}
 
@@ -617,11 +617,8 @@ void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValue
 	UENodeStatusHandler.Add("map_name", MapNameStatus);
 
 	PopulateSceneTree();
-	if (Client)
-	{
-		//SendAssetList();
-		SendNodeUpdate(FMZClient::NodeId);
-	}
+	SendNodeUpdate(FMZClient::NodeId);
+	
 }
 
 void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
@@ -629,10 +626,8 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 	LOG("World is destroyed");
 
 	PopulateSceneTree();
-	if (Client)
-	{
-		SendNodeUpdate(FMZClient::NodeId);
-	}
+	SendNodeUpdate(FMZClient::NodeId);
+	
 }
 
 void FMZClient::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
@@ -728,10 +723,9 @@ void FMZClient::OnActorDestroyed(AActor* InActor)
 		RemovedItems.Add(comp);
 	}
 
-	/*TaskQueue.Enqueue([id, removedItems, this]()
-		{*/
-			SendActorDeleted(id, RemovedItems);
-	//	});
+	
+	SendActorDeleted(id, RemovedItems);
+
 }
 
 void FMZClient::StartupModule() {
@@ -1241,7 +1235,7 @@ void FMZClient::Reset()
 
 void FMZClient::SendNodeUpdate(FGuid nodeId)
 {
-	if (!AppServiceClient)
+	if (!IsConnected())
 	{
 		return;
 	}
@@ -1315,7 +1309,7 @@ void FMZClient::OnAssetDeleted(const FAssetData& removedAsset)
 
 void FMZClient::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
 {
-	if (!AppServiceClient)
+	if (!IsConnected())
 	{
 		return;
 	}
@@ -1326,7 +1320,7 @@ void FMZClient::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
 
 void FMZClient::SendPinUpdate() //runs in game thread
 {
-	if (!AppServiceClient)
+	if (!IsConnected())
 	{
 		return;
 	}
@@ -1361,7 +1355,7 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 			{
 				newNode->mzMetaData.Add("spawnTag", spawnTag);
 			}
-			if (!AppServiceClient)
+			if (!IsConnected())
 			{
 				return;
 			}
@@ -1382,7 +1376,7 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 		{
 			newNode->mzMetaData.Add("spawnTag", spawnTag);
 		}
-		if (!AppServiceClient)
+		if (!IsConnected())
 		{
 			return;
 		}
@@ -1519,7 +1513,7 @@ void FMZClient::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects) //run
 		//delete from map
 		SceneTree.NodeMap.Remove(node->Id);
 
-		if (!AppServiceClient)
+		if (!IsConnected())
 		{
 			return;
 		}
@@ -1549,10 +1543,7 @@ void FMZClient::HandleBeginPIE(bool bIsSimulating)
 	TaskQueue.Enqueue([this]()
 		{
 			PopulateSceneTree();
-			if (Client)
-			{
-				SendNodeUpdate(FMZClient::NodeId);
-			}
+			SendNodeUpdate(FMZClient::NodeId);
 		});
 }
 
@@ -1561,11 +1552,7 @@ void FMZClient::HandleEndPIE(bool bIsSimulating)
 	LOG("PLAY SESSION IS ENDING");
 	
 	PopulateSceneTree();
-	if (Client)
-	{
-		SendNodeUpdate(FMZClient::NodeId);
-	}
-
+	SendNodeUpdate(FMZClient::NodeId);
 }
 
 void FMZClient::OnNodeSelected(FGuid nodeId)
@@ -1678,7 +1665,7 @@ void FMZClient::OnContexMenuFired(FGuid itemId, FVector2D pos, uint32 instigator
 	{
 		if (auto actorNode = SceneTree.NodeMap.FindRef(itemId)->GetAsActorNode())
 		{
-			if (!AppServiceClient)
+			if (!IsConnected())
 			{
 				return;
 			}
@@ -1733,7 +1720,7 @@ void FMZClient::OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates)
 
 void FMZClient::SendPinAdded(FGuid nodeId, TSharedPtr<MZProperty> const& mzprop)
 {
-	if (!AppServiceClient)
+	if (!IsConnected())
 	{
 		return;
 	}
@@ -2249,9 +2236,9 @@ void FMZClient::SendAssetList()
 	return;
 }
 
-void UENodeStatusHandler::SetClient(TSharedPtr<mz::app::IAppServiceClient> GrpcClient)
+void UENodeStatusHandler::SetClient(FMZClient* _PluginClient)
 {
-	this->Client = GrpcClient;
+	this->PluginClient = _PluginClient;
 }
 
 void UENodeStatusHandler::Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status)
@@ -2280,7 +2267,7 @@ void UENodeStatusHandler::Update()
 
 void UENodeStatusHandler::SendStatus()
 {
-	if (!Client && !Client->IsConnected())
+	if (!PluginClient || !PluginClient->IsConnected())
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
 	mz::TPartialNodeUpdate UpdateRequest;
@@ -2289,7 +2276,7 @@ void UENodeStatusHandler::SendStatus()
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	Client->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
+	PluginClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
 	Dirty = false;
 }
 

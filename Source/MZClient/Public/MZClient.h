@@ -112,13 +112,13 @@ public:
 class UENodeStatusHandler
 {
 public:
-	void SetClient(TSharedPtr<mz::app::IAppServiceClient> GrpcClient);
+	void SetClient(FMZClient* PluginClient);
 	void Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status);
 	void Remove(std::string const& Id);
 	void Update();
 private:
 	void SendStatus();
-	TSharedPtr<mz::app::IAppServiceClient> Client = nullptr;
+	FMZClient* PluginClient = nullptr;
 	std::unordered_map<std::string, mz::fb::TNodeStatusMessage> StatusMessages;
 	bool Dirty = false;
 };
@@ -261,7 +261,7 @@ public:
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 	 
 	//Grpc client to communicate
-	TSharedPtr<MZEventDelegates> Client = 0;
+	TSharedPtr<MZEventDelegates> EventDelegates = 0;
 
 	//To send events to mediaz and communication
 	TSharedPtr<mz::app::IAppServiceClient> AppServiceClient = nullptr;
