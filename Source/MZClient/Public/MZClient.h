@@ -34,6 +34,7 @@
 #include "MZSceneTree.h"
 
 #include "MediaZ/AppInterface.h"
+#include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
 
 #include <mzFlatBuffersCommon.h>
@@ -133,7 +134,22 @@ private:
 	uint64_t FrameCount = 0;
 	float FramesPerSecond = 0;
 };
-	
+
+using PFN_MakeAppServiceClient = decltype(&mz::app::MakeAppServiceClient);
+using PFN_mzGetD3D12Resources = decltype(&mzGetD3D12Resources);
+
+class FMediaZ
+{
+public:
+	static bool Initialize();
+	static void Shutdown();
+	static PFN_MakeAppServiceClient MakeAppServiceClient;
+	static PFN_mzGetD3D12Resources GetD3D12Resources;
+private:
+	// MediaZ SDK DLL handle
+	static void* LibHandle;
+};
+
 class MZCLIENT_API FMZClient : public IModuleInterface {
 
 public:

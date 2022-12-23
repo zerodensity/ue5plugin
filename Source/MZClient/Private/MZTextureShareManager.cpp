@@ -150,7 +150,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture
 		.Info = info,
 	};
 
-	mzGetD3D12Resources(&info, Dev, &copyInfo.DstResource);
+	FMediaZ::GetD3D12Resources(&info, Dev, &copyInfo.DstResource);
 
 	UObject* obj = mzprop->GetRawObjectContainer();
 	if (!obj) return;

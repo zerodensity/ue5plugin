@@ -58,21 +58,22 @@ public class MZClient : ModuleRules
 				//	CopyToBinaries(pdb);
 				//}
 
-				//Console.WriteLine("MZClient: Adding additional libs");
-				foreach (string lib in Libs)
-				{
-					//string copied = CopyToBinaries(lib);
-					Console.WriteLine("MZClient: " + lib);
-					PublicAdditionalLibraries.Add(lib);
-				}
+				////Console.WriteLine("MZClient: Adding additional libs");
+				//foreach (string lib in Libs)
+				//{
+				//	//string copied = CopyToBinaries(lib);
+				//	Console.WriteLine("MZClient: " + lib);
+				//	PublicAdditionalLibraries.Add(lib);
+				//}
 
-				Console.WriteLine("MZClient: Adding runtime dependencies");
-				foreach (string dll in Dlls)
-				{
-					//string copied = CopyToBinaries(dll);
-					Console.WriteLine("MZClient: " + dll);
-					RuntimeDependencies.Add(dll);
-				}
+				//Console.WriteLine("MZClient: Adding runtime dependencies");
+				//foreach (string dll in Dlls)
+				//{
+				//	//string copied = CopyToBinaries(dll);
+				//	Console.WriteLine("MZClient: " + dll);
+				//	RuntimeDependencies.Add(dll);
+				//	//PublicDelayLoadDLLs.Add(dll);
+				//}
 
 				PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 				PublicIncludePaths.Add(SDKIncludeDir);

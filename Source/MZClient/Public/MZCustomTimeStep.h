@@ -65,6 +65,7 @@ public:
 	/** The state of the CustomTimeStep. */
 	ECustomTimeStepSynchronizationState GetSynchronizationState() const override
 	{
+#if WITH_EDITOR
 		if (PluginClient && PluginClient->IsConnected())
 		{
 			return ECustomTimeStepSynchronizationState::Synchronized;
@@ -73,6 +74,9 @@ public:
 		{
 			return ECustomTimeStepSynchronizationState::Closed;
 		}
+#else
+		return ECustomTimeStepSynchronizationState::Closed;
+#endif // WIDTH_EDITOR
 	}
 
 #if WITH_EDITOR

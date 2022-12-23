@@ -18,6 +18,8 @@
 #include "AssetRegistry/ARFilter.h"
 #include "EngineUtils.h"
 #include "GenericPlatform/GenericPlatformMemory.h"
+#include "GenericPlatform/GenericPlatformMisc.h"
+
 
 #include "MZTextureShareManager.h"
 
@@ -72,6 +74,54 @@ inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffer
 }
 
 FGuid FMZClient::NodeId = {};
+
+void* FMediaZ::LibHandle = nullptr;
+PFN_MakeAppServiceClient FMediaZ::MakeAppServiceClient = nullptr;
+PFN_mzGetD3D12Resources FMediaZ::GetD3D12Resources = nullptr;
+
+bool FMediaZ::Initialize()
+{
+	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("MZ_SDK_DIR"));
+	FString SdkBinPath = FPaths::Combine(SdkBinPath, TEXT("bin"));
+	FPlatformProcess::PushDllDirectory(*SdkBinPath);
+	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzSDK.dll");
+
+	if (!FPaths::FileExists(SdkDllPath))
+	{
+		UE_LOG(LogMediaZ, Error, TEXT("Failed to find the mzSDK.dll at %s. Plugin will not be functional."), *SdkPath);
+		return false;
+	}
+
+	LibHandle = FPlatformProcess::GetDllHandle(*SdkDllPath);
+
+	if (LibHandle == nullptr)
+	{
+		UE_LOG(LogMediaZ, Error, TEXT("Failed to load required library %s. Plugin will not be functional."), *SdkDllPath);
+		return false;
+	}
+
+	MakeAppServiceClient = (PFN_MakeAppServiceClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
+	GetD3D12Resources = (PFN_mzGetD3D12Resources)FPlatformProcess::GetDllExport(LibHandle, TEXT("mzGetD3D12Resources"));
+	
+	if (!MakeAppServiceClient || !GetD3D12Resources)
+	{
+		UE_LOG(LogMediaZ, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
+		return false;
+	}
+
+	return true;
+}
+
+void FMediaZ::Shutdown()
+{
+	if (LibHandle)
+	{
+		FPlatformProcess::FreeDllHandle(LibHandle);
+		LibHandle = nullptr;
+		MakeAppServiceClient = nullptr;
+		GetD3D12Resources = nullptr;
+	}
+}
 
 class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
 {
@@ -565,7 +615,7 @@ void FMZClient::TryConnect()
 
 	if (!AppServiceClient)
 	{
-		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(mz::app::MakeAppServiceClient("localhost:50053", "UE5", "UE5"));
+		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", "UE5", "UE5"));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
@@ -734,6 +784,11 @@ void FMZClient::StartupModule() {
 	if ("D3D12" != hwinfo)
 	{
 		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
+		return;
+	}
+
+	if (!FMediaZ::Initialize())
+	{
 		return;
 	}
 
@@ -1125,7 +1180,7 @@ void FMZClient::StartupModule() {
 
 void FMZClient::ShutdownModule()  
 {
-
+	FMediaZ::Shutdown();
 #if WITH_EDITOR
 	FMediaZPluginEditorCommands::Unregister();
 	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandle);
