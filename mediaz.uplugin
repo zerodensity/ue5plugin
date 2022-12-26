@@ -21,7 +21,7 @@
 	"Modules": [
 		{
 			"Name": "MZClient",
-			"Type": "Runtime",
+			"Type": "UncookedOnly",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [
 				"Win64"
