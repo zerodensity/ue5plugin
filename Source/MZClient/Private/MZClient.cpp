@@ -82,7 +82,7 @@ PFN_mzGetD3D12Resources FMediaZ::GetD3D12Resources = nullptr;
 bool FMediaZ::Initialize()
 {
 	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("MZ_SDK_DIR"));
-	FString SdkBinPath = FPaths::Combine(SdkBinPath, TEXT("bin"));
+	FString SdkBinPath = FPaths::Combine(SdkPath, TEXT("bin"));
 	FPlatformProcess::PushDllDirectory(*SdkBinPath);
 	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzSDK.dll");
 
