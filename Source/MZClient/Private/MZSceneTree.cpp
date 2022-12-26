@@ -1,4 +1,3 @@
-#if WITH_EDITOR
 #include "MZSceneTree.h"
 
 MZSceneTree::MZSceneTree()
@@ -50,7 +49,6 @@ void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 
 TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 {
-#if WITH_EDITOR
 	if (!actor)
 	{
 		return nullptr;
@@ -86,9 +84,6 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 	}
 
 	return newChild;
-#else
-	return nullptr;
-#endif // WITH_EDITOR
 }
 
 TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* actor)
@@ -104,13 +99,8 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor*
 
 	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = parent;
-#if WITH_EDITOR
 	newChild->Name = actor->GetActorLabel();
 	newChild->Id = actor->GetActorGuid();
-#else
-	newChild->Name = actor->GetFName().ToString();
-	newChild->Id = FGuid::NewGuid();
-#endif
 	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
@@ -249,6 +239,4 @@ FolderNode::~FolderNode()
 {
 }
 
-
-#endif
 

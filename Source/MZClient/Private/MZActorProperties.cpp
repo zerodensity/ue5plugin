@@ -1,4 +1,3 @@
-#if WITH_EDITOR
 #include "MZActorProperties.h"
 #include "MZTextureShareManager.h"
 #include "EditorCategoryUtils.h"
@@ -870,7 +869,5 @@ bool MZComponentReference::UpdateActualComponentPointer()
 	InvalidReference = true;
 	return false;
 }
-
-#endif
 
 

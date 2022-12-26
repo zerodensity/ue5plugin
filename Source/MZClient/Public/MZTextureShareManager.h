@@ -1,7 +1,5 @@
 #pragma once
 
-#if WITH_EDITOR
-
 #include "Engine/TextureRenderTarget2D.h"
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
@@ -75,5 +73,3 @@ public:
 private:
 	void Initiate();
 };
-
-#endif

@@ -1,4 +1,3 @@
-#if WITH_EDITOR
 #include "MZActorFunctions.h"
 
 //TODO make a class for functionsss
@@ -12,14 +11,9 @@ MZFunction::MZFunction(UObject* container, UFunction* function)
 	static const FName NAME_DisplayName("DisplayName");
 	static const FName NAME_Category("Category");
 	FunctionName = function->GetFName().ToString();
-#if WITH_EDITOR
+
 	DisplayName = function->GetDisplayNameText().ToString();
 	CategoryName = function->HasMetaData(NAME_Category) ? function->GetMetaData(NAME_Category) : "Default";
-#else
-	DisplayName = FunctionName;
-	CategoryName = "Default";
-#endif
-
 }
 
 flatbuffers::Offset<mz::fb::Node> MZFunction::Serialize(flatbuffers::FlatBufferBuilder& fbb)
@@ -43,5 +37,3 @@ void MZFunction::Invoke() // runs in game thread
 	Container->Modify();
 	Container->ProcessEvent(Function, Parameters);
 }
-
-#endif

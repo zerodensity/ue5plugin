@@ -1,5 +1,4 @@
 #pragma once
-#if WITH_EDITOR
 #include "CoreMinimal.h"
 #include <vector>
 #pragma warning (disable : 4800)
@@ -464,7 +463,3 @@ public:
 		uint8* StructPtr = nullptr, 
 		MZStructProperty* ParentProperty = nullptr);
 };
-
-
-
-#endif

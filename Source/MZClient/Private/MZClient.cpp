@@ -1,5 +1,3 @@
-#if WITH_EDITOR
-
 #include "MZClient.h"
 
 // std
@@ -1128,9 +1126,7 @@ void FMZClient::StartupModule() {
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
-
-#if WITH_EDITOR
-	
+	//TODO remove debugactions from releaase
 	if(GEditor)
 	{
 		FMediaZPluginEditorCommands::Register();
@@ -1175,17 +1171,13 @@ void FMZClient::StartupModule() {
 			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendAssetList);
 		}
 	}
-#endif //WITH_EDITOR
 }
 
 void FMZClient::ShutdownModule()  
 {
 	FMediaZ::Shutdown();
-#if WITH_EDITOR
 	FMediaZPluginEditorCommands::Unregister();
 	FCoreUObjectDelegates::OnObjectPropertyChanged.Remove(OnPropertyChangedHandle);
-#endif //WITH_EDITOR
-
 }
 
 void FMZClient::TestAction()
@@ -1221,10 +1213,8 @@ bool IsActorDisplayable(const AActor* Actor)
 	static const FName SequencerActorTag(TEXT("SequencerActor"));
 
 	return Actor &&
-#if WITH_EDITOR
 		Actor->IsEditable() &&																	// Only show actors that are allowed to be selected and drawn in editor
 		Actor->IsListedInSceneOutliner() &&
-#endif
 		(((Actor->GetWorld() && Actor->GetWorld()->IsPlayInEditor()) || !Actor->HasAnyFlags(RF_Transient)) ||
 			(Actor->ActorHasTag(SequencerActorTag))) &&
 		!Actor->IsTemplate() &&																	// Should never happen, but we never want CDOs displayed
@@ -1815,21 +1805,15 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 		while (AProperty != nullptr)
 		{
-#if WITH_EDITOR
 			FName CategoryName = FObjectEditorUtils::GetCategoryFName(AProperty);
-#else
-			FName CategoryName = "Default";
-#endif
 
 			UClass* Class = ActorClass;
 
-#if WITH_EDITOR
 			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(AProperty))
 			{
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-#endif
 			auto mzprop = MZPropertyFactory::CreateProperty(actorNode->actor.Get(), AProperty, &(RegisteredProperties), &(PropertiesMap));
 			if (!mzprop)
 			{
@@ -1862,19 +1846,13 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 
 			for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
 			{
-#if WITH_EDITOR
 				FName CategoryName = FObjectEditorUtils::GetCategoryFName(Property);
-#else
-				FName CategoryName = "Default";
-#endif
 
 				UClass* Class = ActorClass;
-#if WITH_EDITOR				
 				if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(Property))
 				{
 					continue;
 				}
-#endif				
 				auto mzprop = MZPropertyFactory::CreateProperty(Component, Property, &(RegisteredProperties), &(PropertiesMap));
 				if (mzprop)
 				{
@@ -1955,9 +1933,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 		{
 			// Exclude nested DSOs attached to BP-constructed instances, which are not mutable.
 			return (ActorComp != nullptr
-#if WITH_EDITOR
 				&& (!ActorComp->IsVisualizationComponent())
-#endif
 				&& (ActorComp->CreationMethod != EComponentCreationMethod::UserConstructionScript || !bHideConstructionScriptComponentsInDetailsView)
 				&& (ParentSceneComp == nullptr || !ParentSceneComp->IsCreatedByConstructionScript() || !ActorComp->HasAnyFlags(RF_DefaultSubObject)))
 				&& (ActorComp->CreationMethod != EComponentCreationMethod::Native || FComponentEditorUtils::GetPropertyForEditableNativeComponent(ActorComp));
@@ -2371,10 +2347,4 @@ IMPLEMENT_MODULE(FMZClient, ClientImpl)
 //
 //#include "DispelUnrealMadnessPostlude.h"
 
-
-#else
-#include "Modules/ModuleManager.h"
-
-IMPLEMENT_MODULE(FDefaultModuleImpl, MZClient);
-#endif
 

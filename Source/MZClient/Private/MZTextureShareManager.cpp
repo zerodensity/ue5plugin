@@ -1,4 +1,3 @@
-#if WITH_EDITOR
 #include "MZTextureShareManager.h"
 
 #include "HardwareInfo.h"
@@ -361,12 +360,3 @@ void MZTextureShareManager::Initiate()
 	CmdEvent = CreateEventA(0, 0, 0, 0);
 	CmdList->Close();
 }
-
-
-
-
-
-
-
-
-#endif

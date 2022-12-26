@@ -1,5 +1,4 @@
 #pragma once
-#if WITH_EDITOR
 #include "CoreMinimal.h"
 #include "MZActorProperties.h"
 #include "MZActorFunctions.h"
@@ -86,6 +85,3 @@ public:
 private:
 	void ClearRecursive(TSharedPtr<TreeNode> node);
 };
-
-#endif
-

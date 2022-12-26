@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Engine/EngineTypes.h"
-
-#if WITH_EDITOR
 #include "Engine/EngineCustomTimeStep.h"
 #include "MZCustomTimeStep.h"
 
@@ -328,8 +326,6 @@ protected:
 	UENodeStatusHandler UENodeStatusHandler;
 	bool IsWorldInitialized = false;
 };
-
-#endif
 
 
 
