@@ -34,9 +34,21 @@ void UMZUMGRendererComponent::OnUnregister()
 	if (!IsTemplate())
 	{
 		UMGRenderTarget->ReleaseResource();
+		Widget = nullptr;
 		WidgetRenderer = nullptr;
+		SlateWidget = nullptr;
 	}
 	Super::OnUnregister();
+}
+
+void UMZUMGRendererComponent::FinishDestroy()
+{
+	if (Widget) Widget = nullptr;
+	if (WidgetRenderer) WidgetRenderer = nullptr;
+	if (SlateWidget) SlateWidget = nullptr;
+	if (UMGRenderTarget) UMGRenderTarget->ReleaseResource();
+
+	Super::FinishDestroy();
 }
 
 void UMZUMGRendererComponent::AddReferencedObjects(UObject* InThis, FReferenceCollector& Collector)
