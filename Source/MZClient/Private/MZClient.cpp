@@ -677,6 +677,14 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 	LOG("World is destroyed");
 
 	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+
+	if (WorldContext->World())
+	{
+		mz::fb::TNodeStatusMessage MapNameStatus;
+		MapNameStatus.text = TCHAR_TO_UTF8(*WorldContext->World()->GetMapName());
+		MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+		UENodeStatusHandler.Add("map_name", MapNameStatus);
+	}
 	if (World != WorldContext->World())
 	{
 		return;

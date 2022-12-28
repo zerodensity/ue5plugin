@@ -319,6 +319,9 @@ public:
 	//MediaZ root node id
 	static FGuid NodeId;
 
+	//TODO consider adding The world we currently see
+	//static TObjectPtr<UWorld> sceneWorld;
+
 protected:
 	void Reset();
 
