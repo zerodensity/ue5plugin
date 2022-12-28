@@ -647,31 +647,40 @@ void FMZClient::TryConnect()
 
 void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues initValues)
 {
-	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
-	if (World != WorldContext->World())
-	{
-		return;
-	}
+	TaskQueue.Enqueue([World, this]()
+		{
+			auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+			if (World != WorldContext->World())
+			{
+				return;
+			}
 
-	IsWorldInitialized = true;
-	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZClient::OnActorSpawned);
-	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZClient::OnActorDestroyed);
-	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
-	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+			IsWorldInitialized = true;
+			FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZClient::OnActorSpawned);
+			FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZClient::OnActorDestroyed);
+			World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+			World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 
-	mz::fb::TNodeStatusMessage MapNameStatus;
-	MapNameStatus.text = TCHAR_TO_UTF8(*World->GetMapName());
-	MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
-	UENodeStatusHandler.Add("map_name", MapNameStatus);
+			mz::fb::TNodeStatusMessage MapNameStatus;
+			MapNameStatus.text = TCHAR_TO_UTF8(*World->GetMapName());
+			MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+			UENodeStatusHandler.Add("map_name", MapNameStatus);
 
-	PopulateSceneTree();
-	SendNodeUpdate(FMZClient::NodeId);
-	
+			PopulateSceneTree();
+			SendNodeUpdate(FMZClient::NodeId);
+		});
+
 }
 
 void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 {
 	LOG("World is destroyed");
+
+	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+	if (World != WorldContext->World())
+	{
+		return;
+	}
 
 	PopulateSceneTree();
 	SendNodeUpdate(FMZClient::NodeId);
@@ -778,6 +787,11 @@ void FMZClient::OnActorDestroyed(AActor* InActor)
 
 void FMZClient::StartupModule() {
 
+	if (!FApp::HasProjectName())
+	{
+		return;
+	}
+
 	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
 	if ("D3D12" != hwinfo)
 	{
@@ -789,7 +803,7 @@ void FMZClient::StartupModule() {
 	{
 		return;
 	}
-
+	
 	//Add Delegates
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
@@ -1596,8 +1610,12 @@ void FMZClient::HandleEndPIE(bool bIsSimulating)
 {
 	LOG("PLAY SESSION IS ENDING");
 	
-	PopulateSceneTree();
-	SendNodeUpdate(FMZClient::NodeId);
+	Reset();
+	TaskQueue.Enqueue([this]()
+		{
+			PopulateSceneTree();
+			SendNodeUpdate(FMZClient::NodeId);
+		});
 }
 
 void FMZClient::OnNodeSelected(FGuid nodeId)
@@ -1798,6 +1816,7 @@ bool FMZClient::PopulateNode(FGuid nodeId)
 	if (treeNode->GetAsActorNode())
 	{
 		auto actorNode = StaticCastSharedPtr<ActorNode>(treeNode);
+		//todo fix crash actor comes null
 		auto ActorClass = actorNode->actor->GetClass();
 
 		//ITERATE PROPERTIES BEGIN
