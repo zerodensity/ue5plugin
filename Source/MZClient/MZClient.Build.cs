@@ -101,12 +101,12 @@ public class MZClient : ModuleRules
 					"Slate",
 					"SlateCore",
 					"UMG",
+					"UnrealEd",
 					}
 					);
 
 
 				// we only want this to be included for editor builds
-				PublicDependencyModuleNames.Add("UnrealEd");
 				PrivateDependencyModuleNames.Add("SlateCore");
 				PrivateDependencyModuleNames.Add("Slate");
 				PrivateDependencyModuleNames.Add("EditorStyle");
@@ -136,6 +136,7 @@ public class MZClient : ModuleRules
 					"Slate",
 					"SlateCore",
 					"UMG",
+					"UnrealEd",
 					}
 					);
 

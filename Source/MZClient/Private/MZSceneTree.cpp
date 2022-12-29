@@ -7,7 +7,7 @@ MZSceneTree::MZSceneTree()
 	Root->Parent = nullptr;
 }
 
-TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name)
+TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name, TSharedPtr<TreeNode>& mostRecentParent)
 {
 	for (auto child : node->Children)
 	{
@@ -22,6 +22,10 @@ TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> no
 	newChild->Id = FGuid::NewGuid();
 	node->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
+	if (!mostRecentParent)
+	{
+		mostRecentParent = newChild;
+	}
 	return newChild;
 }
 
@@ -49,6 +53,12 @@ void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 
 TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 {
+	TSharedPtr<TreeNode> mostRecentParent;
+	return AddActor(folderPath, actor, mostRecentParent);
+}
+
+TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent)
+{
 	if (!actor)
 	{
 		return nullptr;
@@ -62,7 +72,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 	TSharedPtr<TreeNode> ptr = Root;
 	for (auto item : folders)
 	{
-		ptr = FindOrAddChildFolder(ptr, item);
+		ptr = FindOrAddChildFolder(ptr, item, mostRecentParent);
 	}
 
 	TSharedPtr<ActorNode> newChild(new ActorNode);
@@ -82,7 +92,10 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 		loadingChild->Parent = newChild;
 		newChild->Children.push_back(loadingChild);
 	}
-
+	if (!mostRecentParent)
+	{
+		mostRecentParent = newChild;
+	}
 	return newChild;
 }
 

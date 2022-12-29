@@ -59,6 +59,11 @@
 #include "MZUMGRenderer.h"
 #include "MZUMGRendererComponent.h"
 
+#include "EditorActorFolders.h"
+
+static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
+
+
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMediaZ, Warning, TEXT(x), y)
@@ -685,6 +690,10 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 {
 	LOG("World is destroyed");
 
+	if (!GEngine)
+	{
+		return;
+	}
 	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
 	if (WorldContext->World())
 	{
@@ -898,6 +907,8 @@ void FMZClient::StartupModule() {
 			}
 			if (spawnedActor)
 			{
+				spawnedActor->SetFlags(RF_Transient);
+				spawnedActor->SetFolderPath(NAME_Reality_FolderName);
 				mzclient->SendActorAdded(spawnedActor, actorName);
 				LOGF("Spawned actor %s", *spawnedActor->GetFName().ToString());
 			}
@@ -928,6 +939,8 @@ void FMZClient::StartupModule() {
 			AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset);
 			if (realityCamera)
 			{
+				realityCamera->SetFlags(RF_Transient);
+				realityCamera->SetFolderPath(NAME_Reality_FolderName);
 				mzclient->SendActorAdded(realityCamera, actorName);
 				LOGF("Spawned actor %s", *realityCamera->GetFName().ToString());
 			}
@@ -1016,6 +1029,8 @@ void FMZClient::StartupModule() {
 			AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset);
 			if (projectionCube)
 			{
+				projectionCube->SetFlags(RF_Transient);
+				projectionCube->SetFolderPath(NAME_Reality_FolderName);
 				mzclient->SendActorAdded(projectionCube, actorName);
 				LOGF("Spawned actor %s", *projectionCube->GetFName().ToString());
 			}
@@ -1109,6 +1124,9 @@ void FMZClient::StartupModule() {
 				newRoot->CreationMethod = EComponentCreationMethod::Instance;
 				newRoot->RegisterComponent();
 				UMGManager->AddInstanceComponent(newRoot);
+
+				UMGManager->SetFlags(RF_Transient);
+				UMGManager->SetFolderPath(NAME_Reality_FolderName);
 			}
 			
 			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
@@ -1442,7 +1460,8 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 	}
 	else
 	{
-		newNode = SceneTree.AddActor(actor->GetFolder().GetPath().ToString(), actor);
+		TSharedPtr<TreeNode> mostRecentParent;
+		newNode = SceneTree.AddActor(actor->GetFolder().GetPath().ToString(), actor, mostRecentParent);
 		if (!newNode)
 		{
 			return;
@@ -1455,9 +1474,10 @@ void FMZClient::SendActorAdded(AActor* actor, FString spawnTag) //runs in game t
 		{
 			return;
 		}
+
 		flatbuffers::FlatBufferBuilder mb;
-		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-		AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+		AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 		
 	}
 
