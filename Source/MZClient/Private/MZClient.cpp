@@ -793,6 +793,8 @@ void FMZClient::OnActorSpawned(AActor* InActor)
 
 void FMZClient::OnActorDestroyed(AActor* InActor)
 {
+	ActorsSpawnedByMediaZ.Remove(InActor->GetActorGuid());
+
 	LOG("Actor destroyed");
 	//LOG(*(InActor->GetFName().ToString()));
 	LOGF("%s", *(InActor->GetFName().ToString()) );
@@ -808,6 +810,20 @@ void FMZClient::OnActorDestroyed(AActor* InActor)
 	
 	SendActorDeleted(id, RemovedItems);
 
+}
+
+void FMZClient::OnActorFolderChanged(const AActor* actor, FName oldPath)
+{
+	auto ActorID = actor->GetActorGuid();
+	if (oldPath == NAME_Reality_FolderName && ActorsSpawnedByMediaZ.Contains(ActorID))
+	{
+		//actor->SetFolderPath(NAME_Reality_FolderName);
+		PathUpdates.Add(ActorID, NAME_Reality_FolderName);
+	}
+	else if (actor->GetFolder().GetPath() == NAME_Reality_FolderName && !ActorsSpawnedByMediaZ.Contains(ActorID))
+	{
+		PathUpdates.Add(ActorID, oldPath);
+	}
 }
 
 void FMZClient::StartupModule() {
@@ -836,6 +852,9 @@ void FMZClient::StartupModule() {
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZClient::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZClient::HandleEndPIE);
 
+	//FLevelActorFolderChangedEvent
+	GEngine->OnLevelActorFolderChanged().AddRaw(this, &FMZClient::OnActorFolderChanged);
+
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZClient::OnAssetCreated);
 	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMZClient::OnAssetDeleted);
@@ -863,7 +882,7 @@ void FMZClient::StartupModule() {
 			auto data = std::vector<uint8_t>(s.Length() + 1, 0);
 			memcpy(data.data(), s.Get(), s.Length());
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data),
+				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
 			};
 			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
 		};
@@ -907,6 +926,7 @@ void FMZClient::StartupModule() {
 			}
 			if (spawnedActor)
 			{
+				mzclient->ActorsSpawnedByMediaZ.Add(spawnedActor->GetActorGuid());
 				spawnedActor->SetFlags(RF_Transient);
 				spawnedActor->SetFolderPath(NAME_Reality_FolderName);
 				mzclient->SendActorAdded(spawnedActor, actorName);
@@ -939,6 +959,7 @@ void FMZClient::StartupModule() {
 			AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset);
 			if (realityCamera)
 			{
+				mzclient->ActorsSpawnedByMediaZ.Add(realityCamera->GetActorGuid());
 				realityCamera->SetFlags(RF_Transient);
 				realityCamera->SetFolderPath(NAME_Reality_FolderName);
 				mzclient->SendActorAdded(realityCamera, actorName);
@@ -1029,6 +1050,7 @@ void FMZClient::StartupModule() {
 			AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset);
 			if (projectionCube)
 			{
+				mzclient->ActorsSpawnedByMediaZ.Add(projectionCube->GetActorGuid());
 				projectionCube->SetFlags(RF_Transient);
 				projectionCube->SetFolderPath(NAME_Reality_FolderName);
 				mzclient->SendActorAdded(projectionCube, actorName);
@@ -1088,7 +1110,7 @@ void FMZClient::StartupModule() {
 			auto data = std::vector<uint8_t>(s.Length() + 1, 0);
 			memcpy(data.data(), s.Get(), s.Length());
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data),
+				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
 			};
 			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
 		};
@@ -1125,6 +1147,7 @@ void FMZClient::StartupModule() {
 				newRoot->RegisterComponent();
 				UMGManager->AddInstanceComponent(newRoot);
 
+				mzclient->ActorsSpawnedByMediaZ.Add(UMGManager->GetActorGuid());
 				UMGManager->SetFlags(RF_Transient);
 				UMGManager->SetFolderPath(NAME_Reality_FolderName);
 			}
@@ -1175,7 +1198,7 @@ void FMZClient::StartupModule() {
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
 	//TODO remove debugactions from releaase
-	if(GEditor)
+	if (GEditor)
 	{
 		FMediaZPluginEditorCommands::Register();
 
@@ -1192,13 +1215,13 @@ void FMZClient::StartupModule() {
 				}));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().SendRootUpdate,
-			FExecuteAction::CreateLambda([=](){
-					SendNodeUpdate(FMZClient::NodeId);
+			FExecuteAction::CreateLambda([=]() {
+				SendNodeUpdate(FMZClient::NodeId);
 				}));
 		CommandList->MapAction(
 			FMediaZPluginEditorCommands::Get().SendAssetList,
 			FExecuteAction::CreateLambda([=]() {
-					SendAssetList();
+				SendAssetList();
 				}));
 
 		UToolMenus* ToolMenus = UToolMenus::Get();
@@ -1221,7 +1244,7 @@ void FMZClient::StartupModule() {
 	}
 }
 
-void FMZClient::ShutdownModule()  
+void FMZClient::ShutdownModule()
 {
 	FMediaZ::Shutdown();
 	FMediaZPluginEditorCommands::Unregister();
@@ -1240,6 +1263,20 @@ bool FMZClient::Tick(float dt)
 	//{
 	//	UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
 	//}
+
+	for (auto& [id, newPath] : PathUpdates)
+	{
+		if(SceneTree.NodeMap.Contains(id))
+		{
+			auto actorNode = SceneTree.NodeMap.FindRef(id);
+			if (actorNode->GetAsActorNode() && actorNode->GetAsActorNode()->actor)
+			{
+				auto actor = actorNode->GetAsActorNode()->actor;
+				actor->SetFolderPath(newPath);
+			}
+		}
+	}
+	PathUpdates.Empty();
 
     TryConnect();
 

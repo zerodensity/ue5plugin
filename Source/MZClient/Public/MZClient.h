@@ -273,7 +273,10 @@ public:
 	//delegate called when a property is changed from unreal engine editor
 	//it updates thecorresponding property in mediaz
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
-	 
+
+	//delegate called when a actors folder path is changed
+	void OnActorFolderChanged(const AActor* actor, FName oldPath);
+	
 	//Grpc client to communicate
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;
 
@@ -318,6 +321,10 @@ public:
 
 	//MediaZ root node id
 	static FGuid NodeId;
+
+	TSet<FGuid> ActorsSpawnedByMediaZ;
+
+	TMap<FGuid, FName> PathUpdates;
 
 	//TODO consider adding The world we currently see
 	//static TObjectPtr<UWorld> sceneWorld;
