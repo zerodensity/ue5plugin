@@ -824,6 +824,14 @@ void FMZClient::OnActorFolderChanged(const AActor* actor, FName oldPath)
 	{
 		PathUpdates.Add(ActorID, oldPath);
 	}
+
+
+}
+
+void FMZClient::OnActorOuterChanged(AActor * actor, UObject * OldOuter)
+{
+	UE_LOG(LogTemp, Warning, TEXT("new out actor is %s "), actor->GetOuter() ? *actor->GetOuter()->GetFName().ToString() : TEXT("null"));
+
 }
 
 void FMZClient::StartupModule() {
@@ -854,6 +862,7 @@ void FMZClient::StartupModule() {
 
 	//FLevelActorFolderChangedEvent
 	GEngine->OnLevelActorFolderChanged().AddRaw(this, &FMZClient::OnActorFolderChanged);
+	GEngine->OnLevelActorOuterChanged().AddRaw(this, &FMZClient::OnActorOuterChanged);
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
 	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZClient::OnAssetCreated);
@@ -1273,6 +1282,19 @@ bool FMZClient::Tick(float dt)
 			{
 				auto actor = actorNode->GetAsActorNode()->actor;
 				actor->SetFolderPath(newPath);
+
+				//check if parents path is changed
+				auto parent = actor->GetSceneOutlinerParent();
+				if (!parent)
+				{
+					continue;
+				}
+				bool actorSpawnedByMediaZ = ActorsSpawnedByMediaZ.Contains(actor->GetActorGuid());
+				bool parentSpawnedByMediaZ = ActorsSpawnedByMediaZ.Contains(parent->GetActorGuid());
+				if (actorSpawnedByMediaZ != parentSpawnedByMediaZ)
+				{
+					actor->DetachFromActor(FDetachmentTransformRules::KeepRelativeTransform);
+				}
 			}
 		}
 	}

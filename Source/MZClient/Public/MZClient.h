@@ -276,6 +276,9 @@ public:
 
 	//delegate called when a actors folder path is changed
 	void OnActorFolderChanged(const AActor* actor, FName oldPath);
+
+	//delegate called when actor outer object changed
+	void OnActorOuterChanged(AActor* actor, UObject* OldOuter);
 	
 	//Grpc client to communicate
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;
