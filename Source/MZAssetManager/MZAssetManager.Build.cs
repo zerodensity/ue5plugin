@@ -8,10 +8,10 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZAssetListManager : ModuleRules
+public class MZAssetManager : ModuleRules
 {
 
-	public MZAssetListManager(ReadOnlyTargetRules Target) : base(Target)
+	public MZAssetManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
 		{

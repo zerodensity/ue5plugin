@@ -7,11 +7,11 @@
 #include "Engine/EngineTypes.h"
 #include "MZClient.h"
 
-class MZASSETLISTMANAGER_API FMZAssetListManager : public IModuleInterface {
+class MZASSETMANAGER_API FMZAssetManager : public IModuleInterface {
 
 public:
 	//Empty constructor
-	FMZAssetListManager();
+	FMZAssetManager();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;

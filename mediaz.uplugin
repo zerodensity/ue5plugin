@@ -36,7 +36,7 @@
 			]
 		},
 		{
-			"Name": "MZAssetListManager",
+			"Name": "MZAssetManager",
 			"Type": "UncookedOnly",
 			"LoadingPhase": "PostEngineInit",
 			"PlatformAllowList": [

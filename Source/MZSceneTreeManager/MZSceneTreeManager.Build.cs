@@ -88,7 +88,7 @@ public class MZSceneTreeManager : ModuleRules
 					"UMG",
 					"UnrealEd",
 					"MZClient",
-					"MZAssetListManager",
+					"MZAssetManager",
 					}
 					);
 
@@ -125,7 +125,7 @@ public class MZSceneTreeManager : ModuleRules
 					"UMG",
 					"UnrealEd",
 					"MZClient",
-					"MZAssetListManager",
+					"MZAssetManager",
 					}
 					);
 

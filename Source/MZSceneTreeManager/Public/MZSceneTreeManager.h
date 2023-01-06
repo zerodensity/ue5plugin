@@ -146,5 +146,5 @@ public:
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;
 
-	class FMZAssetListManager* MZAssetManager;
+	class FMZAssetManager* MZAssetManager;
 };

@@ -5,6 +5,7 @@
 #include "MZUMGRenderer.h"
 #include "MZUMGRendererComponent.h"
 #include "MZUMGRenderManager.h"
+#include "MZAssetManager.h"
 
 //unreal engine includes
 #include "EngineUtils.h"
@@ -14,7 +15,6 @@
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 
-#include "MZAssetListManager.h"
 
 static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 
@@ -68,7 +68,7 @@ FMZSceneTreeManager::FMZSceneTreeManager()
 void FMZSceneTreeManager::StartupModule()
 {
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
-	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetListManager>("MZAssetListManager");
+	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
 
 	//Bind to MediaZ events
 	MZClient->OnMZNodeSelected.AddRaw(this, &FMZSceneTreeManager::OnMZNodeSelected);
