@@ -1,8 +1,6 @@
 #pragma once
 
 #include "Engine/EngineTypes.h"
-#include "Engine/EngineCustomTimeStep.h"
-#include "MZCustomTimeStep.h"
 
 #include "CoreMinimal.h"
 #include "Misc/MessageDialog.h"
@@ -12,22 +10,9 @@
 #include "Containers/Queue.h"
 #include "Logging/LogMacros.h"
 #include "Subsystems/PlacementSubsystem.h"
-//#include "mediaz.h"
-//#include "Engine/TextureRenderTarget2D.h"
+
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
-
-
-//void MemoryBarrier();
-//#include "Windows/AllowWindowsPlatformTypes.h"
-//#pragma intrinsic(_InterlockedCompareExchange64)
-//#define InterlockedCompareExchange64 _InterlockedCompareExchange64
-//#include <d3d12.h>
-//#include "Windows/HideWindowsPlatformTypes.h"
-
-//#include "D3D12RHIPrivate.h"
-//#include "D3D12RHI.h"
-//#include "D3D12Resources.h"
 
 #include "MZSceneTree.h"
 
@@ -42,10 +27,26 @@
 typedef std::function<void()> Task;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
+
+//events coming from mediaz
+DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZNodeUpdated, mz::fb::Node const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuRequested, mz::ContextMenuRequest const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAction const&);
+DECLARE_EVENT(FMZClient, FMZNodeRemoved);
+DECLARE_EVENT_ThreeParams(FMZClient, FMZPinValueChanged, mz::fb::UUID const&, uint8_t const*, size_t);
+DECLARE_EVENT_TwoParams(FMZClient, FMZPinShowAsChanged, mz::fb::UUID const&, mz::fb::ShowAs);
+DECLARE_EVENT_OneParam(FMZClient, FMZExecutedApp, mz::fb::Node const&);
+DECLARE_EVENT_TwoParams(FMZClient, FMZFunctionCalled, mz::fb::UUID const&, mz::fb::Node const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZNodeSelected, mz::fb::UUID const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZNodeImported, mz::fb::Node const&);
+DECLARE_EVENT(FMZClient, FMZConnectionClosed);
+
+
+
 /**
  * Implements communication with the MediaZ Engine
  */
-
 class FMZClient;
 
 class MZCLIENT_API MZEventDelegates : public mz::app::IEventDelegates
@@ -71,7 +72,7 @@ public:
 	//std::atomic_bool IsChannelReady = false;
 };
 
-class ContextMenuActions
+class MZCLIENT_API ContextMenuActions
 {
 public:
 	TArray< TPair<FString, std::function<void(AActor*)>> >  ActorMenu;
@@ -173,56 +174,11 @@ public:
 	//Tries to initialize connection with the MediaZ engine
 	void TryConnect();
 
-	//Sends node updates to the MediaZ
-	void SendNodeUpdate(FGuid NodeId);
-
-	//update asset lists when a new asset is created
-	void OnAssetCreated(const FAssetData& createdAsset);
-
-	//update asset lists when an asset deleted
-	void OnAssetDeleted(const FAssetData& removedAsset);
-
-	//Sends the spawnable actor list to MediaZ
-	void SendAssetList();
-
-	//Sends the user widget list to MediaZ
-	void SendUMGList();
-
-	//Sends pin value changed event to MediaZ (now only used for function return values)
-	void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
-
-	//Sends pin updates to the root node 
-	void SendPinUpdate();
-
-	//Adds the node to scene tree and sends it to mediaZ
-	void SendActorAdded(AActor* actor, FString spawnTag = FString());
-	 
-	//Deletes the node from scene tree and sends it to mediaZ
-	void SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects);
-
-	//Called when pie is started
-	void HandleBeginPIE(bool bIsSimulating);
-
-	//Called when pie is ending
-	void HandleEndPIE(bool bIsSimulating);
-
-	//Fills the root graph with first level information (Only the names of the actors without parents) 
-	void PopulateSceneTree(bool reset = true);
-
-	//Fills the specified node information to the root graph
-	bool PopulateNode(FGuid NodeId);
-
 	//Tick is called every frame once and handles the tasks queued from grpc threads
 	bool Tick(float dt);
 
 	//Test action to test wheter debug menu works
 	void TestAction();
-
-	//Set a properties value
-	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
-	 
-	//Populate root graph using SceneTree 
-	//void PopulateRootGraphWithSceneTree();
 
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
@@ -230,49 +186,8 @@ public:
 	//Called when the level destruction began
 	void OnPreWorldFinishDestroy(UWorld* World);
 
-	//Called when an actor is spawned into the world
-	void OnActorSpawned(AActor* InActor);
-
-	//Called when an actor is destroyed from the world
-	void OnActorDestroyed(AActor* InActor);
-
-	//Remove properties of tree node from registered properties and pins
-	void RemoveProperties(TSharedPtr<TreeNode> Node,
-		TSet<TSharedPtr<MZProperty>>& PinsToRemove, 
-		TSet<TSharedPtr<MZProperty>> &PropertiesToRemove);
-
-	void CheckPins(TSet<UObject*>& RemovedObjects,
-		TSet<TSharedPtr<MZProperty>>& PinsToRemove,
-		TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
-
-	//Called when the actor is selected on the mediaZ hierarchy pane
-	void OnNodeSelected(FGuid NodeId);
-
-	//Called when a pin show as change action is fired from mediaZ 
-	//We make that property a pin in the root node with the same GUID
-	void OnPinShowAsChanged(FGuid NodeId, mz::fb::ShowAs newShowAs);
-
-	//Called when a function is called from mediaZ
-	void OnFunctionCall(FGuid funcId, TMap<FGuid, std::vector<uint8>> properties);
-
 	//Called when the node is executed from mediaZ
 	void OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates);
-
-	//Called when a context menu is fired
-	void OnContexMenuFired(FGuid itemId, FVector2D pos, uint32 instigator);
-
-	//Called when a action from a context menu is fired
-	void OnContexMenuActionFired(FGuid itemId, uint32 actionId);
-
-	//Called when a node is imported through (save/load graph) mediaZ
-	void OnNodeImported(const mz::fb::Node* node);
-
-	//Sends pin to add to a node
-	void SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop);
-
-	//delegate called when a property is changed from unreal engine editor
-	//it updates thecorresponding property in mediaz
-	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 
 	//delegate called when a actors folder path is changed
 	void OnActorFolderChanged(const AActor* actor, FName oldPath);
@@ -289,35 +204,6 @@ public:
 	//Task queue
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;
 
-	//Scene tree holds the information to mimic the outliner in mediaz
-	MZSceneTree SceneTree;
-
-	//all the properties registered 
-	TMap<FGuid, TSharedPtr<MZProperty>> RegisteredProperties;
-
-	//all the properties registered mapped with property pointers
-	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesMap;
-	 
-	//all the functions registered
-	TMap<FGuid, TSharedPtr<MZFunction>> RegisteredFunctions;
-	 
-	//in/out pins of the mediaz node
-	TMap<FGuid, TSharedPtr<MZProperty>> Pins;
-
-	//custom functions like spawn actor
-	TMap<FGuid, MZCustomFunction*> CustomFunctions;
-
-	//Spawnable class list to spawn them from mediaZ
-	TMap<FString, UObject*> SpawnableClasses;
-	TMap<FString, FAssetPlacementInfo> ActorPlacementParamMap;
-
-	//UMG asset list map
-	TMap<FString, FTopLevelAssetPath> UMGs;
-
-	ContextMenuActions menuActions;
-
-	FDelegateHandle OnPropertyChangedHandle;
-
 	//Custom time step implementation for mediaZ controlling the unreal editor in play mode
 	class UMZCustomTimeStep* MZTimeStep = nullptr;
 	bool CustomTimeStepBound = false;
@@ -325,12 +211,24 @@ public:
 	//MediaZ root node id
 	static FGuid NodeId;
 
-	TSet<FGuid> ActorsSpawnedByMediaZ;
-
 	TMap<FGuid, FName> PathUpdates;
 
 	//TODO consider adding The world we currently see
 	//static TObjectPtr<UWorld> sceneWorld;
+
+	//EXPERIMENTAL START
+	FMZNodeConnected OnMZConnected;
+	FMZNodeUpdated OnMZNodeUpdated;
+	FMZContextMenuRequested OnMZContextMenuRequested;
+	FMZContextMenuCommandFired OnMZContextMenuCommandFired;
+	FMZNodeRemoved OnMZNodeRemoved;
+	FMZPinValueChanged OnMZPinValueChanged;
+	FMZPinShowAsChanged OnMZPinShowAsChanged;
+	FMZExecutedApp OnMZExecutedApp;
+	FMZFunctionCalled OnMZFunctionCalled;
+	FMZNodeSelected OnMZNodeSelected;
+	FMZNodeImported OnMZNodeImported;
+	FMZConnectionClosed OnMZConnectionClosed;
 
 protected:
 	void Reset();
@@ -338,6 +236,7 @@ protected:
 	FPSCounter FPSCounter;
 	UENodeStatusHandler UENodeStatusHandler;
 	bool IsWorldInitialized = false;
+
 };
 
 
