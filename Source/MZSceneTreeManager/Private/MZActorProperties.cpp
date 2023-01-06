@@ -5,7 +5,8 @@
 #include "Reality/Public/RealityTrack.h"
 #include "EngineUtils.h"
 
-#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMediaZ, Error, TEXT("Property size mismatch with mediaZ (uint64)"));return;}}
+//todo fix logs
+#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogTemp, Error, TEXT("Property size mismatch with mediaZ (uint64)"));return;}}
 
 bool PropertyVisibleExp(FProperty* ueproperty)
 {

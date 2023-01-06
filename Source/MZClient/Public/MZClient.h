@@ -3,25 +3,16 @@
 #include "Engine/EngineTypes.h"
 
 #include "CoreMinimal.h"
-#include "Misc/MessageDialog.h"
-#include <queue>
-#include <map>
 #include <numeric>
-#include "Containers/Queue.h"
 #include "Logging/LogMacros.h"
-#include "Subsystems/PlacementSubsystem.h"
 
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "MZSceneTree.h"
-
 #include "MediaZ/AppInterface.h"
 #include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
-
 #include <mzFlatBuffersCommon.h>
-
 #include <functional> 
 
 typedef std::function<void()> Task;
@@ -137,7 +128,7 @@ private:
 using PFN_MakeAppServiceClient = decltype(&mz::app::MakeAppServiceClient);
 using PFN_mzGetD3D12Resources = decltype(&mzGetD3D12Resources);
 
-class FMediaZ
+class MZCLIENT_API FMediaZ
 {
 public:
 	static bool Initialize();

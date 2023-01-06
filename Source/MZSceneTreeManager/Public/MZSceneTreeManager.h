@@ -25,6 +25,8 @@ public:
 	//Called on shutdown of the module on Unreal Engine exit
 	virtual void ShutdownModule() override;
 
+	bool Tick(float dt);
+
 	void OnMZConnected(mz::fb::Node const& appNode);
 
 	void OnMZNodeUpdated(mz::fb::Node const& appNode);

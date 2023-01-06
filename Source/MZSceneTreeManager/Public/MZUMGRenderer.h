@@ -10,7 +10,7 @@
 class UTextureRenderTarget2D;
 
 UCLASS()
-class MZCLIENT_API UMZUMGRenderer : public UBlueprintFunctionLibrary
+class MZSCENETREEMANAGER_API UMZUMGRenderer : public UBlueprintFunctionLibrary
 {
 	GENERATED_BODY()
 public:

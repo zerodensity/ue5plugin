@@ -1,7 +1,7 @@
 #pragma once
 #include "MZActorProperties.h"
 
-struct MZCLIENT_API MZFunction
+struct MZSCENETREEMANAGER_API MZFunction
 {
 	MZFunction(UObject* container, UFunction* function);
 
@@ -21,7 +21,7 @@ struct MZCLIENT_API MZFunction
 	//todo can call the function and change the arguments
 };
 
-struct MZCLIENT_API MZCustomFunction
+struct MZSCENETREEMANAGER_API MZCustomFunction
 {
 	FGuid Id;
 	std::function<void(TMap<FGuid, std::vector<uint8>> pins)> Function;

@@ -34,7 +34,7 @@ struct ResourceInfo
 };
 
 //This class manages copy operations between textures of MediaZ and unreal 2d texture target
-class MZCLIENT_API MZTextureShareManager
+class MZSCENETREEMANAGER_API MZTextureShareManager
 {
 //protected:
 public:

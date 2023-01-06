@@ -67,8 +67,11 @@ FMZSceneTreeManager::FMZSceneTreeManager()
 
 void FMZSceneTreeManager::StartupModule()
 {
+
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
+
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZSceneTreeManager::Tick));
 
 	//Bind to MediaZ events
 	MZClient->OnMZNodeSelected.AddRaw(this, &FMZSceneTreeManager::OnMZNodeSelected);
@@ -376,6 +379,16 @@ void FMZSceneTreeManager::ShutdownModule()
 {
 
 
+}
+
+bool FMZSceneTreeManager::Tick(float dt)
+{
+	if (MZClient)
+	{
+		MZTextureShareManager::GetInstance()->EnqueueCommands(MZClient->AppServiceClient.Get());
+	}
+
+	return true;
 }
 
 void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)

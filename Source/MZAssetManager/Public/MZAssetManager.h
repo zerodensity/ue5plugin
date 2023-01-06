@@ -7,6 +7,8 @@
 #include "Engine/EngineTypes.h"
 #include "MZClient.h"
 
+#include "GenericPlatform/GenericPlatformMisc.h"
+
 class MZASSETMANAGER_API FMZAssetManager : public IModuleInterface {
 
 public:
@@ -36,7 +38,7 @@ public:
 	//scans the assets via the asset reggistry and stores for mediaz to use them to spawn actors
 	void ScanAssets();
 
-	void SetupCustomScans();
+	void SetupCustomSpawns();
 
 	AActor* SpawnBasicShape(FSoftObjectPath BasicShape);
 
@@ -53,7 +55,7 @@ public:
 	TMap<FString, FTopLevelAssetPath> UMGs;
 
 	//for custom spawnables like basic shapes(cube, sphere etc.)
-	TMap<FString, std::function<AActor*()>> CustomSpawns;
+	TMap<FString, TFunction<AActor*()>> CustomSpawns;
 
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;

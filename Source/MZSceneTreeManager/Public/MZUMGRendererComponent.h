@@ -10,7 +10,7 @@
 class UTextureRenderTarget2D;
 
 UCLASS(ClassGroup = "Media", BlueprintType, HideCategories = ("Rendering"), Meta = (BlueprintSpawnableComponent))
-class MZCLIENT_API UMZUMGRendererComponent : public USceneComponent
+class MZSCENETREEMANAGER_API UMZUMGRendererComponent : public USceneComponent
 {
 	GENERATED_BODY()
 public:

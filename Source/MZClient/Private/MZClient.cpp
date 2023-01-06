@@ -1,66 +1,24 @@
 #include "MZClient.h"
-#include "Engine/EngineCustomTimeStep.h"
+#include "MZCustomTimeStep.h"
 // std
 #include <cstdio>
 #include <string>
 #include <filesystem>
 
 // UE
-#include "TimerManager.h"
-
-
-#include "CoreMinimal.h"
-#include "AssetRegistry/AssetRegistryModule.h"
-#include "AssetRegistry/ARFilter.h"
-#include "EngineUtils.h"
-#include "GenericPlatform/GenericPlatformMemory.h"
-#include "GenericPlatform/GenericPlatformMisc.h"
-
-
-#include "MZTextureShareManager.h"
-
 #include "HardwareInfo.h"
-//exp
-#include "ActorFactories/ActorFactory.h"
-#include "ActorFactories/ActorFactoryBasicShape.h"
-//end exp
-
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
 #include "ToolMenus.h"
-#include "EditorStyleSet.h"
-#include "EditorCategoryUtils.h"
-
-#include "Blueprint/UserWidget.h"
-
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
-
-#define LOCTEXT_NAMESPACE "FMZClient"
-
-#pragma optimize("", off)
-
-#include "ObjectEditorUtils.h"
-
-#include "MZSceneTree.h"
-#include "MZActorProperties.h"
-#include "MZActorFunctions.h"
-
-#include "Kismet2/ComponentEditorUtils.h"
-
-#include "Elements/Interfaces/TypedElementObjectInterface.h" //experiment
-#include "Elements/Framework/TypedElementRegistry.h"
-#include "Elements/Actor/ActorElementData.h"
+#include "Engine/EngineCustomTimeStep.h"
+#include "Misc/MessageDialog.h"
 
 #include "mzFlatBuffersCommon.h"
-
-#include "MZUMGRenderManager.h"
-#include "MZUMGRenderer.h"
-#include "MZUMGRendererComponent.h"
-
 #include "EditorActorFolders.h"
 
-static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
-
+#define LOCTEXT_NAMESPACE "FMZClient"
+#pragma optimize("", off)
 
 DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
@@ -677,8 +635,6 @@ bool FMZClient::Tick(float dt)
 		TaskQueue.Dequeue(task);
 		task();
 	}
-
-	MZTextureShareManager::GetInstance()->EnqueueCommands(AppServiceClient.Get());
 
 	UENodeStatusHandler.Update();
 

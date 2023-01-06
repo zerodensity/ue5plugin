@@ -25,18 +25,18 @@ FMZAssetManager::FMZAssetManager()
 void FMZAssetManager::StartupModule()
 {
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
+	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZAssetManager::OnAssetCreated);
+	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMZAssetManager::OnAssetDeleted);
 
 	MZClient->OnMZConnected.AddLambda([this](mz::fb::Node const& appNode)
 		{
 			RescanAndSendAll();
 		});
 
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZAssetManager::OnAssetCreated);
-	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMZAssetManager::OnAssetDeleted);
-
 	ScanAssets();
 	ScanUMGs();
+	SetupCustomSpawns();
 }
 
 void FMZAssetManager::ShutdownModule()
@@ -45,11 +45,19 @@ void FMZAssetManager::ShutdownModule()
 
 void FMZAssetManager::OnAssetCreated(const FAssetData& createdAsset)
 {
+	if (!MZClient || !MZClient->IsConnected())
+	{
+		return;
+	}
 	RescanAndSendAll();
 }
 
 void FMZAssetManager::OnAssetDeleted(const FAssetData& removedAsset)
 {
+	if (!MZClient || !MZClient->IsConnected())
+	{
+		return;
+	}
 	RescanAndSendAll();
 }
 
@@ -62,11 +70,11 @@ void FMZAssetManager::SendAssetList()
 
 	TArray<FString> SpawnTags;
 
-	for (auto [spawnTag, _] : SpawnableAssets)
+	for (auto& [spawnTag, _] : SpawnableAssets)
 	{
 		SpawnTags.Add(spawnTag);
 	}
-	for (auto [spawnTag, _] : CustomSpawns)
+	for (auto& [spawnTag, x] : CustomSpawns)
 	{
 		SpawnTags.Add(spawnTag);
 	}
@@ -149,6 +157,7 @@ void FMZAssetManager::RescanAndSendAll()
 
 void FMZAssetManager::ScanUMGs()
 {
+	UMGs.Empty();
 	TSet< FTopLevelAssetPath > DerivedAssetPaths = GetAssetPathsOfClass(UUserWidget::StaticClass());
 	for (auto AssetPath : DerivedAssetPaths)
 	{
@@ -165,6 +174,7 @@ void FMZAssetManager::ScanUMGs()
 
 void FMZAssetManager::ScanAssets()
 {
+	SpawnableAssets.Empty();
 	TSet<FTopLevelAssetPath> DerivedAssetPaths = GetAssetPathsOfClass(AActor::StaticClass());
 	for (auto AssetPath : DerivedAssetPaths)
 	{
@@ -179,7 +189,7 @@ void FMZAssetManager::ScanAssets()
 	return;
 }
 
-void FMZAssetManager::SetupCustomScans()
+void FMZAssetManager::SetupCustomSpawns()
 {
 	CustomSpawns.Add("Cube", [this]()
 		{
@@ -237,8 +247,7 @@ AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag)
 {	
 	if (CustomSpawns.Contains(SpawnTag))
 	{
-		auto CustomSpawnFunction = CustomSpawns.FindRef(SpawnTag);
-		return CustomSpawnFunction();
+		return CustomSpawns[SpawnTag]();
 	}
 
 	if (SpawnableAssets.Contains(SpawnTag))
