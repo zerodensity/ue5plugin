@@ -82,32 +82,32 @@ void FMediaZ::Shutdown()
 	}
 }
 
-class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
-{
-public:
-	FMediaZPluginEditorCommands()
-		: TCommands<FMediaZPluginEditorCommands>
-		(
-			TEXT("MediaZPluginEditor"),
-			NSLOCTEXT("Contexts", "MediaZPluginEditor", "MediaZPluginEditor Plugin"),
-			NAME_None,
-			FAppStyle::GetAppStyleSetName()
-			) {}
-
-	virtual void RegisterCommands() override
-	{
-		UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
-		UI_COMMAND(SendAssetList, "SendAssetList", "Call SendAssetList", EUserInterfaceActionType::Button, FInputGesture());
-	}
-
-public:
-	TSharedPtr<FUICommandInfo> TestCommand;
-	TSharedPtr<FUICommandInfo> PopulateRootGraph;
-	TSharedPtr<FUICommandInfo> SendRootUpdate;
-	TSharedPtr<FUICommandInfo> SendAssetList;
-};
+//class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
+//{
+//public:
+//	FMediaZPluginEditorCommands()
+//		: TCommands<FMediaZPluginEditorCommands>
+//		(
+//			TEXT("MediaZPluginEditor"),
+//			NSLOCTEXT("Contexts", "MediaZPluginEditor", "MediaZPluginEditor Plugin"),
+//			NAME_None,
+//			FAppStyle::GetAppStyleSetName()
+//			) {}
+//
+//	virtual void RegisterCommands() override
+//	{
+//		UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
+//		UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
+//		UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
+//		UI_COMMAND(SendAssetList, "SendAssetList", "Call SendAssetList", EUserInterfaceActionType::Button, FInputGesture());
+//	}
+//
+//public:
+//	TSharedPtr<FUICommandInfo> TestCommand;
+//	TSharedPtr<FUICommandInfo> PopulateRootGraph;
+//	TSharedPtr<FUICommandInfo> SendRootUpdate;
+//	TSharedPtr<FUICommandInfo> SendAssetList;
+//};
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
@@ -539,53 +539,53 @@ void FMZClient::StartupModule() {
 	GEngine->OnLevelActorOuterChanged().AddRaw(this, &FMZClient::OnActorOuterChanged);
 
 	//TODO remove debugactions from releaase
-	if (GEditor)
-	{
-		FMediaZPluginEditorCommands::Register();
+	//if (GEditor)
+	//{
+	//	FMediaZPluginEditorCommands::Register();
 
-		FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-		TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
+	//	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
+	//	TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
 
-		CommandList->MapAction(
-			FMediaZPluginEditorCommands::Get().TestCommand,
-			FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
-		CommandList->MapAction(
-			FMediaZPluginEditorCommands::Get().PopulateRootGraph,
-			FExecuteAction::CreateLambda([=]() {
-				}));
-		CommandList->MapAction(
-			FMediaZPluginEditorCommands::Get().SendRootUpdate,
-			FExecuteAction::CreateLambda([=]() {
-				}));
-		CommandList->MapAction(
-			FMediaZPluginEditorCommands::Get().SendAssetList,
-			FExecuteAction::CreateLambda([=]() {
-				}));
+	//	CommandList->MapAction(
+	//		FMediaZPluginEditorCommands::Get().TestCommand,
+	//		FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
+	//	CommandList->MapAction(
+	//		FMediaZPluginEditorCommands::Get().PopulateRootGraph,
+	//		FExecuteAction::CreateLambda([=]() {
+	//			}));
+	//	CommandList->MapAction(
+	//		FMediaZPluginEditorCommands::Get().SendRootUpdate,
+	//		FExecuteAction::CreateLambda([=]() {
+	//			}));
+	//	CommandList->MapAction(
+	//		FMediaZPluginEditorCommands::Get().SendAssetList,
+	//		FExecuteAction::CreateLambda([=]() {
+	//			}));
 
-		UToolMenus* ToolMenus = UToolMenus::Get();
-		UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
-		UToolMenu* MediaZMenu = Menu->AddSubMenu(
-			ToolMenus->CurrentOwner(),
-			NAME_None,
-			TEXT("MediaZ Debug Actions"),
-			LOCTEXT("DragDropMenu_MediaZ", "MediaZ"),
-			LOCTEXT("DragDropMenu_MediaZ_ToolTip", "Debug actions for the MediaZ plugin")
-		);
+	//	UToolMenus* ToolMenus = UToolMenus::Get();
+	//	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
+	//	UToolMenu* MediaZMenu = Menu->AddSubMenu(
+	//		ToolMenus->CurrentOwner(),
+	//		NAME_None,
+	//		TEXT("MediaZ Debug Actions"),
+	//		LOCTEXT("DragDropMenu_MediaZ", "MediaZ"),
+	//		LOCTEXT("DragDropMenu_MediaZ_ToolTip", "Debug actions for the MediaZ plugin")
+	//	);
 
-		FToolMenuSection& Section = MediaZMenu->AddSection("DebugActions", NSLOCTEXT("LevelViewportContextMenu", "DebugActions", "DebugActions Collection"));
-		{
-			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
-			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
-			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
-			Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendAssetList);
-		}
-	}
+	//	FToolMenuSection& Section = MediaZMenu->AddSection("DebugActions", NSLOCTEXT("LevelViewportContextMenu", "DebugActions", "DebugActions Collection"));
+	//	{
+	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
+	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
+	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
+	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendAssetList);
+	//	}
+	//}
 }
 
 void FMZClient::ShutdownModule()
 {
 	FMediaZ::Shutdown();
-	FMediaZPluginEditorCommands::Unregister();
+	//FMediaZPluginEditorCommands::Unregister();
 }
 
 void FMZClient::TestAction()

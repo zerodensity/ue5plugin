@@ -46,6 +46,8 @@ public:
 
 	AActor* SpawnFromTag(FString SpawnTag);
 
+	AActor* SpawnFromAssetPath(FTopLevelAssetPath AssetPath);
+
 	UUserWidget* CreateUMGFromTag(FString UMGTag);
 
 	//spawnable actor assets

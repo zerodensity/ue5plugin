@@ -24,14 +24,14 @@ public:
 		return Get();
 	}
 
-private:
 	bool UpdateActualActorPointer();
+	bool InvalidReference = false;
+private:
 	
 	UPROPERTY()
 	TWeakObjectPtr<AActor> Actor;
 	
 	FGuid ActorGuid;
-	bool InvalidReference = false;
 	
 };
 
@@ -54,18 +54,18 @@ public:
 		return Get();
 	}
 
-private:
 	bool UpdateActualComponentPointer();
+	MZActorReference Actor;
+	bool InvalidReference = false;
 
+private:
 	UPROPERTY()
 	TWeakObjectPtr<UActorComponent> Component;
 	
-	MZActorReference Actor;
 
 	FName ComponentProperty;
 	FString PathToComponent;
 
-	bool InvalidReference = false;
 };
 
 class MZSCENETREEMANAGER_API MZProperty : public TSharedFromThis<MZProperty>

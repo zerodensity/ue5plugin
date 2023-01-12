@@ -7,6 +7,7 @@
 #include "Elements/Actor/ActorElementData.h"
 #include "UObject/SoftObjectPath.h"
 #include "Blueprint/UserWidget.h"
+#include "UObject/Object.h"
 
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
@@ -241,7 +242,31 @@ AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 	return SpawnedActor;
 }
 
+AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
+{
+	TSoftClassPtr<AActor> ActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(*AssetPath.ToString()));
 
+	UClass* LoadedAsset = ActorClass.LoadSynchronous();
+
+	FActorSpawnParameters sp;
+	sp.bHideFromSceneOutliner = true;
+	//todo look into hiding sp.bHideFromSceneOutliner = true;
+	AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedAsset, 0, sp);
+	if (!SpawnedActor)
+	{
+		return nullptr;
+	}
+	if (!SpawnedActor->GetRootComponent())
+	{
+		auto RootComponent = NewObject<USceneComponent>(SpawnedActor, FName("DefaultSceneRoot"));
+
+		SpawnedActor->SetRootComponent(RootComponent);
+		RootComponent->CreationMethod = EComponentCreationMethod::Instance;
+		RootComponent->RegisterComponent();
+		SpawnedActor->AddInstanceComponent(RootComponent);
+	}
+	return SpawnedActor;
+}
 
 AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag)
 {	
@@ -253,13 +278,7 @@ AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag)
 	if (SpawnableAssets.Contains(SpawnTag))
 	{
 		FTopLevelAssetPath AssetPath = SpawnableAssets.FindRef(SpawnTag);
-		TSoftClassPtr<AActor> ActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(*AssetPath.ToString()));
-		
-		UClass* LoadedAsset = ActorClass.LoadSynchronous();
-		
-		FActorSpawnParameters sp;
-		//todo look into hiding sp.bHideFromSceneOutliner = true;
-		return GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedAsset, 0, sp);
+		return SpawnFromAssetPath(AssetPath);
 	}
 	
 	return nullptr;

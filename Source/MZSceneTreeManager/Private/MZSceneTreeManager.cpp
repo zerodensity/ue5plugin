@@ -20,6 +20,8 @@ static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 
 IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
+UWorld* FMZSceneTreeManager::daWorld = nullptr;
+
 template<typename T>
 inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
 {
@@ -64,15 +66,27 @@ FMZSceneTreeManager::FMZSceneTreeManager()
 {
 
 }
+void FMZSceneTreeManager::OnMapChange(uint32 MapFlags)
+{
+	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
+	UE_LOG(LogTemp, Warning, TEXT("OnMapChange with editor world contexts world %s"), *WorldName);
+	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+}
+
+void FMZSceneTreeManager::OnNewCurrentLevel()
+{
+	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
+	UE_LOG(LogTemp, Warning, TEXT("OnNewCurrentLevel with editor world contexts world %s"), *WorldName);
+	//todo we may need to fill these according to the level system
+}
 
 void FMZSceneTreeManager::StartupModule()
 {
-
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
 
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZSceneTreeManager::Tick));
-
+	MZActorManager = new FMZActorManager(SceneTree);
 	//Bind to MediaZ events
 	MZClient->OnMZNodeSelected.AddRaw(this, &FMZSceneTreeManager::OnMZNodeSelected);
 	MZClient->OnMZConnected.AddRaw(this, &FMZSceneTreeManager::OnMZConnected);
@@ -84,9 +98,12 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZExecutedApp.AddRaw(this, &FMZSceneTreeManager::OnMZExecutedApp);
 	MZClient->OnMZContextMenuRequested.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuRequested);
 	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
+	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
 
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZSceneTreeManager::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZSceneTreeManager::HandleEndPIE);
+	FEditorDelegates::NewCurrentLevel.AddRaw(this, &FMZSceneTreeManager::OnNewCurrentLevel);
+	FEditorDelegates::MapChange.AddRaw(this, &FMZSceneTreeManager::OnMapChange);
 
 	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMZSceneTreeManager::OnPropertyChanged);
 
@@ -114,22 +131,19 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString SpawnTag((char*)properties.FindRef(actorPinId).data());
-			AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag);
-
-			if (SpawnedActor)
-			{
-				ActorsSpawnedByMediaZ.Add(SpawnedActor->GetActorGuid());
-				SpawnedActor->SetFlags(RF_Transient);
-				SpawnedActor->SetFolderPath(NAME_Reality_FolderName);
-
-				SendActorAdded(SpawnedActor, SpawnTag);
-				//todo fix logs LOGF("Spawned actor %s", *SpawnedActor->GetFName().ToString());
-			}
+			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
 	//Add Camera function
 	{
+		MZAssetManager->CustomSpawns.Add("CustomRealityCamera", [this]()
+			{
+				AActor* realityCamera = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_Camera.Reality_Camera_C'"));
+
+				return realityCamera;
+			});
+
 		MZCustomFunction* mzcf = new MZCustomFunction;
 		mzcf->Id = FGuid::NewGuid();
 		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
@@ -138,30 +152,13 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		mzcf->Function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
 		{
-			FString actorName("Reality_Camera");
 
-
-			TSoftClassPtr<AActor> ActorBpClass = TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_Camera.Reality_Camera_C'")));
-
-			UClass* LoadedBpAsset = ActorBpClass.LoadSynchronous();
-
-			//UBlueprint* GeneratedBP = Cast<UBlueprint>(LoadedBpAsset);
-			FActorSpawnParameters sp;
-			//sp.bHideFromSceneOutliner = true;
-			AActor* realityCamera = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset, 0, sp);
-			if (realityCamera)
-			{
-				mzclient->ActorsSpawnedByMediaZ.Add(realityCamera->GetActorGuid());
-				realityCamera->SetFlags(RF_Transient);
-				realityCamera->SetFolderPath(NAME_Reality_FolderName);
-				mzclient->SendActorAdded(realityCamera, actorName);
-				//todo fix logs LOGF("Spawned actor %s", *realityCamera->GetFName().ToString());
-			}
-			else
+			AActor* realityCamera = mzclient->MZActorManager->SpawnActor("CustomRealityCamera");
+			if (!realityCamera)
 			{
 				return;
 			}
-			//auto videoCamera = realityCamera->GetRootComponent();
+
 			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
 			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
 			{
@@ -225,6 +222,12 @@ void FMZSceneTreeManager::StartupModule()
 	}
 	//Add Projection cube function
 	{
+		MZAssetManager->CustomSpawns.Add("CustomProjectionCube", [this]()
+			{
+				AActor* projectionCube = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'"));
+
+				return projectionCube;
+			});
 		MZCustomFunction* mzcf = new MZCustomFunction;
 		mzcf->Id = FGuid::NewGuid();
 		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
@@ -233,30 +236,15 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		mzcf->Function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
 		{
-			FString actorName("RealityActor_ProjectionCube");
 
-			TSoftClassPtr<AActor> ActorBpClass = TSoftClassPtr<AActor>(FSoftObjectPath(TEXT("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'")));
-
-			UClass* LoadedBpAsset = ActorBpClass.LoadSynchronous();
-
-			FActorSpawnParameters sp;
-			//sp.bHideFromSceneOutliner = true;
-			AActor* projectionCube = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedBpAsset, 0, sp);
-			if (projectionCube)
-			{
-				mzclient->ActorsSpawnedByMediaZ.Add(projectionCube->GetActorGuid());
-				projectionCube->SetFlags(RF_Transient);
-				projectionCube->SetFolderPath(NAME_Reality_FolderName);
-				mzclient->SendActorAdded(projectionCube, actorName);
-				//todo fix logs LOGF("Spawned actor %s", *projectionCube->GetFName().ToString());
-			}
-			else
+			AActor* projectionCube = mzclient->MZActorManager->SpawnActor("CustomProjectionCube");
+			if (!projectionCube)
 			{
 				return;
 			}
 			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
 			{
-				auto texture = FindFProperty<FObjectProperty>(LoadedBpAsset, "VideoInput");
+				auto texture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
 				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
 				RenderTarget2D->InitAutoFormat(1920, 1080);
 				texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
@@ -319,9 +307,8 @@ void FMZSceneTreeManager::StartupModule()
 			} 
 			if (!UMGManager)
 			{
-				FActorSpawnParameters sp;
-				//sp.bHideFromSceneOutliner = true;
-				UMGManager = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(AMZUMGRenderManager::StaticClass(), 0, sp);
+				UMGManager = MZActorManager->SpawnActor(AMZUMGRenderManager::StaticClass());
+				
 				UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("MZUMGRenderManager")).ToString());
 				UMGManager->SetActorLabel(TEXT("MZUMGRenderManager"));
 
@@ -332,9 +319,6 @@ void FMZSceneTreeManager::StartupModule()
 				newRoot->RegisterComponent();
 				UMGManager->AddInstanceComponent(newRoot);
 
-				ActorsSpawnedByMediaZ.Add(UMGManager->GetActorGuid());
-				UMGManager->SetFlags(RF_Transient);
-				UMGManager->SetFolderPath(NAME_Reality_FolderName);
 			}
 
 			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
@@ -603,14 +587,30 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 
 void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues)
 {
+	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+	if (World != WorldContext->World())
+	{
+		return;
+	}
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
+	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+
 	RescanScene();
 	SendNodeUpdate(FMZClient::NodeId);
 }
 
 void FMZSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 {
-	RescanScene();
-	SendNodeUpdate(FMZClient::NodeId);
+	SceneTree.Clear();
+	RegisteredProperties = Pins;
+	PropertiesMap.Empty();
+	MZActorManager->ReAddActorsToSceneTree();
+	RescanScene(false);
+	SendNodeUpdate(FMZClient::NodeId, false);
+	//RescanScene();
+	//SendNodeUpdate(FMZClient::NodeId);
 }
 
 struct PropUpdate
@@ -635,9 +635,12 @@ void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<FGuid, FString>& spa
 			spawnedByMediaz.Add(*(FGuid*)node->id(), FString(entry->value()->c_str()));
 		}
 	}
-	for (auto child : *node->contents_as_Graph()->nodes())
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
 	{
-		GetNodesSpawnedByMediaz(child, spawnedByMediaz);
+		for (auto child : *node->contents_as_Graph()->nodes())
+		{
+			GetNodesSpawnedByMediaz(child, spawnedByMediaz);
+		}
 	}
 }
 
@@ -726,7 +729,7 @@ void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
 
 void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 {
-	ActorsSpawnedByMediaZ.Remove(InActor->GetActorGuid());
+	
 
 	//todo fix logs
 	//LOG("Actor destroyed");
@@ -811,55 +814,18 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
-	//for (auto [oldGuid, spawnTag] : spawnedByMediaz)
-	//{
-	//	if (!sceneActorMap.Contains(oldGuid))
-	//	{
-	//		///spawn
-	//		FString actorName(spawnTag);
-	//		AActor* spawnedActor = nullptr;
-	//		if (ActorPlacementParamMap.Contains(actorName))
-	//		{
-	//			auto placementInfo = ActorPlacementParamMap.FindRef(actorName);
-	//			UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
-	//			if (PlacementSubsystem)
-	//			{
-	//				TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(placementInfo, FPlacementOptions());
-	//				for (auto elem : PlacedElements)
-	//				{
-	//					const FActorElementData* ActorElement = elem.GetData<FActorElementData>(true);
-	//					if (ActorElement)
-	//					{
-	//						spawnedActor = ActorElement->Actor;
-	//					}
-	//				}
-	//			}
-	//		}
-	//		else if (SpawnableClasses.Contains(actorName))
-	//		{
-	//			if (GEngine)
-	//			{
-	//				if (UObject* ClassToSpawn = SpawnableClasses[actorName])
-	//				{
-	//					FActorSpawnParameters sp;
-	//					sp.bHideFromSceneOutliner = true;
-	//					UBlueprint* GeneratedBP = Cast<UBlueprint>(ClassToSpawn);
-	//					UClass* NativeClass = Cast<UClass>(ClassToSpawn);
-	//					UClass* Class = GeneratedBP ? (UClass*)(GeneratedBP->GeneratedClass) : (NativeClass);
-	//					spawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(Class, 0, sp);
-	//				}
-	//			}
-	//		}
-	//		else
-	//		{
-	//			LOG("Cannot spawn actor");
-	//		}
-	//		if (spawnedActor)
-	//		{
-	//			sceneActorMap.Add(oldGuid, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
-	//		}
-	//	}
-	//}
+	for (auto [oldGuid, spawnTag] : spawnedByMediaz)
+	{
+		if (!sceneActorMap.Contains(oldGuid))
+		{
+			///spawn
+			AActor* spawnedActor = MZActorManager->SpawnActor(spawnTag);
+			if (spawnedActor)
+			{
+				sceneActorMap.Add(oldGuid, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
+			}
+		}
+	}
 
 	for (auto update : updates)
 	{
@@ -1329,7 +1295,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	return false;
 }
 
-void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId)
+void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 {
 	if (!MZClient->IsConnected())
 	{
@@ -1338,6 +1304,22 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId)
 
 	if (nodeId == SceneTree.Root->Id)
 	{
+		if (!bResetRootPins)
+		{
+			flatbuffers::FlatBufferBuilder mb;
+			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
+			std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+			for (auto& [_, cfunc] : CustomFunctions)
+			{
+				graphFunctions.push_back(cfunc->Serialize(mb));
+
+			}
+
+			MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes)));
+
+			return;
+		}
+
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
 		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
@@ -1559,6 +1541,7 @@ void FMZSceneTreeManager::Reset()
 	Pins.Empty();
 	RegisteredProperties.Empty();
 	PropertiesMap.Empty();
+	MZActorManager->ReAddActorsToSceneTree();
 }
 
 void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObjects)
@@ -1644,16 +1627,212 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 {
 	//todo fix logss
-	//LOG("PLAY SESSION IS STARTED");
-	RescanScene();
-	SendNodeUpdate(FMZClient::NodeId);
+	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
+	UE_LOG(LogTemp, Warning, TEXT("Play session is started with editor world contexts world %s"), *WorldName);
+	WorldName = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->GetMapName();
+	UE_LOG(LogTemp,Warning, TEXT("Play session is started with viewports world %s"), *WorldName);
+
+	FMZSceneTreeManager::daWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	//update pins container referencess
+	for (auto [_, pin] : Pins)
+	{
+		if (pin->ActorContainer)
+		{
+			pin->ActorContainer.UpdateActualActorPointer();
+		}
+		else if (pin->ComponentContainer)
+		{
+			pin->ComponentContainer.Actor.UpdateActualActorPointer();
+			pin->ComponentContainer.UpdateActualComponentPointer();
+		}
+	}
+
+	SceneTree.Clear();
+	RegisteredProperties = Pins;
+	PropertiesMap.Empty();
+	MZActorManager->ReAddActorsToSceneTree();
+	RescanScene(false);
+	SendNodeUpdate(FMZClient::NodeId, false);
 }
 
 void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 {
-	Reset();
-	RescanScene();
-	SendNodeUpdate(FMZClient::NodeId);
+	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
+	UE_LOG(LogTemp, Warning, TEXT("Play session is ended with editor world contexts world %s"), *WorldName);
+
+	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+	//update pins container referencess
+	TSet<FGuid> IdsToDelete;
+	for (auto [id, pin] : Pins)
+	{
+		if (pin->ActorContainer)
+		{
+			if (!pin->ActorContainer.UpdateActualActorPointer())
+			{
+				IdsToDelete.Add(id);
+			}
+		}
+		else if (pin->ComponentContainer)
+		{
+			pin->ComponentContainer.Actor.UpdateActualActorPointer();
+			if (!pin->ComponentContainer.UpdateActualComponentPointer())
+			{
+				IdsToDelete.Add(id);
+			}
+		}
+	}
+	for (auto Id : IdsToDelete)
+	{
+		Pins.Remove(Id);
+	}
+
+	if (!IdsToDelete.IsEmpty())
+	{
+		flatbuffers::FlatBufferBuilder mb;
+		std::vector<mz::fb::UUID> pinsToDelete;
+		for (auto Id : IdsToDelete)
+		{
+			pinsToDelete.push_back(*(mz::fb::UUID*)&Id);
+		}
+		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
+	}
+
+	SceneTree.Clear();
+	RegisteredProperties.Empty();
+	RegisteredProperties = Pins;
+	PropertiesMap.Empty();
+	MZActorManager->ReAddActorsToSceneTree();
+	RescanScene(false);
+	SendNodeUpdate(FMZClient::NodeId, false);
+
+	//Reset();
+	//RescanScene();
+	//SendNodeUpdate(FMZClient::NodeId);
 		
 }
 
+AActor* FMZActorManager::SpawnActor(FString SpawnTag)
+{
+	if (!MZAssetManager)
+	{
+		return nullptr;
+	}
+
+	AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag);
+	if (!SpawnedActor)
+	{
+		return nullptr;
+	}
+	
+
+	ActorIds.Add(SpawnedActor->GetActorGuid());
+	Actors.Add({ MZActorReference(SpawnedActor),SpawnTag });
+	TSharedPtr<TreeNode> mostRecentParent;
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
+	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
+		
+	if (!MZClient->IsConnected())
+	{
+		return SpawnedActor;
+	}
+
+	flatbuffers::FlatBufferBuilder mb;
+	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+
+	return SpawnedActor;
+}
+
+AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
+{
+	if (!MZAssetManager)
+	{
+		return nullptr;
+	}
+
+	FActorSpawnParameters sp;
+	sp.bHideFromSceneOutliner = true;
+	AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(ClassToSpawn, 0, sp);
+	if (!SpawnedActor)
+	{
+		return nullptr;
+	}
+
+
+	ActorIds.Add(SpawnedActor->GetActorGuid());
+	Actors.Add({MZActorReference(SpawnedActor), ClassToSpawn->GetClassPathName().ToString()});
+	TSharedPtr<TreeNode> mostRecentParent;
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
+
+	if (!MZClient->IsConnected())
+	{
+		return SpawnedActor;
+	}
+
+	flatbuffers::FlatBufferBuilder mb;
+	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+
+	return SpawnedActor;
+}
+
+void FMZActorManager::ReAddActorsToSceneTree()
+{
+	for (auto& [Actor, spawnTag] : Actors)
+	{
+		if (Actor.UpdateActualActorPointer())
+		{
+			AActor* actor = Actor.Get();
+			if (!actor)
+			{
+				continue;
+			}
+
+			auto ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), actor);
+			ActorNode->mzMetaData.Add("spawnTag", spawnTag);
+		}
+		else
+		{
+			Actor = MZActorReference();
+			spawnTag = "-";
+		}
+	}
+	Actors = Actors.FilterByPredicate([](const TPair<MZActorReference, FString>& Actor)
+		{
+			return Actor.Key;
+		});
+}
+
+void FMZActorManager::RegisterDelegates()
+{
+	FEditorDelegates::PreSaveWorld.AddRaw(this, &FMZActorManager::PreSave);
+	FEditorDelegates::PostSaveWorld.AddRaw(this, &FMZActorManager::PostSave);
+}
+
+void FMZActorManager::PreSave(uint32 SaveFlags, UWorld* World)
+{
+	for (auto [Actor, spawnTag] : Actors)
+	{
+		AActor* actor = Actor.Get();
+		if (!actor)
+		{
+			continue;
+		}
+
+		actor->SetFlags(actor->GetFlags() | RF_Transient);
+	}
+}
+
+void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
+{
+	for (auto [Actor, spawnTag] : Actors)
+	{
+		AActor* actor = Actor.Get();
+		if (!actor)
+		{
+			continue;
+		}
+
+		actor->SetFlags(actor->GetFlags() & ~RF_Transient);
+	}
+}

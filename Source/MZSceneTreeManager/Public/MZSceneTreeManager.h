@@ -11,6 +11,32 @@
 #include "MZSceneTree.h"
 #include "MZClient.h"
 
+class FMZActorManager
+{
+public:
+	FMZActorManager(MZSceneTree& SceneTree) : SceneTree(SceneTree)
+	{
+		MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
+		MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+		RegisterDelegates();
+	};
+	
+	AActor* SpawnActor(FString SpawnTag);
+	AActor* SpawnActor(UClass* ClassToSpawn);
+	
+	void ReAddActorsToSceneTree();
+
+	void RegisterDelegates();
+	void PreSave(uint32 SaveFlags, UWorld* World);
+	void PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess);
+
+	MZSceneTree& SceneTree;
+	class FMZAssetManager* MZAssetManager;
+	class FMZClient* MZClient;
+
+	TSet<FGuid> ActorIds;
+	TArray< TPair<MZActorReference,FString> > Actors;
+}; 
 
 
 class FMZSceneTreeManager : public IModuleInterface {
@@ -87,7 +113,7 @@ public:
 	bool PopulateNode(FGuid id);
 
 	//Sends node updates to the MediaZ
-	void SendNodeUpdate(FGuid NodeId);
+	void SendNodeUpdate(FGuid NodeId, bool bResetRootPins = true);
 
 	//Sends pin value changed event to MediaZ
 	void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
@@ -121,6 +147,12 @@ public:
 
 	void Reset();
 
+	void OnMapChange(uint32 MapFlags);
+	void OnNewCurrentLevel();
+
+	//the world we interested in
+	static UWorld* daWorld;
+
 	//all the properties registered 
 	TMap<FGuid, TSharedPtr<MZProperty>> RegisteredProperties;
 
@@ -142,11 +174,11 @@ public:
 	//Scene tree holds the information to mimic the outliner in mediaz
 	class MZSceneTree SceneTree;
 	
-	//unreal engine actors spawned by a custom function call from mediaz
-	TSet<FGuid> ActorsSpawnedByMediaZ;
-	
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;
 
 	class FMZAssetManager* MZAssetManager;
+
+	FMZActorManager* MZActorManager;
+
 };
