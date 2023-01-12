@@ -5,7 +5,7 @@
 #include "MZUMGRenderManager.generated.h"
 
 UCLASS()
-class MZCLIENT_API AMZUMGRenderManager : public AActor
+class MZSCENETREEMANAGER_API AMZUMGRenderManager : public AActor
 {
 	GENERATED_BODY()
 };

@@ -77,7 +77,8 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 
 	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = ptr;
-	newChild->Name = actor->GetActorLabel();
+	//todo fix display names newChild->Name = actor->GetActorLabel();
+	newChild->Name = actor->GetFName().ToString();
 	newChild->Id = actor->GetActorGuid();
 	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;

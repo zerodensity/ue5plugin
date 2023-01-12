@@ -16,7 +16,7 @@
 
 
 UCLASS()
-class UMZCustomTimeStep : public UEngineCustomTimeStep
+class MZCLIENT_API UMZCustomTimeStep : public UEngineCustomTimeStep
 {
 	GENERATED_BODY()
 public:
@@ -71,7 +71,7 @@ public:
 		}
 	}
 
-	FMZClient* PluginClient = nullptr;
+	class FMZClient* PluginClient = nullptr;
 
 
 private:

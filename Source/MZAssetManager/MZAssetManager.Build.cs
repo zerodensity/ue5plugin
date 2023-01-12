@@ -8,24 +8,10 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZClient : ModuleRules
+public class MZAssetManager : ModuleRules
 {
-	private string CopyToBinaries(string Filepath)
-	{
-		string BinaryDir = Path.Combine(PluginDirectory, "Binaries", Target.Platform.ToString());
 
-		string path = Path.Combine(BinaryDir, Path.GetFileName(Filepath));
-
-		if (!Directory.Exists(BinaryDir))
-		{
-			Directory.CreateDirectory(BinaryDir);
-		}
-
-		File.Copy(Filepath, path, true);
-		return path;
-	}
-
-	public MZClient(ReadOnlyTargetRules Target) : base(Target)
+	public MZAssetManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
 		{
@@ -44,10 +30,9 @@ public class MZClient : ModuleRules
 
 				var SDKIncludeDir = Path.Combine(SDKdir, "include");
 
-
 				PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 				PublicIncludePaths.Add(SDKIncludeDir);
-
+				
 
 				PublicDependencyModuleNames.AddRange(
 					new string[]
@@ -55,10 +40,12 @@ public class MZClient : ModuleRules
 					"Core",
 					"CoreUObject",
 					"Engine",
-					"Projects",
-					"Slate",
-					"SlateCore",
+					"AssetRegistry",
+					"EditorFramework",
+                    "TypedElementFramework",
+					"UMG",
 					"UnrealEd",
+					"MZClient",
 					}
 					);
 
@@ -69,12 +56,12 @@ public class MZClient : ModuleRules
 					"Core",
 					"CoreUObject",
 					"Engine",
-					"Projects",
-					"Slate",
-					"SlateCore",
-					"EditorStyle",
-					"ToolMenus",
+					"AssetRegistry",
+					"EditorFramework",
+                    "TypedElementFramework",
+					"UMG",
 					"UnrealEd",
+					"MZClient",
 					}
 					);
 			}

@@ -10,7 +10,7 @@ struct ActorNode;
 struct FolderNode;
 struct SceneComponentNode;
 
-struct TreeNode {
+struct MZSCENETREEMANAGER_API  TreeNode {
 
 	virtual ActorNode* GetAsActorNode() { return nullptr; };
 	virtual FolderNode* GetAsFolderNode() { return nullptr; };
@@ -29,7 +29,7 @@ struct TreeNode {
 	virtual ~TreeNode();
 };
 
-struct ActorNode : TreeNode
+struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 {
 	MZActorReference actor;
 	std::vector<TSharedPtr<MZProperty>> Properties;
@@ -43,7 +43,7 @@ struct ActorNode : TreeNode
 	virtual ~ActorNode();
 };
 
-struct SceneComponentNode : TreeNode
+struct MZSCENETREEMANAGER_API  SceneComponentNode : TreeNode
 {
 	MZComponentReference sceneComponent;
 	std::vector<TSharedPtr<MZProperty>> Properties;
@@ -55,7 +55,7 @@ struct SceneComponentNode : TreeNode
 	virtual ~SceneComponentNode();
 };
 
-struct FolderNode : TreeNode
+struct MZSCENETREEMANAGER_API  FolderNode : TreeNode
 {
 	virtual FString GetClassDisplayName() override { return FString("Folder"); };
 	virtual FolderNode* GetAsFolderNode() override { return this; };
@@ -63,7 +63,7 @@ struct FolderNode : TreeNode
 	virtual ~FolderNode();
 };
 
-class MZSceneTree {
+class MZSCENETREEMANAGER_API MZSceneTree {
 
 public:
 	MZSceneTree();

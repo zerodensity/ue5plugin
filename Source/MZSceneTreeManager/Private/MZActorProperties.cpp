@@ -4,8 +4,10 @@
 #include "ObjectEditorUtils.h"
 #include "Reality/Public/RealityTrack.h"
 #include "EngineUtils.h"
+#include "MZSceneTreeManager.h"
 
-#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMediaZ, Error, TEXT("Property size mismatch with mediaZ (uint64)"));return;}}
+//todo fix logs
+#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogTemp, Error, TEXT("Property size mismatch with mediaZ (uint64)"));return;}}
 
 bool PropertyVisibleExp(FProperty* ueproperty)
 {
@@ -798,12 +800,21 @@ bool MZActorReference::UpdateActualActorPointer()
 		return false;
 	}
 
-	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	UWorld* theWorld = nullptr;
+	if (FMZSceneTreeManager::daWorld)
+	{
+		theWorld = FMZSceneTreeManager::daWorld;
+	}
+	else
+	{
+
+		theWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	}
 
 	TMap<FGuid, AActor*> sceneActorMap;
-	if (World)
+	if (theWorld)
 	{
-		for (TActorIterator<AActor> ActorItr(World); ActorItr; ++ActorItr)
+		for (TActorIterator<AActor> ActorItr(theWorld); ActorItr; ++ActorItr)
 		{
 			if (ActorItr->GetActorGuid() == ActorGuid)
 			{
@@ -853,7 +864,7 @@ AActor* MZComponentReference::GetOwnerActor()
 
 bool MZComponentReference::UpdateActualComponentPointer()
 {
-	if (!Actor.Get() || PathToComponent.IsEmpty())
+	if (!Actor.Get() || Actor.InvalidReference || PathToComponent.IsEmpty())
 	{
 		InvalidReference = true;
 		return false;

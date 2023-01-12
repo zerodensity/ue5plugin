@@ -7,7 +7,7 @@
 
 class MZStructProperty;
 
-class MZActorReference
+class MZSCENETREEMANAGER_API MZActorReference
 {
 public:
 	MZActorReference(TObjectPtr<AActor> actor);
@@ -24,18 +24,18 @@ public:
 		return Get();
 	}
 
-private:
 	bool UpdateActualActorPointer();
+	bool InvalidReference = false;
+private:
 	
 	UPROPERTY()
 	TWeakObjectPtr<AActor> Actor;
 	
 	FGuid ActorGuid;
-	bool InvalidReference = false;
 	
 };
 
-class MZComponentReference
+class MZSCENETREEMANAGER_API MZComponentReference
 {
 
 public:
@@ -54,21 +54,21 @@ public:
 		return Get();
 	}
 
-private:
 	bool UpdateActualComponentPointer();
+	MZActorReference Actor;
+	bool InvalidReference = false;
 
+private:
 	UPROPERTY()
 	TWeakObjectPtr<UActorComponent> Component;
 	
-	MZActorReference Actor;
 
 	FName ComponentProperty;
 	FString PathToComponent;
 
-	bool InvalidReference = false;
 };
 
-class MZProperty : public TSharedFromThis<MZProperty>
+class MZSCENETREEMANAGER_API MZProperty : public TSharedFromThis<MZProperty>
 {
 public:
 	MZProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
@@ -452,7 +452,7 @@ protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };
 
-class MZPropertyFactory
+class  MZSCENETREEMANAGER_API  MZPropertyFactory
 {
 public:
 	static TSharedPtr<MZProperty> CreateProperty(UObject* Container, 
