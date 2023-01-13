@@ -615,6 +615,9 @@ void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::Initializ
 
 void FMZSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 {
+	//TODO check if we actually need this function
+	return;
+#if 0
 	SceneTree.Clear();
 	RegisteredProperties = Pins;
 	PropertiesMap.Empty();
@@ -623,6 +626,7 @@ void FMZSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 	SendNodeUpdate(FMZClient::NodeId, false);
 	//RescanScene();
 	//SendNodeUpdate(FMZClient::NodeId);
+#endif
 }
 
 struct PropUpdate
@@ -973,14 +977,18 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 		Reset();
 	}
 
-	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	//TODO decide which is better
+	//UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+
+	UWorld* World = FMZSceneTreeManager::daWorld;
 
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
 
 	TArray<AActor*> ActorsInScene;
-	if (World)
+	if (IsValid(World))
 	{
+		
 		for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
 		{
 			if (!IsActorDisplayable(*ActorItr) || ActorItr->GetParentActor())
