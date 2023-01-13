@@ -138,7 +138,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), floatprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(4, 0);
-		TypeName = "f32";
+		TypeName = "float";
 	}
 	FFloatProperty* floatprop;
 
@@ -154,7 +154,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), doubleprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(8, 0);
-		TypeName = "f64";
+		TypeName = "double";
 	}
 	FDoubleProperty* doubleprop;
 
@@ -169,7 +169,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), int8prop(uproperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
-		TypeName = "i8";
+		TypeName = "byte";
 	}
 
 	FInt8Property* int8prop;
@@ -185,7 +185,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), int16prop(uproperty) 
 	{
 		data = std::vector<uint8_t>(2, 0);
-		TypeName = "i16";
+		TypeName = "short";
 	}
 
 	FInt16Property* int16prop;
@@ -201,7 +201,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), intprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(4, 0);
-		TypeName = "i32";
+		TypeName = "int";
 	}
 
 	FIntProperty* intprop;
@@ -217,7 +217,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), int64prop(uproperty) 
 	{
 		data = std::vector<uint8_t>(8, 0);
-		TypeName = "i64";
+		TypeName = "long";
 	}
 
 	FInt64Property* int64prop;
@@ -233,7 +233,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), byteprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
-		TypeName = "u8";
+		TypeName = "ubyte";
 	}
 
 	FByteProperty* byteprop;
@@ -249,7 +249,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), uint16prop(uproperty) 
 	{
 		data = std::vector<uint8_t>(2, 0);
-		TypeName = "u16";
+		TypeName = "ushort";
 	}
 
 	FUInt16Property* uint16prop;
@@ -265,7 +265,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), uint32prop(uproperty) 
 	{
 		data = std::vector<uint8_t>(4, 0);
-		TypeName = "u32";
+		TypeName = "uint";
 	}
 
 	FUInt32Property* uint32prop;
@@ -281,7 +281,7 @@ public:
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), uint64prop(uproperty) 
 	{
 		data = std::vector<uint8_t>(8, 0);
-		TypeName = "u64";
+		TypeName = "ulong";
 	}
 
 	FUInt64Property* uint64prop;
