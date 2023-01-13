@@ -1683,6 +1683,7 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
 	//update pins container referencess
 	TSet<FGuid> IdsToDelete;
+	auto TextureShareManager = MZTextureShareManager::GetInstance();
 	for (auto [id, pin] : Pins)
 	{
 		if (pin->ActorContainer)
@@ -1690,6 +1691,7 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 			if (!pin->ActorContainer.UpdateActualActorPointer())
 			{
 				IdsToDelete.Add(id);
+				TextureShareManager->TextureDestroyed(pin.Get());
 			}
 		}
 		else if (pin->ComponentContainer)
@@ -1698,6 +1700,7 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 			if (!pin->ComponentContainer.UpdateActualComponentPointer())
 			{
 				IdsToDelete.Add(id);
+				TextureShareManager->TextureDestroyed(pin.Get());
 			}
 		}
 	}
@@ -1717,15 +1720,16 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
 	}
 
+	//MZTextureShareManager::GetInstance()->Reset();
 	SceneTree.Clear();
 	RegisteredProperties.Empty();
 	RegisteredProperties = Pins;
 	PropertiesMap.Empty();
 	MZActorManager->ReAddActorsToSceneTree();
 	RescanScene(false);
-	SendNodeUpdate(FMZClient::NodeId, false);
+	SendNodeUpdate(FMZClient::NodeId, /*update pins*/ false);
 
-	//Reset();
+	//If you also want to reset pins
 	//RescanScene();
 	//SendNodeUpdate(FMZClient::NodeId);
 		
