@@ -14,7 +14,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
-
+#include "HardwareInfo.h"
 
 static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 
@@ -82,6 +82,18 @@ void FMZSceneTreeManager::OnNewCurrentLevel()
 
 void FMZSceneTreeManager::StartupModule()
 {
+	if (!FApp::HasProjectName())
+	{
+		return;
+	}
+
+	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
+	if ("D3D12" != hwinfo)
+	{
+		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
+		return;
+	}
+
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
 
