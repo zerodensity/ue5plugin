@@ -1860,3 +1860,28 @@ void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
 		actor->SetFlags(actor->GetFlags() & ~RF_Transient);
 	}
 }
+
+TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
+{
+	TSharedPtr<MZProperty> MzProperty = MZPropertyFactory::CreateProperty(container, uproperty, 0, 0, parentCategory);
+	
+	if (!MzProperty)
+	{
+		return;
+	}
+
+	for (auto Child : MzProperty->childProperties)
+	{
+		Child->Property->
+	}
+
+	return TSharedPtr<MZProperty>();
+}
+
+void FMZPropertyManager::SetPropertyValue()
+{
+}
+
+void FMZPropertyManager::ActorDeleted(FGuid DeletedActorId)
+{
+}

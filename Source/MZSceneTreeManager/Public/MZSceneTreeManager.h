@@ -11,6 +11,29 @@
 #include "MZSceneTree.h"
 #include "MZClient.h"
 
+
+
+//This class holds the list of all properties and pins 
+class FMZPropertyManager
+{
+	FMZPropertyManager();
+
+	TSharedPtr<MZProperty> CreateProperty(UObject* container,
+		FProperty* uproperty,
+		FString parentCategory);
+
+	void SetPropertyValue();
+
+	void ActorDeleted(FGuid DeletedActorId);
+
+
+	TMap<FGuid, FGuid> PropertyToPortalPin;
+	TMap<FGuid, TSharedPtr<MZProperty>> PortalPinsById;
+	TMap<FGuid, TSharedPtr<MZProperty>> PropertiesById;
+	TMap<FString, TSharedPtr<MZProperty>> PropertiesByPath;
+	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid 
+};
+
 class FMZActorManager
 {
 public:
