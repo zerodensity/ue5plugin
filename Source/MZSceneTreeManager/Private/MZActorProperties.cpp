@@ -812,7 +812,7 @@ bool MZActorReference::UpdateActualActorPointer()
 	}
 
 	TMap<FGuid, AActor*> sceneActorMap;
-	if (theWorld)
+	if (IsValid(theWorld))
 	{
 		for (TActorIterator<AActor> ActorItr(theWorld); ActorItr; ++ActorItr)
 		{
