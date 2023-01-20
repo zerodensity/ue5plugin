@@ -45,7 +45,7 @@ public:
 	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
 	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid
 
-
+	void Reset();
 	 
 };
 
@@ -121,7 +121,10 @@ public:
 
 	//END OF MediaZ DELEGATES
 	 
-	
+	void PopulateAllChilds(AActor* actor);
+
+	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
+
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
 
@@ -173,6 +176,8 @@ public:
 
 	//Called when pie is ending
 	void HandleEndPIE(bool bIsSimulating);
+
+	void HandleWorldChange();
 
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(TSharedPtr<TreeNode> Node,

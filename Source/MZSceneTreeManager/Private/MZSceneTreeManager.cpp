@@ -1697,6 +1697,113 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 	}
 }
 
+void FMZSceneTreeManager::PopulateAllChilds(AActor* actor)
+{
+	FGuid ActorId = actor->GetActorGuid();
+	PopulateNode(ActorId);
+	SendNodeUpdate(ActorId);
+
+	if(SceneTree.NodeMap.Contains(ActorId))
+	{
+		auto ActorNode = SceneTree.NodeMap.FindRef(ActorId);
+		
+		for (auto ChildNode : ActorNode->Children)
+		{
+			if (ChildNode->GetAsActorNode())
+			{
+				PopulateAllChilds(ChildNode->GetAsActorNode()->actor.Get());
+			}
+			else if (ChildNode->GetAsSceneComponentNode())
+			{
+				PopulateAllChildsOfSceneComponentNode(ChildNode->GetAsSceneComponentNode());
+			}
+		}
+
+	}
+}
+
+void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode)
+{
+	if (!SceneComponentNode)
+	{
+		return;
+	}
+
+	PopulateNode(SceneComponentNode->Id);
+	SendNodeUpdate(SceneComponentNode->Id);
+
+	for (auto ChildNode : SceneComponentNode->Children)
+	{
+		if (ChildNode->GetAsActorNode())
+		{
+			PopulateAllChilds(ChildNode->GetAsActorNode()->actor.Get());
+		}
+		else if (ChildNode->GetAsSceneComponentNode())
+		{
+			PopulateAllChildsOfSceneComponentNode(ChildNode->GetAsSceneComponentNode());
+		}
+	}
+}
+
+
+
+void FMZSceneTreeManager::HandleWorldChange()
+{
+	SceneTree.Clear();
+	MZTextureShareManager::GetInstance()->Reset();
+
+	TMap<FProperty*, MZPortal> Portals;
+	TSet<AActor*> ActorsToRescan;
+
+	flatbuffers::FlatBufferBuilder mb;
+	std::vector<mz::fb::UUID> graphPins;// = { *(mz::fb::UUID*)&node->Id };
+
+	for (auto [id, portal] : MZPropertyManager.PortalPinsById)
+	{
+		auto MzProperty = MZPropertyManager.PropertiesById.FindRef(portal.SourceId);
+		Portals.Add(MzProperty->Property, portal);
+
+		if (MzProperty->ActorContainer)
+		{
+			ActorsToRescan.Add(MzProperty->ActorContainer.Get());
+		}
+		else if (MzProperty->ComponentContainer)
+		{
+			if (MzProperty->ComponentContainer.Actor)
+			{
+				ActorsToRescan.Add(MzProperty->ComponentContainer.Actor.Get());
+			}
+		}
+
+		graphPins.push_back(*(mz::fb::UUID*)&portal.Id);
+	}
+
+	if (!MZClient->IsConnected())
+	{
+		return;
+	}
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &graphPins)));
+
+
+	MZPropertyManager.Reset();
+	MZActorManager->ReAddActorsToSceneTree();
+	RescanScene(false);
+	SendNodeUpdate(FMZClient::NodeId);
+
+
+	for (auto actor : ActorsToRescan)
+	{
+		PopulateAllChilds(actor);
+	}
+
+
+	for (auto [property, portal] : Portals)
+	{
+		MZPropertyManager.CreatePortal(property, portal.ShowAs);
+	}
+	
+}
+
 void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 {
 	//todo fix logss
@@ -1720,12 +1827,9 @@ void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 		}
 	}*/
 
-	SceneTree.Clear();
-	MZPropertyManager.PropertiesById = Pins;
-	PropertiesMap.Empty();
-	MZActorManager->ReAddActorsToSceneTree();
-	RescanScene(false);
-	SendNodeUpdate(FMZClient::NodeId, false);
+	HandleWorldChange();
+
+
 }
 
 void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
@@ -2013,4 +2117,13 @@ void FMZPropertyManager::ActorDeleted(FGuid DeletedActorId)
 flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal)
 {
 	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
+}
+
+void FMZPropertyManager::Reset()
+{
+	PropertyToPortalPin.Empty();
+	PortalPinsById.Empty();
+	PropertiesById.Empty();
+	PropertiesByPointer.Empty();
+	ActorsPropertyIds.Empty();
 }
