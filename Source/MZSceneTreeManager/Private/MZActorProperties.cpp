@@ -22,6 +22,7 @@ bool PropertyVisibleExp(FProperty* ueproperty)
 MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentCategory, uint8* structPtr, MZStructProperty* parentProperty)
 {
 	Property = uproperty;
+
 	
 	if (Property->HasAnyPropertyFlags(CPF_OutParm))
 	{

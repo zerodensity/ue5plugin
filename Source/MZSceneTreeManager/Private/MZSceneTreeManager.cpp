@@ -97,6 +97,8 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
 
+	MZPropertyManager.MZClient = MZClient;
+
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZSceneTreeManager::Tick));
 	MZActorManager = new FMZActorManager(SceneTree);
 	//Bind to MediaZ events
@@ -162,71 +164,105 @@ void FMZSceneTreeManager::StartupModule()
 		{
 			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
 		};
-		mzcf->Function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
+		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 		{
 
-			AActor* realityCamera = mzclient->MZActorManager->SpawnActor("CustomRealityCamera");
-			if (!realityCamera)
+			AActor* realityCamera = MZActorManager->SpawnActor("CustomRealityCamera");
+			if (!realityCamera || !SceneTree.NodeMap.Contains(realityCamera->GetActorGuid()))
 			{
 				return;
 			}
 
-			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
-			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
-			{
-				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
-				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-				if (mzprop)
-				{
-					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-					pinsToSpawn.push_back(mzprop);
-				}
-			}
-			{
-				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
-				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-				if (mzprop)
-				{
-					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-					pinsToSpawn.push_back(mzprop);
-				}
-			}
-			{
-				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
-				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-				if (mzprop)
-				{
-					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-					pinsToSpawn.push_back(mzprop);
-				}
-			}
-			{
-				auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
-				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(mzclient->RegisteredProperties));
-				if (mzprop)
-				{
-					mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-					pinsToSpawn.push_back(mzprop);
-				}
-			}
-			{
-				auto track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
-				auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, track, &(mzclient->RegisteredProperties));
-				if (mzprop)
-				{
-					mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-					pinsToSpawn.push_back(mzprop);
-				}
-			}
+			auto cameraNode = SceneTree.NodeMap.FindRef(realityCamera->GetActorGuid());
 
-			for (auto const& mzprop : pinsToSpawn)
+			PopulateNode(cameraNode->Id);
+			SendNodeUpdate(cameraNode->Id);
+			for (auto ChildNode : cameraNode->Children)
 			{
-				mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
-				//mzclient->RegisteredProperties.Add(mzprop->Id, mzprop);
-				mzprop->transient = false;
-				mzclient->Pins.Add(mzprop->Id, mzprop);
-				mzclient->SendPinAdded(FMZClient::NodeId, mzprop);
+				PopulateNode(ChildNode->Id);
+				SendNodeUpdate(ChildNode->Id);
 			}
+			//SendNodeUpdate(cameraNode->Id);
+
+			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
+			auto FrameTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+			auto MaskTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
+			auto LightingTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
+			auto BloomTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
+			auto Track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
+
+			MZPropertyManager.CreatePortal(FrameTexture, mz::fb::ShowAs::OUTPUT_PIN);
+			MZPropertyManager.CreatePortal(MaskTexture, mz::fb::ShowAs::OUTPUT_PIN);
+			MZPropertyManager.CreatePortal(LightingTexture, mz::fb::ShowAs::OUTPUT_PIN);
+			MZPropertyManager.CreatePortal(BloomTexture, mz::fb::ShowAs::OUTPUT_PIN);
+			MZPropertyManager.CreatePortal(Track, mz::fb::ShowAs::INPUT_PIN);
+			
+			
+			//
+			///*
+			//if (MZPropertyManager.PropertiesByPointer.Contains(FrameTexture))
+			//{
+			//	MZPropertyManager.CreatePortal()
+			//}*/
+
+			////MZPropertyManager.CreatePortal(,);
+
+			//std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
+			//{
+			//	auto mzprop = MZPropertyManager.CreateProperty(videoCamera, texture);
+			//	//auto mzprop = MZPropertyFactory::CreateProperty(videoCamera, texture, &(RegisteredProperties));
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+			//{
+			//	auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
+			//	auto mzprop = MZPropertyManager.CreateProperty(videoCamera, texture);
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+			//{
+			//	auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
+			//	auto mzprop = MZPropertyManager.CreateProperty(videoCamera, texture);
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+			//{
+			//	auto texture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
+			//	auto mzprop = MZPropertyManager.CreateProperty(videoCamera, texture);
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+			//{
+			//	auto track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
+			//	auto mzprop = MZPropertyManager.CreateProperty(videoCamera, track);
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+
+			//for (auto const& mzprop : pinsToSpawn)
+			//{
+			//	mzprop->DisplayName = realityCamera->GetActorLabel() + " | " + mzprop->DisplayName;
+			//	//mzclient->RegisteredProperties.Add(mzprop->Id, mzprop);
+			//	mzprop->transient = false;
+			//	////spawn portal logicc
+			//	//Pins.Add(mzprop->Id, mzprop);
+			//	//SendPinAdded(FMZClient::NodeId, mzprop);
+			//}
 
 
 		};
@@ -246,36 +282,50 @@ void FMZSceneTreeManager::StartupModule()
 		{
 			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
 		};
-		mzcf->Function = [mzclient = this](TMap<FGuid, std::vector<uint8>> properties)
+		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 		{
 
-			AActor* projectionCube = mzclient->MZActorManager->SpawnActor("CustomProjectionCube");
-			if (!projectionCube)
+			AActor* projectionCube = MZActorManager->SpawnActor("CustomProjectionCube");
+			if (!projectionCube || !SceneTree.NodeMap.Contains(projectionCube->GetActorGuid()))
 			{
 				return;
 			}
-			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
-			{
-				auto texture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-				RenderTarget2D->InitAutoFormat(1920, 1080);
-				texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+			auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
 
-				auto mzprop = MZPropertyFactory::CreateProperty(projectionCube, texture, &(mzclient->RegisteredProperties));
-				if (mzprop)
-				{
-					mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-					pinsToSpawn.push_back(mzprop);
-				}
-			}
-			for (auto const& mzprop : pinsToSpawn)
+			PopulateNode(projectionNode->Id);
+			SendNodeUpdate(projectionNode->Id);
+			for (auto ChildNode : projectionNode->Children)
 			{
-				mzprop->DisplayName = projectionCube->GetActorLabel() + " | " + mzprop->DisplayName;
-				//mzclient->RegisteredProperties.Add(mzprop->Id, mzprop);
-				mzprop->transient = false;
-				mzclient->Pins.Add(mzprop->Id, mzprop);
-				mzclient->SendPinAdded(FMZClient::NodeId, mzprop);
+				PopulateNode(ChildNode->Id);
+				SendNodeUpdate(ChildNode->Id);
 			}
+
+			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
+			MZPropertyManager.CreatePortal(InputTexture, mz::fb::ShowAs::INPUT_PIN);
+
+			//std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
+			//{
+			//	auto texture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
+			//	auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+			//	RenderTarget2D->InitAutoFormat(1920, 1080);
+			//	texture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+
+			//	auto mzprop = MZPropertyManager.CreateProperty(projectionCube, texture);
+			//	if (mzprop)
+			//	{
+			//		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+			//		pinsToSpawn.push_back(mzprop);
+			//	}
+			//}
+			//for (auto const& mzprop : pinsToSpawn)
+			//{
+			//	mzprop->DisplayName = projectionCube->GetActorLabel() + " | " + mzprop->DisplayName;
+			//	//mzclient->RegisteredProperties.Add(mzprop->Id, mzprop);
+			//	mzprop->transient = false;
+			//	//insert create portal pin logic
+			//	//Pins.Add(mzprop->Id, mzprop);
+			//	//SendPinAdded(FMZClient::NodeId, mzprop);
+			//}
 
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -346,25 +396,52 @@ void FMZSceneTreeManager::StartupModule()
 					NewRendererComp->CreationMethod = EComponentCreationMethod::Instance;
 					NewRendererComp->RegisterComponent();
 					UMGManager->AddInstanceComponent(NewRendererComp);
+					
+					if (!SceneTree.NodeMap.Contains(UMGManager->GetActorGuid()))
 					{
-						auto texture = FindFProperty<FProperty>(NewRendererComp->GetClass(), "UMGRenderTarget");
-						auto mzprop = MZPropertyFactory::CreateProperty(NewRendererComp, texture, &(RegisteredProperties));
-						mzprop->DisplayName = newWidget->GetFName().ToString() + " | " + mzprop->DisplayName;
-
-						if (mzprop)
-						{
-							mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
-							pinsToSpawn.push_back(mzprop);
-						}
+						return;
 					}
+					auto umgManagerNode = SceneTree.NodeMap.FindRef(UMGManager->GetActorGuid());
+
+
+					PopulateNode(umgManagerNode->Id);
+					SendNodeUpdate(umgManagerNode->Id);
+					for (auto ChildNode : umgManagerNode->Children)
+					{
+						for (auto UMGS : ChildNode->Children)
+						{
+							PopulateNode(UMGS->Id);
+							SendNodeUpdate(UMGS->Id);
+						}
+						PopulateNode(ChildNode->Id);
+						SendNodeUpdate(ChildNode->Id);
+					}
+
+					auto OutputTexture = FindFProperty<FObjectProperty>(NewRendererComp->GetClass(), "UMGRenderTarget");
+					MZPropertyManager.CreatePortal(OutputTexture, mz::fb::ShowAs::OUTPUT_PIN);
+
+					
+					//{
+					//	auto texture = FindFProperty<FProperty>(NewRendererComp->GetClass(), "UMGRenderTarget");
+					//	auto mzprop = MZPropertyManager.CreateProperty(NewRendererComp, texture);
+					//	mzprop->DisplayName = newWidget->GetFName().ToString() + " | " + mzprop->DisplayName;
+
+					//	if (mzprop)
+					//	{
+					//		mzprop->PinShowAs = mz::fb::ShowAs::OUTPUT_PIN;
+					//		pinsToSpawn.push_back(mzprop);
+					//	}
+					//}
 				}
 			}
-			for (auto const& mzprop : pinsToSpawn)
-			{
-				mzprop->transient = false;
-				Pins.Add(mzprop->Id, mzprop);
-				SendPinAdded(FMZClient::NodeId, mzprop);
-			}
+			//for (auto const& mzprop : pinsToSpawn)
+			//{
+			//	mzprop->transient = false;
+			//	//add portal pin logic to here
+
+			//	/*Pins.Add(mzprop->Id, mzprop);
+			//	SendPinAdded(FMZClient::NodeId, mzprop);*/
+			//}
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
@@ -455,33 +532,16 @@ void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t
 void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::ShowAs newShowAs)
 {
 	FGuid pinId = *(FGuid*)&Id;
-	if (Pins.Contains(pinId))
+	//if (Pins.Contains(pinId))
+	//{
+	//	auto mzprop = Pins.FindRef(pinId);
+	//	mzprop->PinShowAs = newShowAs;
+	//	SendPinUpdate();
+	//}
+	//else if (RegisteredProperties.Contains(pinId))
+	if (MZPropertyManager.PropertiesById.Contains(pinId))
 	{
-		auto mzprop = Pins.FindRef(pinId);
-		mzprop->PinShowAs = newShowAs;
-		SendPinUpdate();
-	}
-	else if (RegisteredProperties.Contains(pinId))
-	{
-
-		auto mzprop = RegisteredProperties.FindRef(pinId);
-		UObject* container = mzprop->GetRawObjectContainer();
-		if (!container)
-		{
-			return;
-		}
-		auto newmzprop = MZPropertyFactory::CreateProperty(container, mzprop->Property, &(RegisteredProperties));
-		if (newmzprop)
-		{
-			//memcpy(newmzprop, mzprop, sizeof(MZProperty));
-			newmzprop->PinShowAs = newShowAs;
-			//RegisteredProperties.Remove(newmzprop->Id);
-			//newmzprop->Id = FGuid::NewGuid();
-			newmzprop->transient = false;
-			Pins.Add(newmzprop->Id, newmzprop);
-			//RegisteredProperties.Add(newmzprop->Id, newmzprop);
-			SendPinUpdate();
-		}
+		MZPropertyManager.CreatePortal(pinId, newShowAs);
 	}
 	else
 	{
@@ -518,9 +578,9 @@ void FMZSceneTreeManager::OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb:
 
 		for (auto [id, val] : properties)
 		{
-			if (RegisteredProperties.Contains(id))
+			if (MZPropertyManager.PropertiesById.Contains(id))
 			{
-				auto mzprop = RegisteredProperties.FindRef(id);
+				auto mzprop = MZPropertyManager.PropertiesById.FindRef(id);
 				mzprop->SetPropValue((void*)val.data(), val.size(), Parms);
 			}
 		}
@@ -540,16 +600,20 @@ void FMZSceneTreeManager::OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb:
 	}
 }
 
-void FMZSceneTreeManager::OnMZExecutedApp(mz::fb::Node const& appNode)
+void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 {
-	TMap<FGuid, std::vector<uint8>> updates = ParsePins(appNode);
-
-	for (auto& [id, data] : updates)
+	if (!flatbuffers::IsFieldPresent(&appExecute, mz::app::AppExecute::VT_PINVALUEUPDATES))
 	{
-		if (RegisteredProperties.Contains(id))
+		return;
+	}
+	for (auto update : *appExecute.PinValueUpdates())
+	{
+		auto id = *(FGuid*)update->pin_id()->bytes()->Data();
+
+		if (MZPropertyManager.PropertiesById.Contains(id))
 		{
-			auto mzprop = RegisteredProperties.FindRef(id);
-			mzprop->SetPropValue((void*)data.data(), data.size());
+			auto mzprop = MZPropertyManager.PropertiesById.FindRef(id);
+			mzprop->SetPropValue((void*)update->value()->data(), update->value()->size());
 		}
 	}
 }
@@ -569,8 +633,6 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 				return;
 			}
 			flatbuffers::FlatBufferBuilder mb;
-			//auto deleteAction = 
-			//std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = { mz::CreateContextMenuItemDirect(mb, "Destroy", 0, 0) };
 			std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
 			auto posx = mz::fb::vec2(pos.X, pos.Y);
 			MZClient->AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
@@ -675,56 +737,37 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 }
 
 void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if (PropertyChangedEvent.MemberProperty && !ObjectBeingModified->IsA(PropertyChangedEvent.MemberProperty->GetOwner<UClass>()))
+{ 
+	if (!PropertyChangedEvent.MemberProperty || !PropertyChangedEvent.Property)
 	{
 		return;
 	}
-	if (PropertyChangedEvent.Property && !ObjectBeingModified->IsA(PropertyChangedEvent.Property->GetOwner<UClass>()))
+	if (!ObjectBeingModified->IsA(PropertyChangedEvent.MemberProperty->GetOwner<UClass>()))
 	{
 		return;
 	}
-	if (!PropertyChangedEvent.Property->IsValidLowLevel())
+	//not sure do we need this check
+	//if (PropertyChangedEvent.Property && !ObjectBeingModified->IsA(PropertyChangedEvent.Property->GetOwner<UClass>()))
+	//{
+	//	return;
+	//}
+	if (!PropertyChangedEvent.Property->IsValidLowLevel() || CastField<FObjectProperty>(PropertyChangedEvent.Property))
 	{
 		return;
 	}
-	if (PropertiesMap.Contains(PropertyChangedEvent.Property))
+	if (MZPropertyManager.PropertiesByPointer.Contains(PropertyChangedEvent.Property))
 	{
-		auto mzprop = PropertiesMap.FindRef(PropertyChangedEvent.Property);
+		auto mzprop = MZPropertyManager.PropertiesByPointer.FindRef(PropertyChangedEvent.Property);
 		mzprop->UpdatePinValue();
 		SendPinValueChanged(mzprop->Id, mzprop->data);
+		return;
 	}
-	if (PropertiesMap.Contains(PropertyChangedEvent.MemberProperty))
+	if (MZPropertyManager.PropertiesByPointer.Contains(PropertyChangedEvent.MemberProperty))
 	{
-		auto mzprop = PropertiesMap.FindRef(PropertyChangedEvent.MemberProperty);
+		auto mzprop = MZPropertyManager.PropertiesByPointer.FindRef(PropertyChangedEvent.MemberProperty);
 		mzprop->UpdatePinValue();
 		SendPinValueChanged(mzprop->Id, mzprop->data);
-	}
-	for (auto [id, pin] : Pins)
-	{
-		if (pin->Property == PropertyChangedEvent.MemberProperty)
-		{
-			pin->UpdatePinValue();
-			SendPinValueChanged(pin->Id, pin->data);
-			break;
-		}
-		else if (pin->Property == PropertyChangedEvent.Property)
-		{
-			pin->UpdatePinValue();
-			SendPinValueChanged(pin->Id, pin->data);
-			break;
-		}
-		else if (PropertyChangedEvent.MemberProperty && PropertyChangedEvent.MemberProperty->IsA<FStructProperty>())
-		{
-			auto structProp = (FStructProperty*)PropertyChangedEvent.MemberProperty;
-			uint8* StructInst = structProp->ContainerPtrToValuePtr<uint8>(ObjectBeingModified);
-			if (pin->StructPtr == StructInst)
-			{
-				pin->UpdatePinValue();
-				SendPinValueChanged(pin->Id, pin->data);
-				break;
-			}
-		}
+		return;
 	}
 }
 
@@ -879,8 +922,9 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			mzprop->PinShowAs = update.pinShowAs;
 			mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
 			memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
-			Pins.Add(mzprop->Id, mzprop);
-			RegisteredProperties.Add(mzprop->Id, mzprop);
+			//add portal pin logic
+			/*Pins.Add(mzprop->Id, mzprop);
+			RegisteredProperties.Add(mzprop->Id, mzprop);*/
 			//PropertiesMap.Add(mzprop->Property, mzprop);
 
 		}
@@ -891,7 +935,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	}
 
 	SceneTree.Clear();
-	RegisteredProperties = Pins;
+	MZPropertyManager.PropertiesById = Pins;
 	PropertiesMap.Empty();
 	RescanScene(false);
 
@@ -902,71 +946,75 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 {
-	if (!RegisteredProperties.Contains(pinId))
+	if (!MZPropertyManager.PropertiesById.Contains(pinId))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("The property with given id is not found."));
 		return;
 	}
 
-	auto mzprop = RegisteredProperties.FindRef(pinId);
+	auto mzprop = MZPropertyManager.PropertiesById.FindRef(pinId);
 	std::vector<uint8_t> copy(size, 0);
 	memcpy(copy.data(), newval, size);
 
 	
 	bool isChangedBefore = mzprop->IsChanged;
 	mzprop->SetPropValue((void*)copy.data(), size);
-	if (!isChangedBefore && mzprop->IsChanged)
+	if (!isChangedBefore && mzprop->IsChanged && !MZPropertyManager.PropertyToPortalPin.Contains(pinId))
 	{
-		//changed first time 
-		TSharedPtr<MZProperty> newmzprop = nullptr;
-		if (mzprop->GetRawObjectContainer())
-		{
-			newmzprop = MZPropertyFactory::CreateProperty(mzprop->GetRawObjectContainer(), mzprop->Property, &(RegisteredProperties)/*, &(mzclient->PropertiesMap)*/);
-		}
-		else if (mzprop->StructPtr)
-		{
-			newmzprop = MZPropertyFactory::CreateProperty(nullptr, mzprop->Property, &(RegisteredProperties), 0 /*, &(mzclient->PropertiesMap)*/, FString(""), mzprop->StructPtr);
-		}
-		if (newmzprop)
-		{
-			newmzprop->default_val = mzprop->default_val;
-			newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
+		
+		MZPropertyManager.CreatePortal(pinId, mz::fb::ShowAs::PROPERTY);
+		
+		//changed frst time
+		//create portal code will be here
+		//TSharedPtr<MZProperty> newmzprop = nullptr;
+		//if (mzprop->GetRawObjectContainer())
+		//{
+		//	newmzprop = MZPropertyManager.CreateProperty(mzprop->GetRawObjectContainer(), mzprop->Property);
+		//}
+		//else if (mzprop->StructPtr)
+		//{
+		//	newmzprop = MZPropertyManager.CreateProperty(nullptr, mzprop->Property, &(RegisteredProperties), 0 /*, &(mzclient->PropertiesMap)*/, FString(""), mzprop->StructPtr);
+		//}
+		//if (newmzprop)
+		//{
+		//	newmzprop->default_val = mzprop->default_val;
+		//	newmzprop->PinShowAs = mz::fb::ShowAs::PROPERTY;
 
-			UObject* container = mzprop->GetRawObjectContainer();
-			if (container)
-			{
-				newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
-				newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
-			}
+		//	UObject* container = mzprop->GetRawObjectContainer();
+		//	if (container)
+		//	{
+		//		newmzprop->DisplayName += FString(" (") + container->GetFName().ToString() + FString(")");
+		//		newmzprop->CategoryName = container->GetFName().ToString() + FString("|") + newmzprop->CategoryName;
+		//	}
 
-			newmzprop->transient = false;
-			Pins.Add(newmzprop->Id, newmzprop);
-			//RegisteredProperties.Add(newmzprop->Id, newmzprop);
-			SendPinAdded(FMZClient::NodeId, newmzprop);
-		}
+		//	newmzprop->transient = false;
+		//	Pins.Add(newmzprop->Id, newmzprop);
+		//	//RegisteredProperties.Add(newmzprop->Id, newmzprop);
+		//	SendPinAdded(FMZClient::NodeId, newmzprop);
+		//}
 
 	}
-	if (Pins.Contains(mzprop->Id))
-	{
-		if (PropertiesMap.Contains(mzprop->Property))
-		{
-			auto otherProp = PropertiesMap.FindRef(mzprop->Property);
-			otherProp->UpdatePinValue();
-			SendPinValueChanged(otherProp->Id, otherProp->data);
-		}
+	//if (Pins.Contains(mzprop->Id))
+	//{
+	//	if (PropertiesMap.Contains(mzprop->Property))
+	//	{
+	//		auto otherProp = PropertiesMap.FindRef(mzprop->Property);
+	//		otherProp->UpdatePinValue();
+	//		SendPinValueChanged(otherProp->Id, otherProp->data);
+	//	}
 
-	}
-	else
-	{
-		for (auto& [id, pin] : Pins)
-		{
-			if (pin->Property == mzprop->Property)
-			{
-				pin->UpdatePinValue();
-				SendPinValueChanged(pin->Id, pin->data);
-			}
-		}
-	}
+	//}
+	//else
+	//{
+	//	for (auto& [id, pin] : Pins)
+	//	{
+	//		if (pin->Property == mzprop->Property)
+	//		{
+	//			pin->UpdatePinValue();
+	//			SendPinValueChanged(pin->Id, pin->data);
+	//		}
+	//	}
+	//}
 	
 }
 
@@ -1043,6 +1091,11 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	{
 		auto actorNode = StaticCastSharedPtr<ActorNode>(treeNode);
 		//todo fix crash actor comes null
+		if (!IsValid(actorNode->actor.Get()))
+		{
+			return false;
+		}
+			
 		auto ActorClass = actorNode->actor->GetClass();
 
 		//ITERATE PROPERTIES BEGIN
@@ -1059,7 +1112,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-			auto mzprop = MZPropertyFactory::CreateProperty(actorNode->actor.Get(), AProperty, &(RegisteredProperties), &(PropertiesMap));
+			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty);
 			if (!mzprop)
 			{
 				AProperty = AProperty->PropertyLinkNext;
@@ -1098,7 +1151,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				{
 					continue;
 				}
-				auto mzprop = MZPropertyFactory::CreateProperty(Component, Property, &(RegisteredProperties), &(PropertiesMap));
+				auto mzprop = MZPropertyManager.CreateProperty(Component, Property);
 				if (mzprop)
 				{
 					//RegisteredProperties.Add(mzprop->Id, mzprop);
@@ -1142,7 +1195,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
-					auto mzprop = MZPropertyFactory::CreateProperty(nullptr, *PropIt, &(RegisteredProperties), &(PropertiesMap));
+					auto mzprop = MZPropertyManager.CreateProperty(nullptr, *PropIt);
 					if (mzprop)
 					{
 						mzfunc->Properties.push_back(mzprop);
@@ -1295,7 +1348,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				continue;
 			}
 
-			auto mzprop = MZPropertyFactory::CreateProperty(Component.Get(), Property, &(RegisteredProperties), &(PropertiesMap));
+			auto mzprop = MZPropertyManager.CreateProperty(Component.Get(), Property);
 			if (mzprop)
 			{
 				//RegisteredProperties.Add(mzprop->Id, mzprop);
@@ -1505,7 +1558,7 @@ void FMZSceneTreeManager::RemoveProperties(TSharedPtr<TreeNode> Node,
 		for (auto& prop : componentNode->Properties)
 		{
 			PropertiesToRemove.Add(prop);
-			RegisteredProperties.Remove(prop->Id);
+			MZPropertyManager.PropertiesById.Remove(prop->Id);
 			PropertiesMap.Remove(prop->Property);
 		}
 	}
@@ -1525,7 +1578,7 @@ void FMZSceneTreeManager::RemoveProperties(TSharedPtr<TreeNode> Node,
 		for (auto& prop : actorNode->Properties)
 		{
 			PropertiesToRemove.Add(prop);
-			RegisteredProperties.Remove(prop->Id);
+			MZPropertyManager.PropertiesById.Remove(prop->Id);
 			PropertiesMap.Remove(prop->Property);
 
 		}
@@ -1559,7 +1612,7 @@ void FMZSceneTreeManager::Reset()
 	MZTextureShareManager::GetInstance()->Reset();
 	SceneTree.Clear();
 	Pins.Empty();
-	RegisteredProperties.Empty();
+	MZPropertyManager.PropertiesById.Empty();
 	PropertiesMap.Empty();
 	MZActorManager->ReAddActorsToSceneTree();
 }
@@ -1604,7 +1657,7 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 		for (auto pin : tmp)
 		{
 			Pins.Remove(pin->Id);
-			RegisteredProperties.Remove(pin->Id);
+			MZPropertyManager.PropertiesById.Remove(pin->Id);
 		}
 
 		//delete from parent
@@ -1654,7 +1707,7 @@ void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 
 	FMZSceneTreeManager::daWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 	//update pins container referencess
-	for (auto [_, pin] : Pins)
+	/*for (auto [_, pin] : Pins)
 	{
 		if (pin->ActorContainer)
 		{
@@ -1665,10 +1718,10 @@ void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 			pin->ComponentContainer.Actor.UpdateActualActorPointer();
 			pin->ComponentContainer.UpdateActualComponentPointer();
 		}
-	}
+	}*/
 
 	SceneTree.Clear();
-	RegisteredProperties = Pins;
+	MZPropertyManager.PropertiesById = Pins;
 	PropertiesMap.Empty();
 	MZActorManager->ReAddActorsToSceneTree();
 	RescanScene(false);
@@ -1722,8 +1775,8 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 
 	//MZTextureShareManager::GetInstance()->Reset();
 	SceneTree.Clear();
-	RegisteredProperties.Empty();
-	RegisteredProperties = Pins;
+	MZPropertyManager.PropertiesById.Empty();
+	MZPropertyManager.PropertiesById = Pins;
 	PropertiesMap.Empty();
 	MZActorManager->ReAddActorsToSceneTree();
 	RescanScene(false);
@@ -1754,7 +1807,8 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
 	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
-		
+	
+	
 	if (!MZClient->IsConnected())
 	{
 		return SpawnedActor;
@@ -1861,21 +1915,91 @@ void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
 	}
 }
 
+FMZPropertyManager::FMZPropertyManager()
+{
+}
+
+void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
+{
+	if (!PropertiesById.Contains(PropertyId))
+	{
+		return;
+	}
+	auto MZProperty = PropertiesById.FindRef(PropertyId);
+	
+	MZPortal NewPortal{FGuid::NewGuid() ,PropertyId};
+	NewPortal.DisplayName = FString("");
+	UObject* parent = MZProperty->GetRawObjectContainer();
+	while (parent)
+	{
+		NewPortal.DisplayName = parent->GetFName().ToString() + FString(".") + NewPortal.DisplayName;
+		parent = parent->GetTypedOuter<AActor>();
+	}
+
+	NewPortal.DisplayName += MZProperty->DisplayName + "(Portal)";
+	NewPortal.TypeName = FString(MZProperty->TypeName.c_str());
+	NewPortal.CategoryName = MZProperty->CategoryName;
+	NewPortal.ShowAs = ShowAs;
+
+	PortalPinsById.Add(NewPortal.Id, NewPortal);
+	PropertyToPortalPin.Add(PropertyId, NewPortal.Id);
+
+	if (!MZClient->IsConnected())
+	{
+		return;
+	}
+	flatbuffers::FlatBufferBuilder mb;
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal) };
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
+
+}
+
+void FMZPropertyManager::CreatePortal(FProperty* uproperty, mz::fb::ShowAs ShowAs)
+{
+	if (PropertiesByPointer.Contains(uproperty))
+	{
+		auto MzProperty = PropertiesByPointer.FindRef(uproperty);
+		CreatePortal(MzProperty->Id, ShowAs);
+	}
+}
+
 TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
 {
 	TSharedPtr<MZProperty> MzProperty = MZPropertyFactory::CreateProperty(container, uproperty, 0, 0, parentCategory);
 	
 	if (!MzProperty)
 	{
-		return;
+		return TSharedPtr<MZProperty>();
+	}
+
+	PropertiesById.Add(MzProperty->Id, MzProperty);
+	PropertiesByPointer.Add(MzProperty->Property, MzProperty);
+
+	if (MzProperty->ActorContainer)
+	{
+		ActorsPropertyIds.FindOrAdd(MzProperty->ActorContainer.Get()->GetActorGuid()).Add(MzProperty->Id);
+	}
+	else if (MzProperty->ComponentContainer)
+	{
+		ActorsPropertyIds.FindOrAdd(MzProperty->ComponentContainer.Actor.Get()->GetActorGuid()).Add(MzProperty->Id);
 	}
 
 	for (auto Child : MzProperty->childProperties)
 	{
-		Child->Property->
+		PropertiesById.Add(Child->Id, Child);
+		PropertiesByPointer.Add(Child->Property, Child);
+		
+		if (Child->ActorContainer)
+		{
+			ActorsPropertyIds.FindOrAdd(Child->ActorContainer.Get()->GetActorGuid()).Add(Child->Id);
+		}
+		else if (Child->ComponentContainer)
+		{
+			ActorsPropertyIds.FindOrAdd(Child->ComponentContainer.Actor.Get()->GetActorGuid()).Add(Child->Id);
+		}
 	}
 
-	return TSharedPtr<MZProperty>();
+	return MzProperty;
 }
 
 void FMZPropertyManager::SetPropertyValue()
@@ -1884,4 +2008,9 @@ void FMZPropertyManager::SetPropertyValue()
 
 void FMZPropertyManager::ActorDeleted(FGuid DeletedActorId)
 {
+}
+
+flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal)
+{
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
 }

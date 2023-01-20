@@ -11,27 +11,42 @@
 #include "MZSceneTree.h"
 #include "MZClient.h"
 
+struct MZPortal
+{
+	FGuid Id;
+	FGuid SourceId;
 
-
+	FString DisplayName;
+	FString TypeName;
+	FString CategoryName;
+	mz::fb::ShowAs ShowAs;
+};
 //This class holds the list of all properties and pins 
 class FMZPropertyManager
 {
+public:
 	FMZPropertyManager();
 
 	TSharedPtr<MZProperty> CreateProperty(UObject* container,
 		FProperty* uproperty,
-		FString parentCategory);
+		FString parentCategory = FString(""));
 
 	void SetPropertyValue();
-
+	void CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs);
+	void CreatePortal(FProperty* uproperty, mz::fb::ShowAs ShowAs);
 	void ActorDeleted(FGuid DeletedActorId);
-
+	flatbuffers::Offset<mz::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal);
+	
+	FMZClient* MZClient;
 
 	TMap<FGuid, FGuid> PropertyToPortalPin;
-	TMap<FGuid, TSharedPtr<MZProperty>> PortalPinsById;
+	TMap<FGuid, MZPortal> PortalPinsById;
 	TMap<FGuid, TSharedPtr<MZProperty>> PropertiesById;
-	TMap<FString, TSharedPtr<MZProperty>> PropertiesByPath;
-	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid 
+	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
+	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid
+
+
+	 
 };
 
 class FMZActorManager
@@ -96,7 +111,7 @@ public:
 	void OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb::Node const& function);
 
 	//called when the app(unreal engine) is executed from mediaz
-	void OnMZExecutedApp(mz::fb::Node const& appNode);
+	void OnMZExecutedApp(mz::app::AppExecute const& appExecute);
 
 	//called when a context menu is requested on some node on mediaz
 	void OnMZContextMenuRequested(mz::ContextMenuRequest const& request);
@@ -204,4 +219,5 @@ public:
 
 	FMZActorManager* MZActorManager;
 
+	FMZPropertyManager MZPropertyManager;
 };
