@@ -109,9 +109,14 @@ void FMediaZ::Shutdown()
 //	TSharedPtr<FUICommandInfo> SendAssetList;
 //};
 
+
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
 	TMap<FGuid, std::vector<uint8>> re;
+	if (!flatbuffers::IsFieldPresent(&archive, mz::fb::Node::VT_PINS))
+	{
+		return re;
+	}
 	for (auto pin : *archive.pins())
 	{
 		std::vector<uint8> data(pin->data()->size(), 0);
@@ -124,6 +129,10 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 {
 	TMap<FGuid, const mz::fb::Pin*> re;
+	if (!flatbuffers::IsFieldPresent(archive, mz::fb::Node::VT_PINS))
+	{
+		return re;
+	}
 	for (auto pin : *(archive->pins()))
 	{
 		re.Add(*(FGuid*)pin->id()->bytes()->Data(), pin);
@@ -278,24 +287,24 @@ void MZEventDelegates::OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node c
 		});
 }
 
-void MZEventDelegates::OnExecuteApp(mz::fb::Node const& appNode)
+void MZEventDelegates::OnExecuteApp(mz::app::AppExecute const& appExecute)
 {
 	if (!PluginClient)
 	{
 		return;
 	}
 
-	PluginClient->OnUpdatedNodeExecuted(ParsePins(appNode));
+	PluginClient->OnUpdatedNodeExecuted();
 
-	mz::fb::TNode copy;
-	appNode.UnPackTo(&copy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	mz::app::TAppExecute appExecuteCopy;
+	appExecute.UnPackTo(&appExecuteCopy);
+	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, appExecuteCopy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::fb::CreateNode(fbb, &copy);
+			auto offset = mz::app::CreateAppExecute(fbb, &appExecuteCopy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZExecutedApp.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			MZClient->OnMZExecutedApp.Broadcast(*flatbuffers::GetRoot<mz::app::AppExecute>(buf.data()));
 		});
 }
 
@@ -641,7 +650,7 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
-void FMZClient::OnUpdatedNodeExecuted(TMap<FGuid, std::vector<uint8>> updates)
+void FMZClient::OnUpdatedNodeExecuted()
 {
 	if (MZTimeStep)
 	{
