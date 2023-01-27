@@ -7,7 +7,7 @@
 #include "MZSceneTreeManager.h"
 
 //todo fix logs
-#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogTemp, Error, TEXT("Property size mismatch with mediaZ (uint64)"));return;}}
+#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogTemp, Error, TEXT("Property size mismatch with mediaZ"));return;}}
 
 bool PropertyVisibleExp(FProperty* ueproperty)
 {
@@ -229,18 +229,142 @@ void MZVec3Property::SetProperty_InCont(void* container, void* val) { structprop
 
 void MZVec4Property::SetProperty_InCont(void* container, void* val) { structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FVector4*)val); }
 
+
+void MZTrackProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+{
+	IsChanged = true;
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	SetProperty_InCont(container, val);
+
+	if (!customContainer && container)
+	{
+		MarkState();
+	}
+
+}
+
 void MZTrackProperty::SetProperty_InCont(void* container, void* val) 
 {
-	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FRealityTrack*)val); 
-	FRealityTrack newTrack = *(FRealityTrack*)val;
+	auto track = flatbuffers::GetRoot<mz::fb::Track>(val);
+	FRealityTrack TrackData;
 
-	if (ActorContainer.Get())
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LOCATION))
 	{
-		ActorContainer->SetActorRelativeLocation(newTrack.location);
-		//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
-		//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
+		TrackData.location = FVector(track->location()->x(), track->location()->y(), track->location()->z());
 	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ROTATION))
+	{
+		TrackData.rotation = FVector(track->rotation()->x(), track->rotation()->y(), track->rotation()->z());
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOV))
+	{
+		TrackData.fov = track->fov();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOCUS))
+	{
+		TrackData.focus_distance = track->focus();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_CENTER_SHIFT))
+	{
+		TrackData.center_shift = FVector2D(track->center_shift()->x(), track->center_shift()->y());
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ZOOM))
+	{
+		TrackData.zoom = track->zoom();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_K1))
+	{
+		TrackData.k1 = track->k1();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_K2))
+	{
+		TrackData.k2 = track->k2();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_RENDER_RATIO))
+	{
+		TrackData.render_ratio = track->render_ratio();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LOCATION))
+	{
+		TrackData.distortion_scale = track->render_ratio();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_SENSOR_SIZE))
+	{
+		TrackData.sensor_size = FVector2D(track->sensor_size()->x(), track->sensor_size()->y());
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_PIXEL_ASPECT_RATIO))
+	{
+		TrackData.pixel_aspect_ratio = track->pixel_aspect_ratio();
+	}
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_NODAL_OFFSET))
+	{
+		TrackData.nodal_offset = track->nodal_offset();
+	}
+	
+	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &TrackData); 
+	//FRealityTrack newTrack = *(FRealityTrack*)val;
+
+	//if (ActorContainer.Get())
+	//{
+	//	//ActorContainer->SetActorRelativeLocation(newTrack.location);
+	//	//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
+	//	//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
+	//}
 }
+
+
+std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
+{
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
+	{
+		FRealityTrack TrackData = *Property->ContainerPtrToValuePtr<FRealityTrack>(container);
+		
+		flatbuffers::FlatBufferBuilder fb;
+		mz::fb::TTrack TempTrack;
+		TempTrack.location = std::make_unique<mz::fb::vec3d>(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
+		TempTrack.rotation = std::make_unique<mz::fb::vec3d>(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
+		TempTrack.fov = TrackData.fov;
+		TempTrack.focus = TrackData.focus_distance;
+		TempTrack.center_shift = std::make_unique<mz::fb::vec2d>(TrackData.center_shift.X, TrackData.center_shift.Y);
+		TempTrack.zoom = TrackData.zoom;
+		TempTrack.k1 = TrackData.k1;
+		TempTrack.k2 = TrackData.k2;
+		TempTrack.render_ratio = TrackData.render_ratio;
+		TempTrack.distortion_scale = TrackData.distortion_scale;
+		TempTrack.sensor_size = std::make_unique<mz::fb::vec2d>(TrackData.sensor_size.X, TrackData.sensor_size.Y);
+		TempTrack.pixel_aspect_ratio = TrackData.pixel_aspect_ratio;
+		TempTrack.nodal_offset = TrackData.nodal_offset;
+		
+		auto offset = mz::fb::CreateTrack(fb, &TempTrack);
+		fb.Finish(offset);
+		mz::Buffer buffer = fb.Release();
+		data = buffer;
+		//data.resize(buffer.size());
+		//memcpy(data.data(), buffer.data(), data.size());
+
+		//auto Track = mz::fb::CreateTrack(fb, );
+
+		//data.resize(si)
+	}
+	return data;
+}
+
+//flatbuffers::Offset<mz::fb::Pin> MZTrackProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+//{
+//
+//}
 
 
 void MZRotatorProperty::SetProperty_InCont(void* container, void* val)

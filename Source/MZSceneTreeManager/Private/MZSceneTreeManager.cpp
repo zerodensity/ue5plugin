@@ -675,6 +675,7 @@ void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::Initializ
 	SendNodeUpdate(FMZClient::NodeId);
 }
 
+
 void FMZSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 {
 	//TODO check if we actually need this function
@@ -702,6 +703,7 @@ struct PropUpdate
 	void* defVal;
 	size_t defValSize;
 	mz::fb::ShowAs pinShowAs;
+	bool IsPortal;
 };
 
 void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<FGuid, FString>& spawnedByMediaz)
@@ -724,16 +726,20 @@ void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<FGuid, FString>& spa
 
 void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::Node*>& out)
 {
-	if (node->pins()->size() > 0)
+	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_PINS) && node->pins()->size() > 0)
 	{
 		out.push_back(node);
 	}
-#if 0 //load only the root node
-	for (auto child : *node->contents_as_Graph()->nodes())
+
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
 	{
-		GetNodesWithProperty(child, out);
+		for (auto child : *node->contents_as_Graph()->nodes())
+		{
+			GetNodesWithProperty(child, out);
+		}
 	}
-#endif
+	
+
 }
 
 void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
@@ -818,15 +824,28 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		FGuid id = *(FGuid*)(nodeW->id());
 		for (auto prop : *nodeW->pins())
 		{
+			
 			if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_META_DATA_MAP))
 			{
 				FString componentName;
 				FString displayName;
 				FString propName;
-				char* valcopy = new char[prop->data()->size()];
-				char* defcopy = new char[prop->def()->size()];
-				memcpy(valcopy, prop->data()->data(), prop->data()->size());
-				memcpy(defcopy, prop->def()->data(), prop->def()->size());
+				char* valcopy = nullptr;
+				char* defcopy = nullptr;
+				size_t valsize = 0;
+				size_t defsize = 0;
+				if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_DATA))
+				{
+					valcopy = new char[prop->data()->size()];
+					valsize = prop->data()->size();
+					memcpy(valcopy, prop->data()->data(), prop->data()->size());
+				}
+				if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_DEF))
+				{
+					defcopy = new char[prop->def()->size()];
+					defsize = prop->def()->size();
+					memcpy(defcopy, prop->def()->data(), prop->def()->size());
+				}
 
 				if (auto entry = prop->meta_data_map()->LookupByKey("property"))
 				{
@@ -852,7 +871,10 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 					displayName = FString(prop->name()->c_str());
 				}
 
-				updates.push_back({ id, displayName, componentName, propName, valcopy, prop->data()->size(), defcopy, prop->def()->size(), prop->show_as() });
+				bool IsPortal = prop->contents_type() == mz::fb::PinContents::PortalPin;
+				
+
+				updates.push_back({ id, displayName, componentName, propName, valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal });
 			}
 
 		}
@@ -888,9 +910,17 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 	for (auto update : updates)
 	{
-		if (sceneActorMap.Contains(update.actorId))
+		FGuid ActorId = update.actorId;
+		
+		if (update.IsPortal)
 		{
-			auto actor = sceneActorMap.FindRef(update.actorId);
+			continue;
+		}
+
+
+		if (sceneActorMap.Contains(ActorId))
+		{
+			auto actor = sceneActorMap.FindRef(ActorId);
 			TSharedPtr<MZProperty> mzprop = nullptr;
 			if (update.componentName.IsEmpty())
 			{
@@ -910,7 +940,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 				}
 
 			}
-			if (mzprop)
+			if (mzprop && update.newValSize > 0)
 			{
 				mzprop->SetPropValue(update.newVal, update.newValSize);
 			}
@@ -920,8 +950,11 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			}
 			mzprop->UpdatePinValue();
 			mzprop->PinShowAs = update.pinShowAs;
-			mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
-			memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
+			if (mzprop && update.defValSize > 0)
+			{
+				mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
+				memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
+			}
 			//add portal pin logic
 			/*Pins.Add(mzprop->Id, mzprop);
 			RegisteredProperties.Add(mzprop->Id, mzprop);*/
@@ -934,13 +967,53 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		delete update.defVal;
 	}
 
-	SceneTree.Clear();
-	MZPropertyManager.PropertiesById = Pins;
-	PropertiesMap.Empty();
-	RescanScene(false);
-
+	//SceneTree.Clear();
+	//MZPropertyManager.Reset();
+	RescanScene(true);
 	SendNodeUpdate(FMZClient::NodeId);
-	//SendAssetList();
+
+	for (auto update : updates)
+	{
+		FGuid ActorId = update.actorId;
+
+		if (update.IsPortal)
+		{
+			if (sceneActorMap.Contains(ActorId))
+			{
+				auto actor = sceneActorMap.FindRef(ActorId);
+				if (!actor)
+				{
+					return;
+				}
+
+				PopulateAllChilds(actor);
+
+				FProperty* Property = nullptr;
+				if (update.componentName.IsEmpty())
+				{
+					Property = FindFProperty<FProperty>(actor->GetClass(), TCHAR_TO_UTF8(*update.propName));
+				}
+				else
+				{
+					auto component = FindObject<USceneComponent>(actor, *update.componentName);
+					if(component) Property = FindFProperty<FProperty>(component->GetClass(), TCHAR_TO_UTF8(*update.propName));
+				}
+
+				if (Property)
+				{
+					MZPropertyManager.CreatePortal(Property, update.pinShowAs);
+				}
+			}
+			else
+			{
+				//orphan
+			}
+		}
+
+	}
+
+
+	
 
 }
 
@@ -1612,8 +1685,7 @@ void FMZSceneTreeManager::Reset()
 	MZTextureShareManager::GetInstance()->Reset();
 	SceneTree.Clear();
 	Pins.Empty();
-	MZPropertyManager.PropertiesById.Empty();
-	PropertiesMap.Empty();
+	MZPropertyManager.Reset();
 	MZActorManager->ReAddActorsToSceneTree();
 }
 
@@ -1700,8 +1772,10 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 void FMZSceneTreeManager::PopulateAllChilds(AActor* actor)
 {
 	FGuid ActorId = actor->GetActorGuid();
-	PopulateNode(ActorId);
-	SendNodeUpdate(ActorId);
+	if (PopulateNode(ActorId))
+	{
+		SendNodeUpdate(ActorId);
+	}
 
 	if(SceneTree.NodeMap.Contains(ActorId))
 	{
@@ -1729,8 +1803,10 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 		return;
 	}
 
-	PopulateNode(SceneComponentNode->Id);
-	SendNodeUpdate(SceneComponentNode->Id);
+	if (PopulateNode(SceneComponentNode->Id))
+	{
+		SendNodeUpdate(SceneComponentNode->Id);
+	}
 
 	for (auto ChildNode : SceneComponentNode->Children)
 	{
@@ -1757,9 +1833,14 @@ void FMZSceneTreeManager::HandleWorldChange()
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<mz::fb::UUID> graphPins;// = { *(mz::fb::UUID*)&node->Id };
+	std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
 
 	for (auto [id, portal] : MZPropertyManager.PortalPinsById)
 	{
+		if (!MZPropertyManager.PropertiesById.Contains(portal.SourceId))
+		{
+			continue;
+		}
 		auto MzProperty = MZPropertyManager.PropertiesById.FindRef(portal.SourceId);
 		Portals.Add(MzProperty->Property, portal);
 
@@ -1776,19 +1857,24 @@ void FMZSceneTreeManager::HandleWorldChange()
 		}
 
 		graphPins.push_back(*(mz::fb::UUID*)&portal.Id);
+		//MZClient->AppServiceClient->Send(FinishBuffer(mb, mz::app::CreateSetPortalSourcePin(mb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&portal.Id)));
+		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal.Id, true, 0));
 	}
 
 	if (!MZClient->IsConnected())
 	{
 		return;
 	}
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &graphPins)));
 
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+	PinUpdates.clear();
+	
+	//MZClient->AppServiceClient->Send(FinishBuffer(mb, mz::app::CreateSetPortalSourcePin(mb, )));
 
-	MZPropertyManager.Reset();
+	MZPropertyManager.Reset(false);
 	MZActorManager->ReAddActorsToSceneTree();
 	RescanScene(false);
-	SendNodeUpdate(FMZClient::NodeId);
+	SendNodeUpdate(FMZClient::NodeId, false);
 
 
 	for (auto actor : ActorsToRescan)
@@ -1796,10 +1882,27 @@ void FMZSceneTreeManager::HandleWorldChange()
 		PopulateAllChilds(actor);
 	}
 
-
-	for (auto [property, portal] : Portals)
+	flatbuffers::FlatBufferBuilder mbb;
+	for (auto& [property, portal] : Portals)
 	{
-		MZPropertyManager.CreatePortal(property, portal.ShowAs);
+		if (MZPropertyManager.PropertiesByPointer.Contains(property))
+		{
+			auto MzProperty = MZPropertyManager.PropertiesByPointer.FindRef(property);
+			bool notOrphan = false;
+			if (MZPropertyManager.PortalPinsById.Contains(portal.Id))
+			{
+				auto pPortal = MZPropertyManager.PortalPinsById.Find(portal.Id);
+				pPortal->SourceId = MzProperty->Id;
+			}
+			portal.SourceId = MzProperty->Id;
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, notOrphan, (mz::fb::UUID*)&MzProperty->Id));
+		}
+
+		//MZPropertyManager.CreatePortal(property, portal.ShowAs);
+	}
+	if (!PinUpdates.empty())
+	{
+		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
 	}
 	
 }
@@ -1838,53 +1941,54 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 	UE_LOG(LogTemp, Warning, TEXT("Play session is ended with editor world contexts world %s"), *WorldName);
 
 	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+	HandleWorldChange();
 	//update pins container referencess
-	TSet<FGuid> IdsToDelete;
-	auto TextureShareManager = MZTextureShareManager::GetInstance();
-	for (auto [id, pin] : Pins)
-	{
-		if (pin->ActorContainer)
-		{
-			if (!pin->ActorContainer.UpdateActualActorPointer())
-			{
-				IdsToDelete.Add(id);
-				TextureShareManager->TextureDestroyed(pin.Get());
-			}
-		}
-		else if (pin->ComponentContainer)
-		{
-			pin->ComponentContainer.Actor.UpdateActualActorPointer();
-			if (!pin->ComponentContainer.UpdateActualComponentPointer())
-			{
-				IdsToDelete.Add(id);
-				TextureShareManager->TextureDestroyed(pin.Get());
-			}
-		}
-	}
-	for (auto Id : IdsToDelete)
-	{
-		Pins.Remove(Id);
-	}
+	//TSet<FGuid> IdsToDelete;
+	//auto TextureShareManager = MZTextureShareManager::GetInstance();
+	//for (auto [id, pin] : Pins)
+	//{
+	//	if (pin->ActorContainer)
+	//	{
+	//		if (!pin->ActorContainer.UpdateActualActorPointer())
+	//		{
+	//			IdsToDelete.Add(id);
+	//			TextureShareManager->TextureDestroyed(pin.Get());
+	//		}
+	//	}
+	//	else if (pin->ComponentContainer)
+	//	{
+	//		pin->ComponentContainer.Actor.UpdateActualActorPointer();
+	//		if (!pin->ComponentContainer.UpdateActualComponentPointer())
+	//		{
+	//			IdsToDelete.Add(id);
+	//			TextureShareManager->TextureDestroyed(pin.Get());
+	//		}
+	//	}
+	//}
+	//for (auto Id : IdsToDelete)
+	//{
+	//	Pins.Remove(Id);
+	//}
 
-	if (!IdsToDelete.IsEmpty())
-	{
-		flatbuffers::FlatBufferBuilder mb;
-		std::vector<mz::fb::UUID> pinsToDelete;
-		for (auto Id : IdsToDelete)
-		{
-			pinsToDelete.push_back(*(mz::fb::UUID*)&Id);
-		}
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
-	}
+	//if (!IdsToDelete.IsEmpty())
+	//{
+	//	flatbuffers::FlatBufferBuilder mb;
+	//	std::vector<mz::fb::UUID> pinsToDelete;
+	//	for (auto Id : IdsToDelete)
+	//	{
+	//		pinsToDelete.push_back(*(mz::fb::UUID*)&Id);
+	//	}
+	//	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
+	//}
 
-	//MZTextureShareManager::GetInstance()->Reset();
-	SceneTree.Clear();
-	MZPropertyManager.PropertiesById.Empty();
-	MZPropertyManager.PropertiesById = Pins;
-	PropertiesMap.Empty();
-	MZActorManager->ReAddActorsToSceneTree();
-	RescanScene(false);
-	SendNodeUpdate(FMZClient::NodeId, /*update pins*/ false);
+	////MZTextureShareManager::GetInstance()->Reset();
+	//SceneTree.Clear();
+	//MZPropertyManager.PropertiesById.Empty();
+	//MZPropertyManager.PropertiesById = Pins;
+	//PropertiesMap.Empty();
+	//MZActorManager->ReAddActorsToSceneTree();
+	//RescanScene(false);
+	//SendNodeUpdate(FMZClient::NodeId, /*update pins*/ false);
 
 	//If you also want to reset pins
 	//RescanScene();
@@ -2053,7 +2157,7 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 		return;
 	}
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal) };
+	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal, MZProperty.Get()) };
 	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
 
 }
@@ -2114,15 +2218,20 @@ void FMZPropertyManager::ActorDeleted(FGuid DeletedActorId)
 {
 }
 
-flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal)
+flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty)
 {
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), 0, 0, 0, 0, 0, 0, 0, 0, 0, false, 0, 0, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
+	auto SerializedMetadata = SourceProperty->SerializeMetaData(fbb);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), 0, 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, 0, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
 }
 
-void FMZPropertyManager::Reset()
+void FMZPropertyManager::Reset(bool ResetPortals)
 {
-	PropertyToPortalPin.Empty();
-	PortalPinsById.Empty();
+	if (ResetPortals)
+	{
+		PropertyToPortalPin.Empty();
+		PortalPinsById.Empty();
+	}
+
 	PropertiesById.Empty();
 	PropertiesByPointer.Empty();
 	ActorsPropertyIds.Empty();

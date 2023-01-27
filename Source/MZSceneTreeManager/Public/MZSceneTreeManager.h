@@ -35,7 +35,7 @@ public:
 	void CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs);
 	void CreatePortal(FProperty* uproperty, mz::fb::ShowAs ShowAs);
 	void ActorDeleted(FGuid DeletedActorId);
-	flatbuffers::Offset<mz::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal);
+	flatbuffers::Offset<mz::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty);
 	
 	FMZClient* MZClient;
 
@@ -45,7 +45,7 @@ public:
 	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
 	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid
 
-	void Reset();
+	void Reset(bool ResetPortals = true);
 	 
 };
 
@@ -124,6 +124,7 @@ public:
 	void PopulateAllChilds(AActor* actor);
 
 	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
+
 
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);

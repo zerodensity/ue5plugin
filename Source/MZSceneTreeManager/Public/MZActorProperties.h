@@ -4,6 +4,7 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 #include "AppEvents_generated.h"
+#include "RealityTrack.h"
 
 class MZStructProperty;
 
@@ -443,9 +444,14 @@ public:
 	MZTrackProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
-		data = std::vector<uint8_t>(sizeof(mz::fb::Track), 0);
+		
+		data = std::vector<uint8_t>(1, 0);
 		TypeName = "mz.fb.Track";
 	}
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
+
+	//virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 
 	FStructProperty* structprop;
 protected:
