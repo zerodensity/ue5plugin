@@ -815,7 +815,31 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 {
+	SceneTree.Root->Id = FMZClient::NodeId;
+	//if (!MZClient->IsConnected())
+	//{
+	//	return;
+	//}
+
 	auto node = &appNode;
+
+	//std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
+	//flatbuffers::FlatBufferBuilder fb1;
+	//for (auto pin : *node->pins())
+	//{
+	//	PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), true, 0));
+	//}
+	//MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb1, mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+	
+	flatbuffers::FlatBufferBuilder fb1;
+	std::vector<mz::fb::UUID> pinsToDelete;
+	for (auto pin : *node->pins())
+	{
+		pinsToDelete.push_back(*pin->id());
+	}
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb1, mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete)));
+
+
 	std::vector<const mz::fb::Node*> nodesWithProperty;
 	GetNodesWithProperty(node, nodesWithProperty);
 	std::vector<PropUpdate> updates;

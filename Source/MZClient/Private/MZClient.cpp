@@ -371,6 +371,8 @@ void MZEventDelegates::OnNodeImported(mz::fb::Node const& appNode)
 		return;
 	}
 
+	FMZClient::NodeId = *(FGuid*)appNode.id();
+
 	mz::fb::TNode copy;
 	appNode.UnPackTo(&copy);
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
@@ -380,6 +382,15 @@ void MZEventDelegates::OnNodeImported(mz::fb::Node const& appNode)
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
 			MZClient->OnMZNodeImported.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+
+			auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
+			if (WorldContext->World())
+			{
+				mz::fb::TNodeStatusMessage MapNameStatus;
+				MapNameStatus.text = TCHAR_TO_UTF8(*WorldContext->World()->GetMapName());
+				MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+				MZClient->UENodeStatusHandler.Add("map_name", MapNameStatus);
+			}
 		});
 }
 

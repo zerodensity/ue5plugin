@@ -221,11 +221,11 @@ public:
 	FMZNodeImported OnMZNodeImported;
 	FMZConnectionClosed OnMZConnectionClosed;
 
+	UENodeStatusHandler UENodeStatusHandler;
 protected:
 	void Reset();
 
 	FPSCounter FPSCounter;
-	UENodeStatusHandler UENodeStatusHandler;
 	bool IsWorldInitialized = false;
 
 };
