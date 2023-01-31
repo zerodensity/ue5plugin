@@ -18,9 +18,10 @@ void UMZUMGRendererComponent::OnRegister()
 	{
 		{
 			TObjectPtr<UTextureRenderTarget2D> RenderTarget2D = NewObject<UTextureRenderTarget2D>(this);
-			RenderTarget2D->ClearColor = FLinearColor::Transparent;
-			RenderTarget2D->InitCustomFormat(1920, 1080, PF_FloatRGBA, true);
-			RenderTarget2D->UpdateResourceImmediate(true);
+			//RenderTarget2D->ClearColor = FLinearColor::Transparent;
+			//RenderTarget2D->InitCustomFormat(1920, 1080, PF_FloatRGBA, true);
+			//RenderTarget2D->UpdateResourceImmediate(true);
+			RenderTarget2D->InitAutoFormat(1920, 1080);
 			UMGRenderTarget = RenderTarget2D;
 
 			WidgetRenderer = new FWidgetRenderer(true);
@@ -34,7 +35,7 @@ void UMZUMGRendererComponent::OnUnregister()
 	if (!IsTemplate())
 	{
 		UMGRenderTarget->ReleaseResource();
-		Widget = nullptr;
+		//Widget = nullptr;
 		WidgetRenderer = nullptr;
 		SlateWidget = nullptr;
 	}
