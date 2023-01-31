@@ -503,11 +503,8 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 	{
 		TypeName = "mz.fb.Texture"; 
-		data = std::vector<uint8_t>(sizeof(mz::fb::Texture), 0);
-		mz::fb::Texture tex = {};
-		MZTextureShareManager::GetInstance()->AddTexturePin(this, &tex);
-		memcpy(data.data(), &tex, sizeof(tex));
-
+		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(this);
+		data = mz::Buffer::FromNativeTable(tex);
 	}
 	else
 	{

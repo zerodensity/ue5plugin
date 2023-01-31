@@ -487,7 +487,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 		if (texman->PendingCopyQueue.Contains(id))
 		{
 			auto mzprop = texman->PendingCopyQueue.FindRef(id);
-			texman->UpdateTexturePin(mzprop, (mz::fb::Texture*)pin->data()->Data());
+			texman->UpdateTexturePin(mzprop, flatbuffers::GetRoot<mz::fb::Texture>(pin->data()->Data()));
 		}
 	}
 }

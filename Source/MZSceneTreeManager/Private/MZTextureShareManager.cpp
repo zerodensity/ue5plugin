@@ -21,6 +21,7 @@
 #include "MZClient.h"
 
 #include "MediaZ/MediaZ.h"
+#include <Builtins_generated.h>
 
 
 MZTextureShareManager* MZTextureShareManager::singleton;
@@ -109,25 +110,27 @@ MZTextureShareManager::~MZTextureShareManager()
 {
 }
 
-void MZTextureShareManager::AddTexturePin(MZProperty* mzprop, mz::fb::Texture* tex)
+mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 {
 	MzTextureInfo info = GetResourceInfo(mzprop);
 	{
 		std::unique_lock lock(PendingCopyQueueMutex);
 		PendingCopyQueue.Add(mzprop->Id, mzprop);
 	}
-	tex->mutate_size(mz::fb::SizePreset::CUSTOM);
-	tex->mutate_width(info.width);
-	tex->mutate_height(info.height);
-	tex->mutate_format(mz::fb::Format(info.format));
-	tex->mutate_usage(mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED);
-	tex->mutate_type(0x00000040);
+	mz::fb::TTexture tex;
+	tex.size = mz::fb::SizePreset::CUSTOM;
+	tex.width = info.width;
+	tex.height = info.height;
+	tex.format = mz::fb::Format(info.format);
+	tex.usage = mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED;
+	tex.type = 0x00000040;
+	return tex;
 }
 
-
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture* tex)
+void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture const* tex)
 {
-	memcpy(mzprop->data.data(), tex, sizeof(mz::fb::Texture));
+	auto buf = mz::Buffer::FromTableRoot<mz::fb::Texture>(tex);
+	mzprop->data = buf.CopyAsVector();
 	std::unique_lock lock(CopyOnTickMutex);
 	MzTextureShareInfo info = {
 	.type = tex->type(),
@@ -238,7 +241,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 				{
 					continue;
 				}
-				//mz::fb::Texture* tex = (mz::fb::Texture*)pin.SrcMzp->data.data();
+				//auto* tex = flatbuffers::GetRoot<mz::fb::Texture>(pin.SrcMzp->data.data());
 				//std::cout << tex << std::endl;
  				//FD3D12Texture* Base = GetD3D12TextureFromRHITexture(RHIResource);
 				
@@ -319,7 +322,6 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 				Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 				barriers.Add(barrier);
 
-				tbl<mz::app::AppEvent> msg;
 				if (!pin.ReadOnly)
 				{
 					auto id = pin.SrcMzp->Id;
