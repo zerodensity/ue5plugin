@@ -277,77 +277,86 @@ return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString umgName((char*)properties.FindRef(actorPinId).data());
-			static AActor* UMGManager = nullptr;
-			if (!IsValid(UMGManager))
-			{
-				UMGManager = nullptr;
-			}
-			//check if manager already present in the scene
-			if (!UMGManager)
-			{
-				TArray<AActor*> FoundActors;
-				UGameplayStatics::GetAllActorsOfClass(GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World(), AMZUMGRenderManager::StaticClass(), FoundActors);
 
-				if (!FoundActors.IsEmpty())
-				{
-					UMGManager = FoundActors[0];
-				}
-			}
-			if (!UMGManager)
-			{
-				UMGManager = MZActorManager->SpawnActor(AMZUMGRenderManager::StaticClass());
+			auto UMGManager = MZActorManager->SpawnActor(AMZUMGRenderManager::StaticClass());
+			UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName(umgName)).ToString());
+			UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgName);
+			Cast<AMZUMGRenderManager>(UMGManager)->Widget = newWidget;
+			PopulateAllChilds(UMGManager);
+			auto OutputTexture = FindFProperty<FObjectProperty>(UMGManager->GetClass(), "UMGRenderTarget");
+			MZPropertyManager.CreatePortal(OutputTexture, mz::fb::ShowAs::OUTPUT_PIN);
+			
+			//static AActor* UMGManager = nullptr;
+			//if (!IsValid(UMGManager))
+			//{
+			//	UMGManager = nullptr;
+			//}
+			////check if manager already present in the scene
+			//if (!UMGManager)
+			//{
+			//	TArray<AActor*> FoundActors;
+			//	UGameplayStatics::GetAllActorsOfClass(GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World(), AMZUMGRenderManager::StaticClass(), FoundActors);
 
-				UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("MZUMGRenderManager")).ToString());
-				UMGManager->SetActorLabel(TEXT("MZUMGRenderManager"));
+			//	if (!FoundActors.IsEmpty())
+			//	{
+			//		UMGManager = FoundActors[0];
+			//	}
+			//} 
+			//if (!UMGManager)
+			//{
+			//	UMGManager = MZActorManager->SpawnActor(AMZUMGRenderManager::StaticClass());
+			//	
+			//	UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("MZUMGRenderManager")).ToString());
+			//	UMGManager->SetActorLabel(TEXT("MZUMGRenderManager"));
 
-				USceneComponent* newRoot = NewObject<USceneComponent>(UMGManager);
-				newRoot->Rename(TEXT("UMGs"));
-				UMGManager->SetRootComponent(newRoot);
-				newRoot->CreationMethod = EComponentCreationMethod::Instance;
-				newRoot->RegisterComponent();
-				UMGManager->AddInstanceComponent(newRoot);
+			//	USceneComponent* newRoot = NewObject<USceneComponent>(UMGManager);
+			//	newRoot->Rename(TEXT("UMGs"));
+			//	UMGManager->SetRootComponent(newRoot);
+			//	newRoot->CreationMethod = EComponentCreationMethod::Instance;
+			//	newRoot->RegisterComponent();
+			//	UMGManager->AddInstanceComponent(newRoot);
 
-			}
+			//}
 
-			std::vector<TSharedPtr<MZProperty>> pinsToSpawn;
-			if (UMGManager)
-			{
-				UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgName);
-				if (newWidget)
-				{
-					UMZUMGRendererComponent* NewRendererComp = NewObject<UMZUMGRendererComponent>(UMGManager);
-					NewRendererComp->Widget = newWidget;
+			//if (UMGManager)
+			//{
+			//	UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgName);
+			//	if (newWidget)
+			//	{
+			//		UMZUMGRendererComponent* NewRendererComp = NewObject<UMZUMGRendererComponent>(UMGManager);
+			//		NewRendererComp->Widget = newWidget;
 
-					NewRendererComp->SetupAttachment(UMGManager->GetRootComponent());
-					NewRendererComp->CreationMethod = EComponentCreationMethod::Instance;
-					NewRendererComp->RegisterComponent();
-					UMGManager->AddInstanceComponent(NewRendererComp);
+			//		NewRendererComp->SetupAttachment(UMGManager->GetRootComponent());
+			//		NewRendererComp->CreationMethod = EComponentCreationMethod::Instance;
+			//		NewRendererComp->RegisterComponent();
+			//		UMGManager->AddInstanceComponent(NewRendererComp);
+			//		
+			//		if (!SceneTree.NodeMap.Contains(UMGManager->GetActorGuid()))
+			//		{
+			//			return;
+			//		}
+			//		auto umgManagerNode = SceneTree.NodeMap.FindRef(UMGManager->GetActorGuid());
 
-					if (!SceneTree.NodeMap.Contains(UMGManager->GetActorGuid()))
-					{
-						return;
-					}
-					auto umgManagerNode = SceneTree.NodeMap.FindRef(UMGManager->GetActorGuid());
 
+			//		//PopulateNode(umgManagerNode->Id);
+			//		//SendNodeUpdate(umgManagerNode->Id);
+			//		//for (auto ChildNode : umgManagerNode->Children)
+			//		//{
+			//		//	for (auto UMGS : ChildNode->Children)
+			//		//	{
+			//		//		PopulateNode(UMGS->Id);
+			//		//		SendNodeUpdate(UMGS->Id);
+			//		//	}
+			//		//	PopulateNode(ChildNode->Id);
+			//		//	SendNodeUpdate(ChildNode->Id);
+			//		//}
+			//		PopulateAllChilds(UMGManager);
 
-					PopulateNode(umgManagerNode->Id);
-					SendNodeUpdate(umgManagerNode->Id);
-					for (auto ChildNode : umgManagerNode->Children)
-					{
-						for (auto UMGS : ChildNode->Children)
-						{
-							PopulateNode(UMGS->Id);
-							SendNodeUpdate(UMGS->Id);
-						}
-						PopulateNode(ChildNode->Id);
-						SendNodeUpdate(ChildNode->Id);
-					}
+			//		auto OutputTexture = FindFProperty<FObjectProperty>(NewRendererComp->GetClass(), "UMGRenderTarget");
+			//		MZPropertyManager.CreatePortal(OutputTexture, mz::fb::ShowAs::OUTPUT_PIN);
 
-					auto OutputTexture = FindFProperty<FObjectProperty>(NewRendererComp->GetClass(), "UMGRenderTarget");
-					MZPropertyManager.CreatePortal(OutputTexture, mz::fb::ShowAs::OUTPUT_PIN);
-
-				}
-			}
+			//	}
+			//}
 
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -1591,53 +1600,29 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 }
 
 void FMZSceneTreeManager::RemoveProperties(TSharedPtr<TreeNode> Node,
-	TSet<TSharedPtr<MZProperty>>& PinsToRemove,
 	TSet<TSharedPtr<MZProperty>>& PropertiesToRemove)
 {
 	if (auto componentNode = Node->GetAsSceneComponentNode())
 	{
-		for (auto& [id, pin] : Pins)
-		{
-			//if (pin->ComponentContainer.Get() == componentNode->sceneComponent)
-			//{
-			//	PinsToRemove.Add(pin);
-			//}
-			if (!pin->GetRawObjectContainer())
-			{
-				PinsToRemove.Add(pin);
-			}
-		}
 		for (auto& prop : componentNode->Properties)
 		{
 			PropertiesToRemove.Add(prop);
 			MZPropertyManager.PropertiesById.Remove(prop->Id);
-			PropertiesMap.Remove(prop->Property);
+			MZPropertyManager.PropertiesByPointer.Remove(prop->Property);
 		}
 	}
 	else if (auto actorNode = Node->GetAsActorNode())
 	{
-		for (auto& [id, pin] : Pins)
-		{
-			//if (pin->ActorContainer.Get() == actorNode->actor)
-			//{
-			//	PinsToRemove.Add(pin);
-			//}
-			if (!pin->GetRawObjectContainer())
-			{
-				PinsToRemove.Add(pin);
-			}
-		}
 		for (auto& prop : actorNode->Properties)
 		{
 			PropertiesToRemove.Add(prop);
 			MZPropertyManager.PropertiesById.Remove(prop->Id);
-			PropertiesMap.Remove(prop->Property);
-
+			MZPropertyManager.PropertiesByPointer.Remove(prop->Property);
 		}
 	}
 	for (auto& child : Node->Children)
 	{
-		RemoveProperties(child, PinsToRemove, PropertiesToRemove);
+		RemoveProperties(child, PropertiesToRemove);
 	}
 }
 
@@ -1675,41 +1660,70 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 		auto node = SceneTree.NodeMap.FindRef(Id);
 		//delete properties
 		// can be optimized by using raw pointers
-		TSet<TSharedPtr<MZProperty>> pinsToRemove;
 		TSet<TSharedPtr<MZProperty>> propertiesToRemove;
-		RemoveProperties(node, pinsToRemove, propertiesToRemove);
-		CheckPins(RemovedObjects, pinsToRemove, propertiesToRemove);
-
-		std::set<MZProperty*> removedTextures;
-
-		for (auto prop : pinsToRemove)
+		RemoveProperties(node, propertiesToRemove);
+		TSet<FGuid> PropertiesWithPortals;
+		TSet<FGuid> PortalsToRemove;
+		for (auto prop : propertiesToRemove)
 		{
-			if (auto objProp = CastField<FObjectProperty>(prop->Property))
+			if (!MZPropertyManager.PropertyToPortalPin.Contains(prop->Id))
 			{
-				UObject* container = prop->GetRawObjectContainer();
-				if (!container)
-				{
-					continue;
-				}
-				if (auto URT = Cast<UTextureRenderTarget2D>(objProp->GetObjectPropertyValue(objProp->ContainerPtrToValuePtr<UTextureRenderTarget2D>(container))))
-				{
-					removedTextures.insert(prop.Get());
-				}
+				continue;
 			}
+			auto portalId = MZPropertyManager.PropertyToPortalPin.FindRef(prop->Id);
+			PropertiesWithPortals.Add(prop->Id);
+			if (!MZPropertyManager.PortalPinsById.Contains(portalId))
+			{
+				continue;
+			}
+			auto portal = MZPropertyManager.PortalPinsById.FindRef(portalId);
+			PortalsToRemove.Add(portal.Id);
 		}
-		auto texman = MZTextureShareManager::GetInstance();
-
-		for (auto prop : removedTextures)
+		for (auto PropertyId : PropertiesWithPortals)
 		{
-			texman->TextureDestroyed(prop);
+			MZPropertyManager.PropertyToPortalPin.Remove(PropertyId);
+		}
+		for (auto PortalId : PortalsToRemove)
+		{
+			MZPropertyManager.PortalPinsById.Remove(PortalId);
 		}
 
-		auto tmp = pinsToRemove;
-		for (auto pin : tmp)
-		{
-			Pins.Remove(pin->Id);
-			MZPropertyManager.PropertiesById.Remove(pin->Id);
-		}
+		MZPropertyManager.ActorsPropertyIds.Remove(Id);
+
+		//CheckPins(RemovedObjects, pinsToRemove, propertiesToRemove);
+
+		//std::set<MZProperty*> removedTextures;
+
+		//for (auto prop : pinsToRemove)
+		//{
+		//	if (auto objProp = CastField<FObjectProperty>(prop->Property))
+		//	{
+		//		UObject* container = prop->GetRawObjectContainer();
+		//		if (!container)
+		//		{
+		//			continue;
+		//		}
+		//		if (auto URT = Cast<UTextureRenderTarget2D>(objProp->GetObjectPropertyValue(objProp->ContainerPtrToValuePtr<UTextureRenderTarget2D>(container))))
+		//		{
+		//			removedTextures.insert(prop.Get());
+		//		}
+		//	}
+		//}
+		//auto texman = MZTextureShareManager::GetInstance();
+
+		//for (auto prop : removedTextures)
+		//{
+		//	texman->TextureDestroyed(prop);
+		//}
+
+		//auto tmp = pinsToRemove;
+		//for (auto pin : tmp)
+		//{
+		//	Pins.Remove(pin->Id);
+		//	MZPropertyManager.PropertiesById.Remove(pin->Id);
+		//}
+
+
 
 		//delete from parent
 		FGuid parentId = FMZClient::NodeId;
@@ -1730,21 +1744,19 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 		}
 
 		flatbuffers::FlatBufferBuilder mb;
-		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->Id };
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0)));
-
-
-		if (!pinsToRemove.IsEmpty())
+		if (!PortalsToRemove.IsEmpty())
 		{
 			std::vector<mz::fb::UUID> pinsToDelete;
-			for (auto pin : pinsToRemove)
+			for (auto portalId : PortalsToRemove)
 			{
-				pinsToDelete.push_back(*(mz::fb::UUID*)&pin->Id);
+				pinsToDelete.push_back(*(mz::fb::UUID*)&portalId);
 			}
 			MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
-
 		}
 
+		flatbuffers::FlatBufferBuilder mb2;
+		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->Id };
+		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb2, mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0)));
 	}
 }
 

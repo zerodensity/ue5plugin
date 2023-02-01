@@ -1,6 +1,8 @@
 #include "MZUMGRendererComponent.h"
 #include "EngineModule.h"
 #include "Engine/TextureRenderTarget2D.h"
+#include "Serialization/BufferArchive.h"
+#include "ImageUtils.h"
 
 
 UMZUMGRendererComponent::UMZUMGRendererComponent()
@@ -18,10 +20,9 @@ void UMZUMGRendererComponent::OnRegister()
 	{
 		{
 			TObjectPtr<UTextureRenderTarget2D> RenderTarget2D = NewObject<UTextureRenderTarget2D>(this);
-			//RenderTarget2D->ClearColor = FLinearColor::Transparent;
-			//RenderTarget2D->InitCustomFormat(1920, 1080, PF_FloatRGBA, true);
-			//RenderTarget2D->UpdateResourceImmediate(true);
-			RenderTarget2D->InitAutoFormat(1920, 1080);
+			RenderTarget2D->ClearColor = FLinearColor::Transparent;
+			RenderTarget2D->InitCustomFormat(1920, 1080, PF_FloatRGBA, true);
+			RenderTarget2D->UpdateResourceImmediate(true);
 			UMGRenderTarget = RenderTarget2D;
 
 			WidgetRenderer = new FWidgetRenderer(true);
@@ -35,7 +36,7 @@ void UMZUMGRendererComponent::OnUnregister()
 	if (!IsTemplate())
 	{
 		UMGRenderTarget->ReleaseResource();
-		//Widget = nullptr;
+		Widget = nullptr;
 		WidgetRenderer = nullptr;
 		SlateWidget = nullptr;
 	}
@@ -74,6 +75,16 @@ void UMZUMGRendererComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		// Update/Create the render target 2D.
 		WidgetRenderer->DrawWidget(UMGRenderTarget, SlateWidget.ToSharedRef(), FVector2D(UMGRenderTarget->SizeX, UMGRenderTarget->SizeY), DeltaTime, false);
 		// Return the updated render target 2D.
+		
+		//for debug purposes writes texture to a file
+		//TUniquePtr<FArchive> Ar(IFileManager::Get().CreateFileWriter(*FString("aaaaatexture.png")));
+		//FBufferArchive Buffer;
+		//bool bSuccess = FImageUtils::ExportRenderTarget2DAsPNG(UMGRenderTarget, Buffer);
+		//if (bSuccess)
+		//{
+		//	Ar->Serialize(const_cast<uint8*>(Buffer.GetData()), Buffer.Num());
+		//}
+
 		return;
 	}
 }

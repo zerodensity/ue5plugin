@@ -190,7 +190,6 @@ public:
 
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(TSharedPtr<TreeNode> Node,
-		TSet<TSharedPtr<MZProperty>>& PinsToRemove,
 		TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
 
 	void CheckPins(TSet<UObject*>& RemovedObjects,
