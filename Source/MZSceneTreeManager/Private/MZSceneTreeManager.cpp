@@ -6,6 +6,8 @@
 #include "MZUMGRendererComponent.h"
 #include "MZUMGRenderManager.h"
 #include "MZAssetManager.h"
+#include "MZViewportManager.h"
+#include "MZViewportClient.h"
 
 //unreal engine includes
 #include "EngineUtils.h"
@@ -96,6 +98,7 @@ void FMZSceneTreeManager::StartupModule()
 
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
+	MZViewportManager = &FModuleManager::LoadModuleChecked<FMZViewportManager>("MZViewportManager");
 
 	MZPropertyManager.MZClient = MZClient;
 
@@ -123,6 +126,16 @@ void FMZSceneTreeManager::StartupModule()
 
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZSceneTreeManager::OnPreWorldFinishDestroy);
+	
+	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
+
+	//custom pins
+	{
+		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
+		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+		CustomProperties.Add(mzprop->Id, mzprop);
+		ViewportTextureProperty = mzprop.Get();
+	}
 
 	//custom functions 
 	{
@@ -256,7 +269,7 @@ void FMZSceneTreeManager::StartupModule()
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
 				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
 			};
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
+return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
 		};
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
@@ -276,11 +289,11 @@ void FMZSceneTreeManager::StartupModule()
 				{
 					UMGManager = FoundActors[0];
 				}
-			} 
+			}
 			if (!UMGManager)
 			{
 				UMGManager = MZActorManager->SpawnActor(AMZUMGRenderManager::StaticClass());
-				
+
 				UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("MZUMGRenderManager")).ToString());
 				UMGManager->SetActorLabel(TEXT("MZUMGRenderManager"));
 
@@ -306,7 +319,7 @@ void FMZSceneTreeManager::StartupModule()
 					NewRendererComp->CreationMethod = EComponentCreationMethod::Instance;
 					NewRendererComp->RegisterComponent();
 					UMGManager->AddInstanceComponent(NewRendererComp);
-					
+
 					if (!SceneTree.NodeMap.Contains(UMGManager->GetActorGuid()))
 					{
 						return;
@@ -341,7 +354,6 @@ void FMZSceneTreeManager::StartupModule()
 
 void FMZSceneTreeManager::ShutdownModule()
 {
-
 
 }
 
@@ -412,25 +424,32 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZSceneTreeManager::OnMZConnectionClosed()
 {
-
+	DisconnectViewportTexture();
 }
 
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
 {
-	SetPropertyValue(*(FGuid*)&pinId, (void*)data, size);
+	FGuid Id = *(FGuid*)&pinId;
+	if (CustomProperties.Contains(Id))
+	{
+		auto mzprop = CustomProperties.FindRef(Id);
+		std::vector<uint8_t> copy(size, 0);
+		memcpy(copy.data(), data, size);
+
+		mzprop->SetPropValue((void*)copy.data(), size);
+		return;
+	}
+	SetPropertyValue(Id, (void*)data, size);
 }
 
 void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::ShowAs newShowAs)
 {
 	FGuid pinId = *(FGuid*)&Id;
-	//if (Pins.Contains(pinId))
-	//{
-	//	auto mzprop = Pins.FindRef(pinId);
-	//	mzprop->PinShowAs = newShowAs;
-	//	SendPinUpdate();
-	//}
-	//else if (RegisteredProperties.Contains(pinId))
-	if (MZPropertyManager.PropertiesById.Contains(pinId))
+	if (CustomProperties.Contains(pinId))
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Custom Property ShowAs changed."));
+	}
+	else if (MZPropertyManager.PropertiesById.Contains(pinId))
 	{
 		MZPropertyManager.CreatePortal(pinId, newShowAs);
 	}
@@ -1017,13 +1036,34 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 	
 }
 
+void FMZSceneTreeManager::ConnectViewportTexture()
+{
+	auto viewport = Cast<UMZViewportClient>(GEngine->GameViewport);
+	if (IsValid(viewport))
+	{
+		auto mzprop = ViewportTextureProperty;
+		mzprop->ObjectPtr = viewport;
+
+		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(mzprop);
+		mzprop->data = mz::Buffer::FromNativeTable(tex);
+	}
+}
+
+void FMZSceneTreeManager::DisconnectViewportTexture()
+{
+
+	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+	ViewportTextureProperty->ObjectPtr = nullptr;
+	mz::fb::TTexture tex;
+	ViewportTextureProperty->data = mz::Buffer::FromNativeTable(tex);
+}
+
 void FMZSceneTreeManager::RescanScene(bool reset)
 {
 	if (reset)
 	{
 		Reset();
 	}
-
 	//TODO decide which is better
 	//UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
@@ -1031,7 +1071,6 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
-
 	TArray<AActor*> ActorsInScene;
 	if (IsValid(World))
 	{
@@ -1064,6 +1103,7 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 				newNode->actor = MZActorReference(*ActorItr);
 			}
 		}
+		ConnectViewportTexture();
 	}
 }
 
@@ -1384,7 +1424,6 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 			for (auto& [_, cfunc] : CustomFunctions)
 			{
 				graphFunctions.push_back(cfunc->Serialize(mb));
-
 			}
 
 			MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes)));
@@ -1395,6 +1434,10 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
 		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+		for (auto& [_, property] : CustomProperties)
+		{
+			graphPins.push_back(property->Serialize(mb));
+		}
 		for (auto& [_, pin] : Pins)
 		{
 			graphPins.push_back(pin->Serialize(mb));
@@ -1463,6 +1506,10 @@ void FMZSceneTreeManager::SendPinUpdate()
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+	for (auto& [_, pin] : CustomProperties)
+	{
+		graphPins.push_back(pin->Serialize(mb));
+	}
 	for (auto& [_, pin] : Pins)
 	{
 		graphPins.push_back(pin->Serialize(mb));
@@ -2085,7 +2132,6 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal, MZProperty.Get()) };
 	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
-
 }
 
 void FMZPropertyManager::CreatePortal(FProperty* uproperty, mz::fb::ShowAs ShowAs)

@@ -39,6 +39,7 @@ public:
 	
 	FMZClient* MZClient;
 
+	TMap<FGuid, TSharedPtr<MZProperty>> customProperties;
 	TMap<FGuid, FGuid> PropertyToPortalPin;
 	TMap<FGuid, MZPortal> PortalPinsById;
 	TMap<FGuid, TSharedPtr<MZProperty>> PropertiesById;
@@ -148,6 +149,12 @@ public:
 	//Set a properties value
 	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 
+	//Set viewport texture pin's container to current viewport client's texture on play
+	void ConnectViewportTexture();
+
+	//Set viewport texture pin's container to null
+	void DisconnectViewportTexture();
+
 	//Rescans the current viewports world scene to get the current state of the scene outliner
 	void RescanScene(bool reset = true);
 
@@ -180,6 +187,7 @@ public:
 
 	void HandleWorldChange();
 
+
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(TSharedPtr<TreeNode> Node,
 		TSet<TSharedPtr<MZProperty>>& PinsToRemove,
@@ -209,6 +217,11 @@ public:
 	//in/out pins of the mediaz node
 	TMap<FGuid, TSharedPtr<MZProperty>> Pins;
 
+	//custom properties like viewport texture
+	TMap<FGuid, TSharedPtr<MZProperty>> CustomProperties;
+
+	MZProperty* ViewportTextureProperty;
+
 	//custom functions like spawn actor
 	TMap<FGuid, MZCustomFunction*> CustomFunctions;
 
@@ -223,6 +236,8 @@ public:
 
 	class FMZAssetManager* MZAssetManager;
 
+	class FMZViewportManager* MZViewportManager;
+	
 	FMZActorManager* MZActorManager;
 
 	FMZPropertyManager MZPropertyManager;

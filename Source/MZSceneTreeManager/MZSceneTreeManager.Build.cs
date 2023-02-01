@@ -54,6 +54,7 @@ public class MZSceneTreeManager : ModuleRules
 					"UnrealEd",
 					"MZClient",
 					"MZAssetManager",
+					"MZViewportManager"
 					}
 					);
 
@@ -81,6 +82,7 @@ public class MZSceneTreeManager : ModuleRules
 					"UnrealEd",
 					"MZClient",
 					"MZAssetManager",
+					"MZViewportManager"
 					}
 					);
 

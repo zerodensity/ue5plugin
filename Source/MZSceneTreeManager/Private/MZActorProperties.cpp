@@ -37,6 +37,10 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 	{
 		ActorContainer = MZActorReference((AActor*)container);
 	}
+	else
+	{
+		ObjectPtr = container;
+	}
 
 	StructPtr = structPtr;
 	Id = FGuid::NewGuid();
@@ -127,6 +131,7 @@ std::vector<uint8> MZProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -156,6 +161,7 @@ void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	SetProperty_InCont(container, val);
@@ -177,6 +183,10 @@ UObject* MZProperty::GetRawObjectContainer()
 	{
 		return ComponentContainer.Get();
 	}
+	else if (ObjectPtr && IsValid(ObjectPtr))
+	{
+		return ObjectPtr;
+	}
 
 	return nullptr;
 }
@@ -190,6 +200,7 @@ std::vector<uint8> MZBoolProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -238,6 +249,7 @@ void MZTrackProperty::SetPropValue(void* val, size_t size, uint8* customContaine
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	SetProperty_InCont(container, val);
@@ -325,6 +337,7 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -382,6 +395,7 @@ std::vector<uint8> MZRotatorProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -525,6 +539,7 @@ void MZStringProperty::SetPropValue(void* val, size_t size, uint8* customContain
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -545,6 +560,7 @@ std::vector<uint8> MZStringProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	FString val(" ");
@@ -567,6 +583,7 @@ void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -587,6 +604,7 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	FString val(" ");
@@ -609,6 +627,7 @@ void MZTextProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	if (container)
@@ -631,6 +650,7 @@ std::vector<uint8> MZTextProperty::UpdatePinValue(uint8* customContainer)
 	if (customContainer) container = customContainer;
 	else if (ComponentContainer) container = ComponentContainer.Get();
 	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
 	FString val(" ");

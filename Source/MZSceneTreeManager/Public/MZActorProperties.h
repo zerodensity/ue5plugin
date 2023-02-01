@@ -87,6 +87,7 @@ public:
 
 	MZActorReference ActorContainer;
 	MZComponentReference ComponentContainer;
+	UObject* ObjectPtr = nullptr;
 	uint8* StructPtr = nullptr;
 
 	FString PropertyName;
