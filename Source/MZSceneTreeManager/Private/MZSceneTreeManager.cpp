@@ -591,7 +591,7 @@ void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::Initializ
 	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
 	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
-
+	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
 	RescanScene();
 	SendNodeUpdate(FMZClient::NodeId);
 }
