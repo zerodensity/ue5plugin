@@ -18,6 +18,8 @@
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 
+//#define VIEWPORT_TEXTURE
+
 static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 
 IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
@@ -128,7 +130,7 @@ void FMZSceneTreeManager::StartupModule()
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZSceneTreeManager::OnPreWorldFinishDestroy);
 	
 	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
-
+#ifdef VIEWPORT_TEXTURE
 	//custom pins
 	{
 		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
@@ -136,6 +138,7 @@ void FMZSceneTreeManager::StartupModule()
 		CustomProperties.Add(mzprop->Id, mzprop);
 		ViewportTextureProperty = mzprop.Get();
 	}
+#endif
 
 	//custom functions 
 	{
@@ -424,7 +427,6 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZSceneTreeManager::OnMZConnectionClosed()
 {
-	DisconnectViewportTexture();
 }
 
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
@@ -1038,6 +1040,7 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 
 void FMZSceneTreeManager::ConnectViewportTexture()
 {
+#ifdef VIEWPORT_TEXTURE
 	auto viewport = Cast<UMZViewportClient>(GEngine->GameViewport);
 	if (IsValid(viewport))
 	{
@@ -1047,15 +1050,18 @@ void FMZSceneTreeManager::ConnectViewportTexture()
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(mzprop);
 		mzprop->data = mz::Buffer::FromNativeTable(tex);
 	}
+#endif
 }
 
 void FMZSceneTreeManager::DisconnectViewportTexture()
 {
-
+#ifdef VIEWPORT_TEXTURE
 	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
 	ViewportTextureProperty->ObjectPtr = nullptr;
-	mz::fb::TTexture tex;
+	auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
 	ViewportTextureProperty->data = mz::Buffer::FromNativeTable(tex);
+	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+#endif
 }
 
 void FMZSceneTreeManager::RescanScene(bool reset)

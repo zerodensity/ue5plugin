@@ -34,14 +34,24 @@ MzTextureInfo GetResourceInfo(MZProperty* mzprop)
 
 	if (!obj)
 	{
-		return MzTextureInfo{};
+		return MzTextureInfo{
+			.width = 1600,
+			.height = 900,
+			.format = MzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
+			.usage = (MzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST) 
+		};
 	}
 
 	UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 
 	if (!trt2d)
 	{
-		return MzTextureInfo{};
+		return MzTextureInfo{
+			.width = 1600,
+			.height = 900,
+			.format = MzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
+			.usage = (MzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST)
+		};
 	}
 
 	MzTextureInfo info = {
@@ -186,8 +196,14 @@ void MZTextureShareManager::ExecCommands()
 
 void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
-	std::unique_lock lock(CopyOnTickMutex);
-	CopyOnTick.Remove(textureProp);
+	{
+		std::unique_lock lock(CopyOnTickMutex);
+		CopyOnTick.Remove(textureProp);
+	}
+	{
+		std::unique_lock lock(PendingCopyQueueMutex);
+		PendingCopyQueue.Remove(textureProp->Id);
+	}
 }
 
 void MZTextureShareManager::Reset()
