@@ -61,6 +61,7 @@ public:
 	};
 	
 	AActor* SpawnActor(FString SpawnTag);
+	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	AActor* SpawnActor(UClass* ClassToSpawn);
 	
 	void ReAddActorsToSceneTree();

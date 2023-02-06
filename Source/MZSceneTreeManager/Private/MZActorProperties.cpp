@@ -4,6 +4,7 @@
 #include "ObjectEditorUtils.h"
 #include "Reality/Public/RealityTrack.h"
 #include "EngineUtils.h"
+#include "Blueprint/UserWidget.h"
 #include "MZSceneTreeManager.h"
 
 //todo fix logs
@@ -29,6 +30,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		ReadOnly = true;
 	}
 
+	StructPtr = structPtr;
 	if (container && container->IsA<UActorComponent>())
 	{
 		ComponentContainer = MZComponentReference((UActorComponent*)container);
@@ -42,7 +44,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		ObjectPtr = container;
 	}
 
-	StructPtr = structPtr;
+	
 	Id = FGuid::NewGuid();
 	PropertyName = uproperty->GetFName().ToString();
 	if (container && container->IsA<UActorComponent>())
@@ -511,6 +513,8 @@ void MZStructProperty::SetPropValue(void* val, size_t size, uint8* customContain
 	//empty
 }
 
+bool PropertyVisible(FProperty* ueproperty);
+
 MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* uproperty, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
 	: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), objectprop(uproperty)
 {
@@ -519,6 +523,77 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 		TypeName = "mz.fb.Texture"; 
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(this);
 		data = mz::Buffer::FromNativeTable(tex);
+	}
+	else if (objectprop->PropertyClass->IsChildOf<UUserWidget>())
+	{
+		UObject* Container = ActorContainer.Get();
+		if (!Container)
+		{
+			Container = ComponentContainer.Get();
+		}
+		auto Widget = Cast<UObject>(objectprop->GetObjectPropertyValue(objectprop->ContainerPtrToValuePtr<UUserWidget>(Container)));
+		auto WidgetClass = Widget->GetClass();
+
+		
+		FProperty* WProperty = WidgetClass->PropertyLink;
+		parentCategory = parentCategory + "|" + Widget->GetFName().ToString();
+		while (WProperty != nullptr)
+		{
+			FName CCategoryName = FObjectEditorUtils::GetCategoryFName(WProperty);
+
+			UClass* Class = WidgetClass;
+
+			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CCategoryName.ToString()) || !PropertyVisible(WProperty))
+			{
+				WProperty = WProperty->PropertyLinkNext;
+				continue;
+			}
+			TSharedPtr<MZProperty> mzprop = MZPropertyFactory::CreateProperty(Widget, WProperty, 0, 0, parentCategory);
+
+			UE_LOG(LogTemp, Warning, TEXT("XXXXXXXXXXXXXXXXXXXXXXXXXXXX The oobject properties pathhhhh: %s"), *(WProperty->GetPathName()));
+
+			mzprop->mzMetaDataMap.Add("objectProp",objectprop->GetFName().ToString());
+
+			if(mzprop->mzMetaDataMap.Contains("property"))
+			{
+				auto propPath = mzprop->mzMetaDataMap.Find("property");
+				propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
+			}
+			
+			if (auto component = Cast<USceneComponent>(container))
+			{
+				mzprop->mzMetaDataMap.Add("component", component->GetFName().ToString());
+				if (auto actor = component->GetOwner())
+				{
+					mzprop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+				}
+			}
+			else if (auto actor = Cast<AActor>(container))
+			{
+				mzprop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+			}
+
+			
+			//auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty);
+			if (!mzprop)
+			{
+				WProperty = WProperty->PropertyLinkNext;
+				continue;
+			}
+			//RegisteredProperties.Add(mzprop->Id, mzprop);
+			childProperties.push_back(mzprop);
+
+			for (auto It : mzprop->childProperties)
+			{
+				//RegisteredProperties.Add(it->Id, it);
+				childProperties.push_back(It);
+			}
+
+			WProperty = WProperty->PropertyLinkNext;
+		}
+
+		data = std::vector<uint8_t>(1, 0);
+		TypeName = "mz.fb.Void";
 	}
 	else
 	{
