@@ -33,7 +33,7 @@ public:
 
 	void SetPropertyValue();
 	void CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs);
-	void CreatePortal(FProperty* uproperty, mz::fb::ShowAs ShowAs);
+	void CreatePortal(FProperty* uproperty, UObject* Container, mz::fb::ShowAs ShowAs);
 	void ActorDeleted(FGuid DeletedActorId);
 	flatbuffers::Offset<mz::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty);
 	
@@ -46,6 +46,7 @@ public:
 	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
 	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid
 
+	TMap<TPair<FProperty*, UObject*>, TSharedPtr<MZProperty>> PropertiesByPropertyAndObject;
 	void Reset(bool ResetPortals = true);
 	 
 };
@@ -188,7 +189,7 @@ public:
 
 	void HandleWorldChange();
 
-
+	UObject* FindContainer(FGuid ActorId, FString ComponentName, FString PropertyPath);
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(TSharedPtr<TreeNode> Node,
 		TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
