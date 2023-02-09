@@ -1713,6 +1713,10 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 void FMZSceneTreeManager::PopulateAllChilds(AActor* actor)
 {
 	FGuid ActorId = actor->GetActorGuid();
+	PopulateAllChilds(ActorId);
+}
+void FMZSceneTreeManager::PopulateAllChilds(FGuid ActorId)
+{
 	if (PopulateNode(ActorId))
 	{
 		SendNodeUpdate(ActorId);
@@ -1777,7 +1781,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 
 	//TMap<FProperty*, MZPortal> Portals;
 	TArray<TTuple<PortalSourceContainerInfo, MZPortal>> Portals;
-	TSet<AActor*> ActorsToRescan;
+	TSet<FGuid> ActorsToRescan;
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<mz::fb::UUID> graphPins;// = { *(mz::fb::UUID*)&node->Id };
@@ -1791,22 +1795,48 @@ void FMZSceneTreeManager::HandleWorldChange()
 		}
 		auto MzProperty = MZPropertyManager.PropertiesById.FindRef(portal.SourceId);
 
-		PortalSourceContainerInfo ContainerInfo = { .ComponentName = "", .PropertyPath =  "", .Property = MzProperty->Property};
 		
-		if (MzProperty->ActorContainer)
+		PortalSourceContainerInfo ContainerInfo; //= { .ComponentName = "", .PropertyPath =  PropertyPath, .Property = MzProperty->Property};
+		ContainerInfo.Property = MzProperty->Property;
+		if(MzProperty->mzMetaDataMap.Contains("property"))
 		{
-			ActorsToRescan.Add(MzProperty->ActorContainer.Get());
-			ContainerInfo.ActorId = MzProperty->ActorContainer.Get()->GetActorGuid();
-		}
-		else if (MzProperty->ComponentContainer)
-		{
-			if (MzProperty->ComponentContainer.Actor)
+			FString FullPath = MzProperty->mzMetaDataMap.FindRef("property"); 
+			int32 outIndex;
+			if(FullPath.FindLastChar('/', outIndex))
 			{
-				ActorsToRescan.Add(MzProperty->ComponentContainer.Actor.Get());
-				ContainerInfo.ActorId = MzProperty->ComponentContainer.Actor.Get()->GetActorGuid();
-				ContainerInfo.ComponentName = MzProperty->ComponentContainer.Get()->GetFName().ToString();
+				ContainerInfo.PropertyPath = FString(outIndex, *FullPath);;
 			}
 		}
+		
+		if(MzProperty->mzMetaDataMap.Contains("actorId"))
+		{
+			FString ActorIdString = MzProperty->mzMetaDataMap.FindRef("actorId");
+			FGuid ActorId;
+			FGuid::Parse(ActorIdString, ActorId);
+			ContainerInfo.ActorId = ActorId;
+			ActorsToRescan.Add(ActorId);
+		}
+		
+		if(MzProperty->mzMetaDataMap.Contains("component"))
+		{
+			FString ComponentName = MzProperty->mzMetaDataMap.FindRef("component");
+			ContainerInfo.ComponentName = ComponentName;
+		}
+		
+		// if (MzProperty->ActorContainer)
+		// {
+		// 	ActorsToRescan.Add(MzProperty->ActorContainer.Get());
+		// 	ContainerInfo.ActorId = MzProperty->ActorContainer.Get()->GetActorGuid();
+		// }
+		// else if (MzProperty->ComponentContainer)
+		// {
+		// 	if (MzProperty->ComponentContainer.Actor)
+		// 	{
+		// 		ActorsToRescan.Add(MzProperty->ComponentContainer.Actor.Get());
+		// 		ContainerInfo.ActorId = MzProperty->ComponentContainer.Actor.Get()->GetActorGuid();
+		// 		ContainerInfo.ComponentName = MzProperty->ComponentContainer.Get()->GetFName().ToString();
+		// 	}
+		// }
 
 		Portals.Add({ContainerInfo, portal});
 
@@ -1831,9 +1861,9 @@ void FMZSceneTreeManager::HandleWorldChange()
 	SendNodeUpdate(FMZClient::NodeId, false);
 
 
-	for (auto actor : ActorsToRescan)
+	for (auto ActorId : ActorsToRescan)
 	{
-		PopulateAllChilds(actor);
+		PopulateAllChilds(ActorId);
 	}
 
 	flatbuffers::FlatBufferBuilder mbb;
@@ -1886,9 +1916,9 @@ UObject* FMZSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName
 	for(auto PropertyName : ChildPropertyNames)
 	{
 		auto Property = FindFProperty<FProperty>(Container->GetClass(), *PropertyName);
-		if(Property)
+		if(FObjectProperty* ObjectProperty = CastField<FObjectProperty>(Property))
 		{
-			UObject* Temp = Property->ContainerPtrToValuePtr<UObject>(Container);
+			UObject* Temp = ObjectProperty->GetObjectPropertyValue(ObjectProperty->ContainerPtrToValuePtr<UObject>(Container));
 			if(Temp)
 			{
 				Container = Temp;
@@ -1898,6 +1928,12 @@ UObject* FMZSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName
 				break;
 			}
 		}
+		else if(FStructProperty* StructProperty = CastField<FStructProperty>(Property))
+		{
+			check(0);
+			break;
+		}
+		
 	}
 	return Container;	
 }
@@ -2267,4 +2303,5 @@ void FMZPropertyManager::Reset(bool ResetPortals)
 	PropertiesById.Empty();
 	PropertiesByPointer.Empty();
 	ActorsPropertyIds.Empty();
+	PropertiesByPropertyAndObject.Empty();
 }

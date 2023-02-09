@@ -126,6 +126,8 @@ public:
 	 
 	void PopulateAllChilds(AActor* actor);
 
+	void PopulateAllChilds(FGuid ActorId);
+
 	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
 
 
