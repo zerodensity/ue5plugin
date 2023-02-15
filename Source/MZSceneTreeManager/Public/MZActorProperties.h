@@ -76,6 +76,7 @@ public:
 
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 	UObject* GetRawObjectContainer();
+	void* GetRawContainer();
 
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr);
 	//std::vector<uint8> GetValue(uint8* customContainer = nullptr);

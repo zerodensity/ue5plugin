@@ -46,7 +46,7 @@ public:
 	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
 	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid
 
-	TMap<TPair<FProperty*, UObject*>, TSharedPtr<MZProperty>> PropertiesByPropertyAndObject;
+	TMap<TPair<FProperty*, void*>, TSharedPtr<MZProperty>> PropertiesByPropertyAndContainer;
 	void Reset(bool ResetPortals = true);
 	 
 };
@@ -76,7 +76,7 @@ public:
 	class FMZClient* MZClient;
 
 	TSet<FGuid> ActorIds;
-	TArray< TPair<MZActorReference,FString> > Actors;
+	TArray< TPair<MZActorReference,TMap<FString,FString>> > Actors;
 }; 
 
 
@@ -191,7 +191,11 @@ public:
 
 	void HandleWorldChange();
 
-	UObject* FindContainer(FGuid ActorId, FString ComponentName, FString PropertyPath);
+	UObject* FindContainer(FGuid ActorId, FString ComponentName);
+
+	void* FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
+
+	// UObject* FMZSceneTreeManager::FindObjectContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(TSharedPtr<TreeNode> Node,
 		TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
