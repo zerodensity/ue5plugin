@@ -180,11 +180,7 @@ void* MZProperty::GetRawContainer()
 	{
 		return Object;
 	}
-	else if(StructPtr)
-	{
-		return StructPtr;
-	}
-	return nullptr;
+	return StructPtr;
 }
 
 UObject* MZProperty::GetRawObjectContainer()
@@ -378,20 +374,9 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 		fb.Finish(offset);
 		mz::Buffer buffer = fb.Release();
 		data = buffer;
-		//data.resize(buffer.size());
-		//memcpy(data.data(), buffer.data(), data.size());
-
-		//auto Track = mz::fb::CreateTrack(fb, );
-
-		//data.resize(si)
 	}
 	return data;
 }
-
-//flatbuffers::Offset<mz::fb::Pin> MZTrackProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
-//{
-//
-//}
 
 
 void MZRotatorProperty::SetProperty_InCont(void* container, void* val)
@@ -537,33 +522,6 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 		AProperty = AProperty->PropertyLinkNext;
 	}
 
-		
-		// class FProperty* AProperty = structprop->Struct->PropertyLink;
-		// while (AProperty != nullptr)
-		// {
-		// 	FName CategoryNamek = FObjectEditorUtils::GetCategoryFName(AProperty);
-		// 	UClass* Class = structprop->Struct->GetClass();
-		//
-		// 	if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryNamek.ToString()) || !PropertyVisibleExp(AProperty))
-		// 	{
-		// 		AProperty = AProperty->PropertyLinkNext;
-		// 		continue;
-		// 	}
-		//
-		// 	UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-		// 	auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
-		// 	if (mzprop)
-		// 	{
-		// 		childProperties.push_back(mzprop);
-		// 		for (auto it : mzprop->childProperties)
-		// 		{
-		// 			childProperties.push_back(it);
-		// 		}
-		// 	}
-		//
-		// 	AProperty = AProperty->PropertyLinkNext;
-		// }
-
 	data = std::vector<uint8_t>(1, 0);
 	TypeName = "mz.fb.Void";
 }
@@ -592,6 +550,13 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 			Container = ComponentContainer.Get();
 		}
 		auto Widget = Cast<UObject>(objectprop->GetObjectPropertyValue(objectprop->ContainerPtrToValuePtr<UUserWidget>(Container)));
+		if(!Widget)
+		{
+			data = std::vector<uint8_t>(1, 0);
+			TypeName = "mz.fb.Void";
+			return;
+		}
+	
 		auto WidgetClass = Widget->GetClass();
 
 		
@@ -609,10 +574,6 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 				continue;
 			}
 			TSharedPtr<MZProperty> mzprop = MZPropertyFactory::CreateProperty(Widget, WProperty, 0, 0, parentCategory);
-
-			// UE_LOG(LogTemp, Warning, TEXT("XXXXXXXXXXXXXXXXXXXXXXXXXXXX The oobject properties pathhhhh: %s"), *(WProperty->GetPathName()));
-
-			// mzprop->mzMetaDataMap.Add("objectProp",objectprop->GetFName().ToString());
 
 			if(mzprop->mzMetaDataMap.Contains("ContainerPath"))
 			{
@@ -641,7 +602,6 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 			}
 
 			
-			//auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty);
 			if (!mzprop)
 			{
 				WProperty = WProperty->PropertyLinkNext;
@@ -1065,10 +1025,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	{
 		prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
 	}
-
-	//prop->mzMetaDataMap.Add("component", prop->PropertyName);
-	//	mz::fb::CreateMetaDataEntryDirect(fbb, "propertyPath", TCHAR_TO_UTF8(*Property->GetPathName())),
-	//	mz::fb::CreateMetaDataEntryDirect(fbb, "property", TCHAR_TO_UTF8(*Property->GetName())) };
+	
 	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
 	UE_LOG(LogTemp, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
 	return prop;

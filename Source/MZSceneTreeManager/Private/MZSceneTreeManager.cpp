@@ -161,6 +161,10 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString SpawnTag((char*)properties.FindRef(actorPinId).data());
+			if(SpawnTag.IsEmpty())
+			{
+				return;
+			}
 			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -282,7 +286,10 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString umgName((char*)properties.FindRef(actorPinId).data());
-			
+			if(umgName.IsEmpty())
+			{
+				return;
+			}
 			UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgName);
 			auto UMGManager = MZActorManager->SpawnUMGRenderManager(umgName, newWidget);
 			
