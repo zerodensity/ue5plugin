@@ -67,7 +67,7 @@ void FMZSceneTreeManager::OnMapChange(uint32 MapFlags)
 {
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	UE_LOG(LogTemp, Warning, TEXT("OnMapChange with editor world contexts world %s"), *WorldName);
-	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 }
 
 void FMZSceneTreeManager::OnNewCurrentLevel()
@@ -531,7 +531,7 @@ void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::Initializ
 	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
 	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
-	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 	RescanScene();
 	SendNodeUpdate(FMZClient::NodeId);
 }
@@ -1875,7 +1875,7 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	UE_LOG(LogTemp, Warning, TEXT("Play session is ended with editor world contexts world %s"), *WorldName);
 
-	FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 	HandleWorldChange();
 }
 
