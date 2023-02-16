@@ -26,13 +26,6 @@ IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
 UWorld* FMZSceneTreeManager::daWorld = nullptr;
 
-template<typename T>
-inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
-{
-	builder.Finish(offset);
-	auto buf = builder.Release();
-	return *flatbuffers::GetRoot<T>(buf.data());
-}
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
@@ -494,6 +487,15 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 
 		}
 	}
+	else if(MZPropertyManager.PortalPinsById.Contains(itemId))
+	{
+		auto MzProperty = MZPropertyManager.PortalPinsById.FindRef(itemId);
+		
+		flatbuffers::FlatBufferBuilder mb;
+		std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializePortalPropertyMenuItems(mb);
+		auto posx = mz::fb::vec2(pos.X, pos.Y);
+		MZClient->AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
+	}
 }
 
 void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction const& action)
@@ -511,6 +513,10 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 			}
 			menuActions.ExecuteActorAction(actionId, actor);
 		}
+	}
+	else if(MZPropertyManager.PortalPinsById.Contains(itemId))
+	{
+		menuActions.ExecutePortalPropertyAction(actionId, this, itemId);
 	}
 }
 
@@ -1408,6 +1414,26 @@ void FMZSceneTreeManager::SendPinUpdate()
 
 }
 
+void FMZSceneTreeManager::RemovePortal(FGuid PortalId)
+{
+	if(!MZPropertyManager.PortalPinsById.Contains(PortalId))
+	{
+		return;
+	}
+	auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
+	MZPropertyManager.PortalPinsById.Remove(Portal.Id);
+	MZPropertyManager.PropertyToPortalPin.Remove(Portal.SourceId);
+
+	if(!MZClient->IsConnected())
+	{
+		return;
+	}
+	flatbuffers::FlatBufferBuilder mb;
+	std::vector<mz::fb::UUID> pinsToDelete;
+	pinsToDelete.push_back(*(mz::fb::UUID*)&Portal.Id);
+	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
+}
+
 void FMZSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop)
 {
 	if (!MZClient->IsConnected())
@@ -2128,4 +2154,56 @@ void FMZPropertyManager::Reset(bool ResetPortals)
 	PropertiesByPointer.Empty();
 	ActorsPropertyIds.Empty();
 	PropertiesByPropertyAndContainer.Empty();
+}
+
+std::vector<flatbuffers::Offset<mz::ContextMenuItem>> ContextMenuActions::SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb)
+{
+	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> result;
+	int command = 0;
+	for (auto item : ActorMenu)
+	{
+		result.push_back(mz::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
+	}
+	return result;
+}
+
+std::vector<flatbuffers::Offset<mz::ContextMenuItem>> ContextMenuActions::SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb)
+{
+	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> result;
+	int command = 0;
+	for (auto item : PortalPropertyMenu)
+	{
+		result.push_back(mz::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
+	}
+	return result;
+}
+
+ContextMenuActions::ContextMenuActions()
+{
+	TPair<FString, std::function<void(AActor*)> > deleteAction(FString("Delete Actor"), [](AActor* actor)
+		{
+			//actor->Destroy();
+			actor->GetWorld()->EditorDestroyActor(actor, false);
+		});
+	ActorMenu.Add(deleteAction);
+	TPair<FString, std::function<void(class FMZSceneTreeManager*, FGuid)>> PortalDeleteAction(FString("Delete Bookmark"), [](class FMZSceneTreeManager* MZSceneTreeManager,FGuid id)
+		{
+			MZSceneTreeManager->RemovePortal(id);	
+		});
+	PortalPropertyMenu.Add(PortalDeleteAction);
+}
+
+void ContextMenuActions::ExecuteActorAction(uint32 command, AActor* actor)
+{
+	if (ActorMenu.IsValidIndex(command))
+	{
+		ActorMenu[command].Value(actor);
+	}
+}
+void ContextMenuActions::ExecutePortalPropertyAction(uint32 command, class FMZSceneTreeManager* MZSceneTreeManager, FGuid PortalId)
+{
+	if (PortalPropertyMenu.IsValidIndex(command))
+	{
+		PortalPropertyMenu[command].Value(MZSceneTreeManager, PortalId);
+	}
 }

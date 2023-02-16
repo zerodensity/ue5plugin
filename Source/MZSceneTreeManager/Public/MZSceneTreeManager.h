@@ -11,6 +11,15 @@
 #include "MZSceneTree.h"
 #include "MZClient.h"
 
+
+template<typename T>
+inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
+{
+	builder.Finish(offset);
+	auto buf = builder.Release();
+	return *flatbuffers::GetRoot<T>(buf.data());
+}
+
 struct MZPortal
 {
 	FGuid Id;
@@ -77,7 +86,21 @@ public:
 
 	TSet<FGuid> ActorIds;
 	TArray< TPair<MZActorReference,TMap<FString,FString>> > Actors;
-}; 
+};
+
+
+class ContextMenuActions
+{
+public:
+	TArray<TPair<FString, std::function<void(AActor*)>>>  ActorMenu;
+	TArray<TPair<FString, Task>>  FunctionMenu;
+	TArray<TPair<FString, std::function<void(class FMZSceneTreeManager*, FGuid)>>>   PortalPropertyMenu;
+	ContextMenuActions();
+	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb);
+	void ExecuteActorAction(uint32 command, AActor* actor);
+	void ExecutePortalPropertyAction(uint32 command, class FMZSceneTreeManager* MZSceneTreeManager, FGuid PortalId);
+};
 
 
 class FMZSceneTreeManager : public IModuleInterface {
@@ -173,7 +196,9 @@ public:
 
 	//Sends pin updates to the root node 
 	void SendPinUpdate();
-
+	
+	void RemovePortal(FGuid PortalId);
+	
 	//Sends pin to add to a node
 	void SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop);
 
@@ -233,6 +258,7 @@ public:
 	TMap<FGuid, MZCustomFunction*> CustomFunctions;
 
 	//handles context menus and their actions
+	friend class ContextMenuActions;
 	class ContextMenuActions menuActions;
 
 	//Scene tree holds the information to mimic the outliner in mediaz
@@ -249,3 +275,4 @@ public:
 
 	FMZPropertyManager MZPropertyManager;
 };
+

@@ -63,42 +63,6 @@ public:
 	//std::atomic_bool IsChannelReady = false;
 };
 
-class MZCLIENT_API ContextMenuActions
-{
-public:
-	TArray< TPair<FString, std::function<void(AActor*)>> >  ActorMenu;
-	TArray< TPair<FString, Task> >  FunctionMenu;
-	TArray< TPair<FString, Task> >  PropertyMenu;
-
-	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb)
-	{
-		std::vector<flatbuffers::Offset<mz::ContextMenuItem>> result;
-		int command = 0;
-		for (auto item : ActorMenu)
-		{
-			result.push_back(mz::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
-		}
-		return result;
-	}
-
-	ContextMenuActions()
-	{
-		TPair<FString, std::function<void(AActor*)> > deleteAction(FString("Delete"), [](AActor* actor)
-			{
-				//actor->Destroy();
-				actor->GetWorld()->EditorDestroyActor(actor, false);
-			});
-		ActorMenu.Add(deleteAction);
-	}
-
-	void ExecuteActorAction(uint32 command, AActor* actor)
-	{
-		if (ActorMenu.IsValidIndex(command))
-		{
-			ActorMenu[command].Value(actor);
-		}
-	}
-};
 
 class UENodeStatusHandler
 {
