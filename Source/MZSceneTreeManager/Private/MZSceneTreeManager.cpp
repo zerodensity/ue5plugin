@@ -1765,6 +1765,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 	}
 
 	flatbuffers::FlatBufferBuilder mbb;
+	std::vector<mz::fb::UUID> PinsToRemove;
 	for (auto& [containerInfo, portal] : Portals)
 	{
 		UObject* ObjectContainer = FindContainer(containerInfo.ActorId, containerInfo.ComponentName);
@@ -1782,11 +1783,19 @@ void FMZSceneTreeManager::HandleWorldChange()
 			portal.SourceId = MzProperty->Id;
 			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, notOrphan, (mz::fb::UUID*)&MzProperty->Id));
 		}
+		else
+		{
+			PinsToRemove.push_back(*(mz::fb::UUID*)&portal.Id);
+		}
 
 	}
 	if (!PinUpdates.empty())
 	{
 		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+	}
+	if(!PinsToRemove.empty())
+	{
+		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &PinsToRemove)));
 	}
 	
 }
