@@ -237,6 +237,10 @@ void FMZSceneTreeManager::StartupModule()
 				return;
 			}
 			auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
+			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
+			auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+			RenderTarget2D->InitAutoFormat(1920, 1080);
+			InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
 
 			PopulateNode(projectionNode->Id);
 			SendNodeUpdate(projectionNode->Id);
@@ -246,7 +250,6 @@ void FMZSceneTreeManager::StartupModule()
 				SendNodeUpdate(ChildNode->Id);
 			}
 
-			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
 			MZPropertyManager.CreatePortal(InputTexture, projectionCube, mz::fb::ShowAs::INPUT_PIN);
 
 		};
@@ -334,7 +337,17 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 		if (texman->PendingCopyQueue.Contains(id))
 		{
 			auto mzprop = texman->PendingCopyQueue.FindRef(id);
-			texman->UpdateTexturePin(mzprop, flatbuffers::GetRoot<mz::fb::Texture>(pin->data()->Data()));
+			auto ShowAs = mzprop->PinShowAs;
+			if(MZPropertyManager.PropertyToPortalPin.Contains(mzprop->Id))
+			{
+				auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id); 
+				if(MZPropertyManager.PortalPinsById.Contains(PortalId))
+				{
+					auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
+					ShowAs = Portal.ShowAs;
+				}
+			}
+			texman->UpdateTexturePin(mzprop, ShowAs, flatbuffers::GetRoot<mz::fb::Texture>(pin->data()->Data()));
 		}
 	}
 }

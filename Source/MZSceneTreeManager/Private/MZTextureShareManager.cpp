@@ -137,7 +137,7 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	return tex;
 }
 
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture const* tex)
+void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, mz::fb::Texture const* tex)
 {
 	auto buf = mz::Buffer::FromTableRoot<mz::fb::Texture>(tex);
 	mzprop->data = buf.CopyAsVector();
@@ -158,7 +158,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::Texture
 
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
-		.ReadOnly = mzprop->PinShowAs == mz::fb::ShowAs::INPUT_PIN,
+		.ReadOnly = RealShowAs == mz::fb::ShowAs::INPUT_PIN,
 		.Info = info,
 	};
 
