@@ -405,13 +405,23 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Custom Property ShowAs changed."));
 	}
-	else if (MZPropertyManager.PropertiesById.Contains(pinId))
+	else if (MZPropertyManager.PropertiesById.Contains(pinId) && !MZPropertyManager.PropertyToPortalPin.Contains(pinId))
 	{
 		MZPropertyManager.CreatePortal(pinId, newShowAs);
 	}
 	else
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Property with given id is not found."));
+	}
+
+	if(MZPropertyManager.PortalPinsById.Contains(pinId))
+	{
+		auto Portal = MZPropertyManager.PortalPinsById.FindRef(pinId);
+		if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+		{
+			auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+			MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
+		}
 	}
 }
 

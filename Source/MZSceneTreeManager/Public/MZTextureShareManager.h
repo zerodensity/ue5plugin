@@ -47,6 +47,7 @@ public:
 	
 	mz::fb::TTexture AddTexturePin(MZProperty*);
 	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs, mz::fb::Texture const*);
+	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	//void AddToCopyQueue();
 	//void RemoveFromCopyQueue();
 	void Reset();

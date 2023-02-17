@@ -178,6 +178,20 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	CopyOnTick.Add(mzprop, copyInfo);
 }
 
+void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
+{
+	std::unique_lock lock(CopyOnTickMutex);
+	if(CopyOnTick.Contains(MzProperty))
+	{
+		TArray<ResourceInfo*> out;
+		CopyOnTick.MultiFindPointer(MzProperty, out);
+		for(auto info : out)
+		{
+				info->ReadOnly = NewShowAs == mz::fb::ShowAs::INPUT_PIN;
+		}
+	}
+}
+
 void MZTextureShareManager::WaitCommands()
 {
 	if (CmdFence->GetCompletedValue() < CmdFenceValue)
