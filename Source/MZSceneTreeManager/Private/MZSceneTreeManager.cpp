@@ -463,11 +463,11 @@ void FMZSceneTreeManager::OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb:
 
 void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 {
-	if (!flatbuffers::IsFieldPresent(&appExecute, mz::app::AppExecute::VT_PINVALUEUPDATES))
+	if (!flatbuffers::IsFieldPresent(&appExecute, mz::app::AppExecute::VT_LATEST_PIN_DATA))
 	{
 		return;
 	}
-	for (auto update : *appExecute.PinValueUpdates())
+	for (auto* update : *appExecute.latest_pin_data())
 	{
 		auto id = *(FGuid*)update->pin_id()->bytes()->Data();
 
