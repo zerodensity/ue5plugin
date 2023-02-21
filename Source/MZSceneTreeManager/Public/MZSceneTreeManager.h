@@ -12,12 +12,20 @@
 #include "MZClient.h"
 
 
-template<typename T>
-inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
+// template<typename T>
+// inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
+// {
+// 	builder.Finish(offset);
+// 	auto buf = builder.Release();
+// 	return *flatbuffers::GetRoot<T>(buf.data());
+// }
+
+template<typename T, typename F>
+void Sendx(flatbuffers::FlatBufferBuilder& fbb, flatbuffers::Offset<T> const& offset, F&& func)
 {
-	builder.Finish(offset);
-	auto buf = builder.Release();
-	return *flatbuffers::GetRoot<T>(buf.data());
+	fbb.Finish(offset);
+	mz::Buffer buf = fbb.Release();
+	func(*buf.AsTable<T>());
 }
 
 struct MZPortal

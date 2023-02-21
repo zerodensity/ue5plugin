@@ -93,7 +93,12 @@ void FMZAssetManager::SendAssetList()
 	}
 	mz::fb::String256 listName;
 	strcat((char*)listName.mutable_val()->data(), "UE5_ACTOR_LIST");
-	MZClient->AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
+	MZClient->AppServiceClient->UpdateStringList(*root);
+	// MZClient->AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
 }
 
 void FMZAssetManager::SendUMGList()
@@ -122,7 +127,12 @@ void FMZAssetManager::SendUMGList()
 	}
 	mz::fb::String256 listName;
 	strcat((char*)listName.mutable_val()->data(), "UE5_UMG_LIST");
-	MZClient->AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
+	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
+	MZClient->AppServiceClient->UpdateStringList(*root);
+	// MZClient->AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
 }
 
 TSet<FTopLevelAssetPath> FMZAssetManager::GetAssetPathsOfClass(UClass* ParentClass)

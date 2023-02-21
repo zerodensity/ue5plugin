@@ -24,13 +24,13 @@ DEFINE_LOG_CATEGORY(LogMediaZ);
 #define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMediaZ, Warning, TEXT(x), y)
 
-template<typename T>
-inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
-{
-	builder.Finish(offset);
-	auto buf = builder.Release();
-	return *flatbuffers::GetRoot<T>(buf.data());
-}
+// template<typename T>
+// inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
+// {
+// 	builder.Finish(offset);
+// 	auto buf = builder.Release();
+// 	return *flatbuffers::GetRoot<T>(buf.data());
+// }
 
 FGuid FMZClient::NodeId = {};
 
@@ -709,7 +709,12 @@ void UENodeStatusHandler::SendStatus()
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	PluginClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
+	auto offset = mz::CreatePartialNodeUpdate(Builder, &UpdateRequest);
+	Builder.Finish(offset);
+	auto buf = Builder.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	PluginClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// PluginClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
 	Dirty = false;
 }
 

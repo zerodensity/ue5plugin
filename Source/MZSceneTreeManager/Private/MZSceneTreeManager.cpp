@@ -506,8 +506,13 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
 			auto posx = mz::fb::vec2(pos.X, pos.Y);
-			MZClient->AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
-
+			auto offset = mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions);
+			mb.Finish(offset);
+			auto buf = mb.Release();
+			auto root = flatbuffers::GetRoot<mz::ContextMenuUpdate>(buf.data());
+			MZClient->AppServiceClient->SendContextMenuUpdate(*root);
+			// Send<mz::ContextMenuUpdate, decltype(MZClient->AppServiceClient->SendContextMenuUpdate)>(mb, offset, MZClient->AppServiceClient->SendContextMenuUpdate);
+			// MZClient->AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
 		}
 	}
 	else if(MZPropertyManager.PortalPinsById.Contains(itemId))
@@ -517,7 +522,12 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializePortalPropertyMenuItems(mb);
 		auto posx = mz::fb::vec2(pos.X, pos.Y);
-		MZClient->AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
+		auto offset = mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions);
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<mz::ContextMenuUpdate>(buf.data());
+		MZClient->AppServiceClient->SendContextMenuUpdate(*root);
+		// MZClient->AppServiceClient->SendContextMenuUpdate(FinishBuffer(mb, mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions)));
 	}
 }
 
@@ -721,10 +731,20 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	{
 		PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), true, 0));
 	}
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb1, mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
-	
+	auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+	fb1.Finish(offset);
+	auto buf = fb1.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb1, mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+
 	flatbuffers::FlatBufferBuilder fb3;
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(fb3, mz::CreatePartialNodeUpdateDirect(fb3, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES)));
+	auto offset2 = mz::CreatePartialNodeUpdateDirect(fb3, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES);
+	fb3.Finish(offset2);
+	auto buf2 = fb3.Release();
+	auto root2 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf2.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(fb3, mz::CreatePartialNodeUpdateDirect(fb3, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES)));
 
 
 	std::vector<const mz::fb::Node*> nodesWithProperty;
@@ -965,7 +985,12 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	}
 	if (!PinUpdates.empty())
 	{
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb2, mz::CreatePartialNodeUpdateDirect(fb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+		auto offset3 = mz::CreatePartialNodeUpdateDirect(fb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		fb2.Finish(offset3);
+		auto buf3 = fb2.Release();
+		auto root3 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf3.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root3);
+		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb2, mz::CreatePartialNodeUpdateDirect(fb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
 	}
 }
 
@@ -1344,13 +1369,17 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 			{
 				graphFunctions.push_back(cfunc->Serialize(mb));
 			}
-
-			MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes)));
+			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes);
+			mb.Finish(offset);
+			auto buf = mb.Release();
+			auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+			MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+			// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes)));
 
 			return;
 		}
 
-		flatbuffers::FlatBufferBuilder mb;
+		flatbuffers::FlatBufferBuilder mb = flatbuffers::FlatBufferBuilder();
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
 		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
 		for (auto& [_, property] : CustomProperties)
@@ -1367,8 +1396,12 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 			graphFunctions.push_back(cfunc->Serialize(mb));
 
 		}
-
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes)));
+		auto offset =  mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)(&nodeId), mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes);
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		//MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer<mz::PartialNodeUpdate>(mb2, mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)(&nodeId), mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes)));
 
 		return;
 	}
@@ -1399,7 +1432,12 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 			graphFunctions.push_back(mzfunc->Serialize(mb));
 		}
 	}
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::ANY, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes)));
 }
 
 void FMZSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
@@ -1410,8 +1448,12 @@ void FMZSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uint
 	}
 
 	flatbuffers::FlatBufferBuilder mb;
-	MZClient->AppServiceClient->NotifyPinValueChanged(FinishBuffer(mb, mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data)));
-
+	auto offset = mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PinValueChanged>(buf.data());
+	MZClient->AppServiceClient->NotifyPinValueChanged(*root);
+	// MZClient->AppServiceClient->NotifyPinValueChanged(FinishBuffer(mb, mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data)));
 }
 
 void FMZSceneTreeManager::SendPinUpdate()
@@ -1433,7 +1475,12 @@ void FMZSceneTreeManager::SendPinUpdate()
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0)));
 
 }
 
@@ -1454,7 +1501,13 @@ void FMZSceneTreeManager::RemovePortal(FGuid PortalId)
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<mz::fb::UUID> pinsToDelete;
 	pinsToDelete.push_back(*(mz::fb::UUID*)&Portal.Id);
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
+
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
 }
 
 void FMZSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop)
@@ -1465,7 +1518,12 @@ void FMZSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> cons
 	}
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { mzprop->Serialize(mb) };
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
 
 	return;
 }
@@ -1493,7 +1551,12 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 			}
 			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-			MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+			mb.Finish(offset);
+			auto buf = mb.Release();
+			auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+			MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+			// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 		}
 	}
@@ -1516,7 +1579,12 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+		auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 	}
 
@@ -1640,12 +1708,22 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 			{
 				pinsToDelete.push_back(*(mz::fb::UUID*)&portalId);
 			}
-			MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
+			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+			mb.Finish(offset);
+			auto buf = mb.Release();
+			auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+			MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+			// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0)));
 		}
 
 		flatbuffers::FlatBufferBuilder mb2;
 		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->Id };
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb2, mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0)));
+		auto offset = mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
+		mb2.Finish(offset);
+		auto buf = mb2.Release();
+		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb2, mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0)));
 	}
 }
 
@@ -1772,8 +1850,12 @@ void FMZSceneTreeManager::HandleWorldChange()
 	{
 		return;
 	}
-
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
 	PinUpdates.clear();
 
 	MZPropertyManager.Reset(false);
@@ -1814,11 +1896,22 @@ void FMZSceneTreeManager::HandleWorldChange()
 	}
 	if (!PinUpdates.empty())
 	{
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+		auto offset1 = 	mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		mbb.Finish(offset1);
+		auto buf1 = mbb.Release();
+		auto root1 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf1.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root1);
+		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
 	}
 	if(!PinsToRemove.empty())
 	{
-		MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &PinsToRemove)));
+		flatbuffers::FlatBufferBuilder mb2;
+		auto offset2 = mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &PinsToRemove);
+		mb2.Finish(offset2);
+		auto buf2 = mb2.Release();
+		auto root2 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf2.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root2);
+		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mbb, mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &PinsToRemove)));
 	}
 	
 }
@@ -1933,7 +2026,12 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 	return SpawnedActor;
 }
@@ -1971,7 +2069,12 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 	return UMGManager;
 }
@@ -2006,7 +2109,12 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 	return SpawnedActor;
 }
@@ -2109,7 +2217,12 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 	}
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal, MZProperty.Get()) };
-	MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
+	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0)));
 }
 
 void FMZPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container, mz::fb::ShowAs ShowAs)
