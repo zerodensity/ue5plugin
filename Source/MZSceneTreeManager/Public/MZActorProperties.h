@@ -5,6 +5,7 @@
 #pragma warning (disable : 4668)
 #include "AppEvents_generated.h"
 #include "RealityTrack.h"
+#include "MZClient.h"
 
 class MZStructProperty;
 
@@ -83,7 +84,8 @@ public:
 	void MarkState();
 	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
-
+	virtual flatbuffers::Offset<mz::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) {return 0;};
+	
 	FProperty* Property;
 
 	MZActorReference ActorContainer;
@@ -296,16 +298,50 @@ protected:
 class MZEnumProperty : public MZProperty
 {
 public:
-	MZEnumProperty(UObject* container, FEnumProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), enumprop(uproperty) 
+	MZEnumProperty(UObject* container, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(container, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
 	{
 		data = std::vector<uint8_t>(1, 0); //TODO
-		TypeName = "mz.fb.Void";
+		TypeName = "string";
+
+		int EnumSize = Enum->NumEnums();
+		for(int i = 0; i < EnumSize; i++)
+		{
+			NameMap.Add(Enum->GetNameByIndex(i).ToString(), Enum->GetValueByIndex(i));
+		}
+
+		
+		flatbuffers::FlatBufferBuilder mb;
+		std::vector<mz::fb::String256> NameList;
+		for (auto [name, _]: NameMap)
+		{
+			mz::fb::String256 str256;
+			auto val = str256.mutable_val();
+			auto size = name.Len() < 256 ? name.Len() : 256;
+			memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
+			NameList.push_back(str256);
+		}
+		mz::fb::String256 listName;
+		strcat((char*)listName.mutable_val()->data(), TCHAR_TO_UTF8(*Enum->GetFName().ToString()));
+		auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
+		auto MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+		MZClient->AppServiceClient->UpdateStringList(*root);
 	}
 
-	FEnumProperty* enumprop;
+	FString MediaZListName;
+	TMap<FString, int64> NameMap;
+	FString CurrentName;
+	int64 CurrentValue;
+	UEnum* Enum;
+	FNumericProperty* IndexProp;
+	FEnumProperty* EnumProperty;
+	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	virtual flatbuffers::Offset<mz::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
-	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override; 
 
 };
 

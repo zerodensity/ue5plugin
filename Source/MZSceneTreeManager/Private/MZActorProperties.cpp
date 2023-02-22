@@ -791,25 +791,93 @@ std::vector<uint8> MZTextProperty::UpdatePinValue(uint8* customContainer)
 
 	return data;
 }
+flatbuffers::Offset<mz::fb::Visualizer> MZEnumProperty::SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb)
+{
+	return mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, TCHAR_TO_UTF8(*Enum->GetFName().ToString()));
+}
+
+flatbuffers::Offset<mz::fb::Pin> MZEnumProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+{
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&(MZProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  mz::fb::PinContents::JobPin);
+}
 
 void MZEnumProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	//TODO
+	
+	IsChanged = true;
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
+	{
+		FString newval((char*)val);
+		auto NewVal = Enum->GetValueByName(FName(newval));
+		if(NewVal == INDEX_NONE)
+		{
+			return;
+		}
+		uint8* PropData = IndexProp->ContainerPtrToValuePtr<uint8>(container);
+		IndexProp->SetIntPropertyValue(PropData, NewVal);
+	}
+
+	if (!customContainer && container)
+	{
+		MarkState();
+	}
+
+	return;
+}
+
+std::vector<uint8> MZEnumProperty::UpdatePinValue(uint8* customContainer)
+{
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
+	else if (StructPtr) container = StructPtr;
+
+	FString val(" ");
+	if(container && Enum && IndexProp)
+	{
+		CurrentValue = IndexProp->GetSignedIntPropertyValue_InContainer(container);
+		CurrentName = Enum->GetNameByValue(CurrentValue).ToString();
+		val = CurrentName;
+	}
+	
+	auto s = StringCast<ANSICHAR>(*val);
+	data = std::vector<uint8_t>(s.Length() + 1, 0);
+	memcpy(data.data(), s.Get(), s.Length());
+
+	return data;
 }
 
 TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
-	FProperty* uproperty, 
-	TMap<FGuid, TSharedPtr<MZProperty>>* registeredProperties, 
-	TMap<FProperty*, TSharedPtr<MZProperty>>* propertiesMap,
-	FString parentCategory, 
-	uint8* StructPtr, 
-	MZStructProperty* parentProperty)
+                                                         FProperty* uproperty, 
+                                                         TMap<FGuid, TSharedPtr<MZProperty>>* registeredProperties, 
+                                                         TMap<FProperty*, TSharedPtr<MZProperty>>* propertiesMap,
+                                                         FString parentCategory, 
+                                                         uint8* StructPtr, 
+                                                         MZStructProperty* parentProperty)
 {
 	TSharedPtr<MZProperty> prop = nullptr;
 
 	//CAST THE PROPERTY ACCORDINGLY
 	uproperty->GetClass();
-	if (FFloatProperty* floatprop = CastField<FFloatProperty>(uproperty) ) 
+	if(CastField<FNumericProperty>(uproperty) && CastField<FNumericProperty>(uproperty)->IsEnum())
+	{
+		FNumericProperty* numericprop = CastField<FNumericProperty>(uproperty);
+		UEnum* uenum = numericprop->GetIntPropertyEnum();
+		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, nullptr, numericprop, uenum, parentCategory, StructPtr, parentProperty));
+	}
+	else if (FFloatProperty* floatprop = CastField<FFloatProperty>(uproperty) ) 
 	{
 		prop = TSharedPtr<MZProperty>(new MZFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty));
 	}
@@ -855,7 +923,9 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 	else if (FEnumProperty* enumprop = CastField<FEnumProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, enumprop, parentCategory, StructPtr, parentProperty));
+		FNumericProperty* numericprop = enumprop->GetUnderlyingProperty();
+		UEnum* uenum = enumprop->GetEnum();
+		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, enumprop, numericprop, uenum, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FTextProperty* textprop = CastField<FTextProperty>(uproperty))
 	{
