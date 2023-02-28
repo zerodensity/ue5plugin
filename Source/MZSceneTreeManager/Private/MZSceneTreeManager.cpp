@@ -485,7 +485,23 @@ void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 		{
 			auto mzprop = MZPropertyManager.PropertiesById.FindRef(id);
 			mzprop->SetPropValue((void*)update->value()->data(), update->value()->size());
+			if(mzprop->TypeName == "mz.fb.Texture")
+			{
+				auto texman = MZTextureShareManager::GetInstance();
+				auto ShowAs = mzprop->PinShowAs;
+				if(MZPropertyManager.PropertyToPortalPin.Contains(mzprop->Id))
+				{
+					auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id); 
+					if(MZPropertyManager.PortalPinsById.Contains(PortalId))
+					{
+						auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
+						ShowAs = Portal.ShowAs;
+					}
+				}
+				texman->UpdateTexturePin(mzprop.Get(), ShowAs, flatbuffers::GetRoot<mz::fb::Texture>(update->value()->data()));
+			}
 		}
+		
 	}
 }
 
@@ -1700,7 +1716,6 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 			return;
 		}
 
-		flatbuffers::FlatBufferBuilder mb;
 		if (!PortalsToRemove.IsEmpty())
 		{
 			std::vector<mz::fb::UUID> pinsToDelete;
@@ -1708,6 +1723,7 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 			{
 				pinsToDelete.push_back(*(mz::fb::UUID*)&portalId);
 			}
+			flatbuffers::FlatBufferBuilder mb;
 			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
 			mb.Finish(offset);
 			auto buf = mb.Release();
@@ -1894,6 +1910,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 		}
 
 	}
+	
 	if (!PinUpdates.empty())
 	{
 		auto offset1 = 	mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);

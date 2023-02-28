@@ -68,8 +68,11 @@ public:
 	std::mutex PendingCopyQueueMutex;
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
+	std::mutex ResourcesToDeleteMutex;
+	TSet<ID3D12Resource*> ResourcesToDelete;
+	
 	std::shared_mutex CopyOnTickMutex;
-	TMultiMap<MZProperty*, ResourceInfo> CopyOnTick;
+	TMap<MZProperty*, ResourceInfo> CopyOnTick;
 
 private:
 	void Initiate();

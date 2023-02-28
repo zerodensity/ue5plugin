@@ -139,9 +139,15 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 
 void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, mz::fb::Texture const* tex)
 {
+	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
+	if(tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() && curtex->offset())
+	{
+		return;
+	}
+	
 	auto buf = mz::Buffer::FromTableRoot<mz::fb::Texture>(tex);
 	mzprop->data = buf.CopyAsVector();
-	std::unique_lock lock(CopyOnTickMutex);
+	//std::unique_lock lock(CopyOnTickMutex);
 	MzTextureShareInfo info = {
 	.type = tex->type(),
 	.handle = tex->handle(),
@@ -164,7 +170,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 
 	if (MzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &copyInfo.DstResource))
 	{
-		assert(0);
+		abort();
 	}
 
 	UObject* obj = mzprop->GetRawObjectContainer();
@@ -173,9 +179,24 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	if (!prop) return;
 	auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 	if (!URT) return;
-
-	PendingCopyQueue.Remove(mzprop->Id);
-	CopyOnTick.Add(mzprop, copyInfo);
+	{
+		std::unique_lock lock(CopyOnTickMutex);
+		if(PendingCopyQueue.Contains(mzprop->Id))
+		{
+			PendingCopyQueue.Remove(mzprop->Id);
+			CopyOnTick.Add(mzprop, copyInfo);
+		}
+		else if(CopyOnTick.Contains(mzprop))
+		{
+			auto resource = CopyOnTick.FindRef(mzprop).DstResource;
+			if(resource && copyInfo.DstResource != resource)
+			{
+				std::unique_lock reslock(ResourcesToDeleteMutex);
+				ResourcesToDelete.Add(resource);
+			}
+			CopyOnTick.Add(mzprop, copyInfo);
+		}
+	}
 }
 
 void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
@@ -183,12 +204,8 @@ void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::Show
 	std::unique_lock lock(CopyOnTickMutex);
 	if(CopyOnTick.Contains(MzProperty))
 	{
-		TArray<ResourceInfo*> out;
-		CopyOnTick.MultiFindPointer(MzProperty, out);
-		for(auto info : out)
-		{
-				info->ReadOnly = NewShowAs == mz::fb::ShowAs::INPUT_PIN;
-		}
+		auto info = CopyOnTick.Find(MzProperty);
+		info->ReadOnly = NewShowAs == mz::fb::ShowAs::INPUT_PIN;
 	}
 }
 
@@ -240,7 +257,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 		}
 	}
 
-	TMultiMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTickFiltered;
+	TMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTickFiltered;
 	{
 		std::unique_lock lock(CopyOnTickMutex);
 		for (auto [mzprop, info] : CopyOnTick)
@@ -261,6 +278,14 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 		{
 			//std::shared_lock lock(CopyOnTickMutex);
 			WaitCommands();
+			{
+				std::unique_lock lock(ResourcesToDeleteMutex);
+				for(auto Resource : ResourcesToDelete)
+				{
+					Resource->Release();
+				}
+				ResourcesToDelete.Empty();
+			}
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			flatbuffers::FlatBufferBuilder fbb;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
@@ -294,39 +319,39 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 
 				if (pin.ReadOnly && SrcDesc != DstDesc)
 				{
-					EPixelFormat format = PF_Unknown;
-					ETextureSourceFormat sourceFormat = TSF_Invalid;
-					ETextureRenderTargetFormat rtFormat = RTF_RGBA16f;
-					for (auto& fmt : GPixelFormats)
-					{
-						if (fmt.PlatformFormat == DstDesc.Format)
-						{
-							format = fmt.UnrealFormat;
-							sourceFormat = (fmt.BlockBytes == 8) ? TSF_RGBA16F : TSF_BGRA8;
-							rtFormat = (fmt.BlockBytes == 8) ? RTF_RGBA16f : RTF_RGBA8;
-							break;
-						}
-					}
-
-					ETextureCreateFlags Flags = ETextureCreateFlags::ShaderResource;
-
-					if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS) Flags |= ETextureCreateFlags::Shared;
-					if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER)       Flags |= ETextureCreateFlags::Shared;
-					if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)       Flags |= ETextureCreateFlags::RenderTargetable;
-					if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)    Flags |= ETextureCreateFlags::UAV;
-					if (DstDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)      Flags ^= ETextureCreateFlags::ShaderResource;
-
-					
-					FTexture2DRHIRef Texture2DRHI = GetID3D12DynamicRHI()->RHICreateTexture2DFromResource(format, Flags, FClearValueBinding::Black, DstResource);
-					URT->RenderTargetFormat = rtFormat;
-					URT->SizeX = DstDesc.Width;
-					URT->SizeY = DstDesc.Height;
-					URT->ClearColor = FLinearColor::Black;
-					URT->bGPUSharedFlag = 1;
-					RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
-					URT->GetResource()->TextureRHI = Texture2DRHI;
-					URT->GetResource()->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
-					continue;
+					// EPixelFormat format = PF_Unknown;
+					// ETextureSourceFormat sourceFormat = TSF_Invalid;
+					// ETextureRenderTargetFormat rtFormat = RTF_RGBA16f;
+					// for (auto& fmt : GPixelFormats)
+					// {
+					// 	if (fmt.PlatformFormat == DstDesc.Format)
+					// 	{
+					// 		format = fmt.UnrealFormat;
+					// 		sourceFormat = (fmt.BlockBytes == 8) ? TSF_RGBA16F : TSF_BGRA8;
+					// 		rtFormat = (fmt.BlockBytes == 8) ? RTF_RGBA16f : RTF_RGBA8;
+					// 		break;
+					// 	}
+					// }
+					//
+					// ETextureCreateFlags Flags = ETextureCreateFlags::ShaderResource;
+					//
+					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS) Flags |= ETextureCreateFlags::Shared;
+					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER)       Flags |= ETextureCreateFlags::Shared;
+					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)       Flags |= ETextureCreateFlags::RenderTargetable;
+					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)    Flags |= ETextureCreateFlags::UAV;
+					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)      Flags ^= ETextureCreateFlags::ShaderResource;
+					//
+					//
+					// FTexture2DRHIRef Texture2DRHI = GetID3D12DynamicRHI()->RHICreateTexture2DFromResource(format, Flags, FClearValueBinding::Black, DstResource);
+					// URT->RenderTargetFormat = rtFormat;
+					// URT->SizeX = DstDesc.Width;
+					// URT->SizeY = DstDesc.Height;
+					// URT->ClearColor = FLinearColor::Black;
+					// URT->bGPUSharedFlag = 1;
+					// RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
+					// URT->GetResource()->TextureRHI = Texture2DRHI;
+					// URT->GetResource()->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
+					// continue;
 				}
 
 				if (SrcResource == DstResource)
