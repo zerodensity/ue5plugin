@@ -271,65 +271,69 @@ void MZTrackProperty::SetPropValue(void* val, size_t size, uint8* customContaine
 
 }
 
-void MZTrackProperty::SetProperty_InCont(void* container, void* val) 
+void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 {
 	auto track = flatbuffers::GetRoot<mz::fb::Track>(val);
-	FRealityTrack TrackData;
+	FRealityTrack* TrackData = structprop->ContainerPtrToValuePtr<FRealityTrack>(container);
+	// TrackData.location = FVector(0);
+	// TrackData.rotation = FVector(0);
+	// TrackData.center_shift = FVector2d(0);
+	// TrackData.sensor_size = FVector2d(0);
 
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LOCATION))
 	{
-		TrackData.location = FVector(track->location()->x(), track->location()->y(), track->location()->z());
+		TrackData->location = FVector(track->location()->x(), track->location()->y(), track->location()->z());
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ROTATION))
 	{
-		TrackData.rotation = FVector(track->rotation()->x(), track->rotation()->y(), track->rotation()->z());
+		TrackData->rotation = FVector(track->rotation()->x(), track->rotation()->y(), track->rotation()->z());
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOV))
 	{
-		TrackData.fov = track->fov();
+		TrackData->fov = track->fov();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOCUS))
 	{
-		TrackData.focus_distance = track->focus();
+		TrackData->focus_distance = track->focus();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_CENTER_SHIFT))
 	{
-		TrackData.center_shift = FVector2D(track->center_shift()->x(), track->center_shift()->y());
+		TrackData->center_shift = FVector2D(track->center_shift()->x(), track->center_shift()->y());
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ZOOM))
 	{
-		TrackData.zoom = track->zoom();
+		TrackData->zoom = track->zoom();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_K1))
 	{
-		TrackData.k1 = track->k1();
+		TrackData->k1 = track->k1();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_K2))
 	{
-		TrackData.k2 = track->k2();
+		TrackData->k2 = track->k2();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_RENDER_RATIO))
 	{
-		TrackData.render_ratio = track->render_ratio();
+		TrackData->render_ratio = track->render_ratio();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LOCATION))
 	{
-		TrackData.distortion_scale = track->render_ratio();
+		TrackData->distortion_scale = track->render_ratio();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_SENSOR_SIZE))
 	{
-		TrackData.sensor_size = FVector2D(track->sensor_size()->x(), track->sensor_size()->y());
+		TrackData->sensor_size = FVector2D(track->sensor_size()->x(), track->sensor_size()->y());
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_PIXEL_ASPECT_RATIO))
 	{
-		TrackData.pixel_aspect_ratio = track->pixel_aspect_ratio();
+		TrackData->pixel_aspect_ratio = track->pixel_aspect_ratio();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_NODAL_OFFSET))
 	{
-		TrackData.nodal_offset = track->nodal_offset();
+		TrackData->nodal_offset = track->nodal_offset();
 	}
 	
-	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &TrackData); 
+	//structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &TrackData); 
 	//FRealityTrack newTrack = *(FRealityTrack*)val;
 
 	//if (ActorContainer.Get())
