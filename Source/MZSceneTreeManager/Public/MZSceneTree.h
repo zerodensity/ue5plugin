@@ -22,7 +22,9 @@ struct MZSCENETREEMANAGER_API  TreeNode {
 	FGuid Id;
 	bool NeedsReload = true;
 	std::vector<TSharedPtr<TreeNode>> Children;
+	TMap<FString, FString> mzMetaData;
 
+	
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Node>> SerializeChildren(flatbuffers::FlatBufferBuilder& fbb);
 
@@ -34,7 +36,6 @@ struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 	MZActorReference actor;
 	std::vector<TSharedPtr<MZProperty>> Properties;
 	std::vector<TSharedPtr<MZFunction>> Functions;
-	TMap<FString, FString> mzMetaData;
 	virtual FString GetClassDisplayName() override { return actor ? actor->GetClass()->GetFName().ToString() : "Actor"; };
 	virtual ActorNode* GetAsActorNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;

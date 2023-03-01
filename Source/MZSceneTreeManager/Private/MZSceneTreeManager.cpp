@@ -317,8 +317,27 @@ bool FMZSceneTreeManager::Tick(float dt)
 void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 {
 	SceneTree.Root->Id = *(FGuid*)appNode.id();
+	//add executable path
+	if(appNode.pins() && appNode.pins()->size() > 0)
+	{
+		std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
+		flatbuffers::FlatBufferBuilder fb1;
+		for (auto pin : *appNode.pins())
+		{
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), true, 0));
+		}
+		auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		fb1.Finish(offset);
+		auto buf = fb1.Release();
+		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	}
 	RescanScene();
-	SendNodeUpdate(FMZClient::NodeId);
+	SendNodeUpdate(FMZClient::NodeId, false);
+	if((appNode.pins() && appNode.pins()->size() > 0 )|| (appNode.contents_as_Graph()->nodes() && appNode.contents_as_Graph()->nodes()->size() > 0))
+	{
+		OnMZNodeImported(appNode);
+	}
 }
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)

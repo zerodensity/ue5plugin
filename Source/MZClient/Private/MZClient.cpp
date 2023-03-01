@@ -16,7 +16,7 @@
 
 #include "mzFlatBuffersCommon.h"
 #include "EditorActorFolders.h"
-
+#include <iomanip>
 #define LOCTEXT_NAMESPACE "FMZClient"
 #pragma optimize("", off)
 
@@ -433,7 +433,11 @@ void FMZClient::TryConnect()
 
 	if (!AppServiceClient)
 	{
-		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", "UE5", "UE5"));
+		
+		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
+		auto ExePath = FString(FPlatformProcess::ExecutablePath());
+		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\"\"";
+		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", "UE5", "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
