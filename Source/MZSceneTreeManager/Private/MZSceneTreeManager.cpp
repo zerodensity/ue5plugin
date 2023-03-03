@@ -692,7 +692,7 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 }
 
 void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
-{ 
+{
 	if (!PropertyChangedEvent.MemberProperty || !PropertyChangedEvent.Property)
 	{
 		return;
@@ -713,15 +713,21 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 	if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.Property, ObjectBeingModified}))
 	{
 		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.Property, ObjectBeingModified});
-		mzprop->UpdatePinValue();
-		SendPinValueChanged(mzprop->Id, mzprop->data);
+		if(mzprop->TypeName != "mz.fb.Void")
+		{
+			mzprop->UpdatePinValue();
+			SendPinValueChanged(mzprop->Id, mzprop->data);
+		}
 		return;
 	}
 	if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.MemberProperty, ObjectBeingModified}))
 	{
 		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.MemberProperty, ObjectBeingModified});
-		mzprop->UpdatePinValue();
-		SendPinValueChanged(mzprop->Id, mzprop->data);
+		if(mzprop->TypeName != "mz.fb.Void")
+		{
+			mzprop->UpdatePinValue();
+			SendPinValueChanged(mzprop->Id, mzprop->data);
+		}
 		return;
 	}
 }
