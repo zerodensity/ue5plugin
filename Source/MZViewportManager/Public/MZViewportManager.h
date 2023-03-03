@@ -12,7 +12,4 @@ public:
 
 	//Called on shutdown of the module on Unreal Engine exit
 	virtual void ShutdownModule() override;
-
-	
-
 };

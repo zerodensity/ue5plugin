@@ -2,7 +2,6 @@
 
 FMZViewportManager::FMZViewportManager()
 {
-
 }
 
 void FMZViewportManager::StartupModule()

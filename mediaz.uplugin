@@ -45,7 +45,7 @@
 		},
 		{
 			"Name": "MZViewportManager",
-			"Type": "Runtime",
+			"Type": "UncookedOnly",
 			"LoadingPhase": "Default",
 			"PlatformAllowList": [
 				"Win64"
