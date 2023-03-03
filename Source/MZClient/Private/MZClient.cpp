@@ -708,7 +708,7 @@ void UENodeStatusHandler::SendStatus()
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
 	mz::TPartialNodeUpdate UpdateRequest;
-	UpdateRequest.node_id = std::make_unique<mz::fb::UUID>(*((mz::fb::UUID*)&FMZClient::NodeId));
+	UpdateRequest.node_id = *reinterpret_cast<mz::fb::UUID*>(&FMZClient::NodeId);
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
