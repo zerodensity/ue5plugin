@@ -364,8 +364,7 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 		TempTrack.focus = TrackData.focus_distance;
 		TempTrack.center_shift = std::make_unique<mz::fb::vec2d>(TrackData.center_shift.X, TrackData.center_shift.Y);
 		TempTrack.zoom = TrackData.zoom;
-		TempTrack.k1k2->mutate_x(TrackData.k1);
-		TempTrack.k1k2->mutate_y(TrackData.k2);
+		TempTrack.k1k2 = std::make_unique<mz::fb::vec2>(TrackData.k1, TrackData.k2);
 		TempTrack.render_ratio = TrackData.render_ratio;
 		TempTrack.distortion_scale = TrackData.distortion_scale;
 		TempTrack.sensor_size = std::make_unique<mz::fb::vec2d>(TrackData.sensor_size.X, TrackData.sensor_size.Y);
