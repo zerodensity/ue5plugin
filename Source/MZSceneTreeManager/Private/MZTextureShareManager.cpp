@@ -140,7 +140,7 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, mz::fb::Texture const* tex)
 {
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
-	if(tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset())
+	if(tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset() && !PendingCopyQueue.Contains(mzprop->Id))
 	{
 		return;
 	}

@@ -219,7 +219,10 @@ void FMZSceneTreeManager::StartupModule()
 		MZAssetManager->CustomSpawns.Add("CustomProjectionCube", [this]()
 			{
 				AActor* projectionCube = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'"));
-
+				auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
+				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+				RenderTarget2D->InitAutoFormat(1920, 1080);
+				InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
 				return projectionCube;
 			});
 		MZCustomFunction* mzcf = new MZCustomFunction;
@@ -324,7 +327,7 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		flatbuffers::FlatBufferBuilder fb1;
 		for (auto pin : *appNode.pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), true, 0));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
 		}
 		auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb1.Finish(offset);
@@ -770,7 +773,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	flatbuffers::FlatBufferBuilder fb1;
 	for (auto pin : *node->pins())
 	{
-		PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), true, 0));
+		PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
 	}
 	auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 	fb1.Finish(offset);
@@ -1018,7 +1021,24 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyToUpdate, UnknownContainer}))
 			{
 				auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
-				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId, false, (mz::fb::UUID*)&MzProperty->Id));
+				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::Action::RESET));
+				
+				MZPortal NewPortal{update.pinId ,MzProperty->Id};
+				NewPortal.DisplayName = FString("");
+				UObject* parent = MzProperty->GetRawObjectContainer();
+				while (parent)
+				{
+					NewPortal.DisplayName = parent->GetFName().ToString() + FString(".") + NewPortal.DisplayName;
+					parent = parent->GetTypedOuter<AActor>();
+				}
+
+				NewPortal.DisplayName += MzProperty->DisplayName + "(Portal)";
+				NewPortal.TypeName = FString(MzProperty->TypeName.c_str());
+				NewPortal.CategoryName = MzProperty->CategoryName;
+				NewPortal.ShowAs = update.pinShowAs;
+
+				MZPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
+				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
 			}
 			
 		}
@@ -1884,7 +1904,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 		
 		Portals.Add({ContainerInfo, portal});
 		graphPins.push_back(*(mz::fb::UUID*)&portal.Id);
-		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal.Id, true, 0));
+		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal.Id, 0, mz::Action::SET));
 	}
 
 	if (!MZClient->IsConnected())
@@ -1927,7 +1947,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 				pPortal->SourceId = MzProperty->Id;
 			}
 			portal.SourceId = MzProperty->Id;
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, notOrphan, (mz::fb::UUID*)&MzProperty->Id));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, notOrphan ? mz::Action::SET : mz::Action::RESET));
 		}
 		else
 		{
