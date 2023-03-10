@@ -771,9 +771,12 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 	std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
 	flatbuffers::FlatBufferBuilder fb1;
-	for (auto pin : *node->pins())
+	if(node->pins() && node->pins()->size() > 0)
 	{
-		PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
+		for (auto pin : *node->pins())
+		{
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
+		}
 	}
 	auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 	fb1.Finish(offset);
