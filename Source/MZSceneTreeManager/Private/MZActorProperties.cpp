@@ -336,16 +336,16 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 		
 		flatbuffers::FlatBufferBuilder fb;
 		mz::fb::TTrack TempTrack;
-		TempTrack.location = std::make_unique<mz::fb::vec3d>(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
-		TempTrack.rotation = std::make_unique<mz::fb::vec3d>(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
+		TempTrack.location = mz::fb::vec3d(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
+		TempTrack.rotation = mz::fb::vec3d(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
 		TempTrack.fov = TrackData.fov;
 		TempTrack.focus = TrackData.focus_distance;
-		TempTrack.center_shift = std::make_unique<mz::fb::vec2d>(TrackData.center_shift.X, TrackData.center_shift.Y);
+		TempTrack.center_shift = mz::fb::vec2d(TrackData.center_shift.X, TrackData.center_shift.Y);
 		TempTrack.zoom = TrackData.zoom;
-		TempTrack.k1k2 = std::make_unique<mz::fb::vec2>(TrackData.k1, TrackData.k2);
+		TempTrack.k1k2 = mz::fb::vec2d(TrackData.k1, TrackData.k2);
 		TempTrack.render_ratio = TrackData.render_ratio;
 		TempTrack.distortion_scale = TrackData.distortion_scale;
-		TempTrack.sensor_size = std::make_unique<mz::fb::vec2d>(TrackData.sensor_size.X, TrackData.sensor_size.Y);
+		TempTrack.sensor_size = mz::fb::vec2d(TrackData.sensor_size.X, TrackData.sensor_size.Y);
 		TempTrack.pixel_aspect_ratio = TrackData.pixel_aspect_ratio;
 		TempTrack.nodal_offset = TrackData.nodal_offset;
 		
@@ -519,7 +519,7 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 	{
 		TypeName = "mz.fb.Texture"; 
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(this);
-		data = mz::Buffer::FromNativeTable(tex);
+		data = mz::Buffer::From(tex);
 	}
 	else if (objectprop->PropertyClass->IsChildOf<UUserWidget>())
 	{

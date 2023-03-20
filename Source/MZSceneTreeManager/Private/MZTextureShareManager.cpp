@@ -181,8 +181,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 		return;
 	}
 	
-	auto buf = mz::Buffer::FromTableRoot<mz::fb::Texture>(tex);
-	mzprop->data = buf.CopyAsVector();
+	mzprop->data = mz::Buffer::From(*tex);
 	//std::unique_lock lock(CopyOnTickMutex);
 	MzTextureShareInfo info = {
 	.type = tex->type(),
