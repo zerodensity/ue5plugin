@@ -1,6 +1,5 @@
 #include "MZActorFunctions.h"
 
-//TODO make a class for functionsss
 
 MZFunction::MZFunction(UObject* container, UFunction* function)
 {

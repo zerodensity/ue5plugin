@@ -9,28 +9,19 @@
 #include "HardwareInfo.h"
 #include "LevelEditor.h"
 #include "LevelEditorActions.h"
-#include "ToolMenus.h"
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "Engine/EngineCustomTimeStep.h"
 #include "Misc/MessageDialog.h"
 
+//mediaz
 #include "mzFlatBuffersCommon.h"
-#include "EditorActorFolders.h"
-#include <iomanip>
+
 #define LOCTEXT_NAMESPACE "FMZClient"
 #pragma optimize("", off)
 
-DEFINE_LOG_CATEGORY(LogMediaZ);
-#define LOG(x) UE_LOG(LogMediaZ, Warning, TEXT(x))
-#define LOGF(x, y) UE_LOG(LogMediaZ, Warning, TEXT(x), y)
-
-// template<typename T>
-// inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
-// {
-// 	builder.Finish(offset);
-// 	auto buf = builder.Release();
-// 	return *flatbuffers::GetRoot<T>(buf.data());
-// }
+DEFINE_LOG_CATEGORY(LogMZClient);
+#define LOG(x) UE_LOG(LogMZClient, Display, TEXT(x))
+#define LOGF(x, y) UE_LOG(LogMZClient, Display, TEXT(x), y)
 
 FGuid FMZClient::NodeId = {};
 
@@ -47,7 +38,7 @@ bool FMediaZ::Initialize()
 
 	if (!FPaths::FileExists(SdkDllPath))
 	{
-		UE_LOG(LogMediaZ, Error, TEXT("Failed to find the mzSDK.dll at %s. Plugin will not be functional."), *SdkPath);
+		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzSDK.dll at %s. Plugin will not be functional."), *SdkPath);
 		return false;
 	}
 
@@ -55,7 +46,7 @@ bool FMediaZ::Initialize()
 
 	if (LibHandle == nullptr)
 	{
-		UE_LOG(LogMediaZ, Error, TEXT("Failed to load required library %s. Plugin will not be functional."), *SdkDllPath);
+		UE_LOG(LogMZClient, Error, TEXT("Failed to load required library %s. Plugin will not be functional."), *SdkDllPath);
 		return false;
 	}
 
@@ -64,7 +55,7 @@ bool FMediaZ::Initialize()
 	
 	if (!MakeAppServiceClient || !GetD3D12Resources)
 	{
-		UE_LOG(LogMediaZ, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
+		UE_LOG(LogMZClient, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
 		return false;
 	}
 
@@ -79,6 +70,7 @@ void FMediaZ::Shutdown()
 		LibHandle = nullptr;
 		MakeAppServiceClient = nullptr;
 		GetD3D12Resources = nullptr;
+		LOG("Unloaded MediaZ SDK dll successfully.");
 	}
 }
 
@@ -148,7 +140,7 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 		return;
 	}
 
-	UE_LOG(LogMediaZ, Warning, TEXT("Connected to mzEngine"));
+	LOG("Connected to mzEngine");
 	//PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
 	PluginClient->Connected();
 
@@ -405,6 +397,7 @@ void FMZClient::Connected()
 {
 	TaskQueue.Enqueue([&]()
 		{
+			LOG("Sent map information to MediaZ");
 			auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
 			if (WorldContext->World())
 			{
@@ -511,30 +504,7 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 	
 }
 
-void FMZClient::OnActorFolderChanged(const AActor* actor, FName oldPath)
-{
-	//FMZClient& MzModulee = FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
-	//MzModulee.OnActorOuterChanged(nullptr, nullptr);
-
-	//auto ActorID = actor->GetActorGuid();
-	//if (oldPath == NAME_Reality_FolderName && ActorsSpawnedByMediaZ.Contains(ActorID))
-	//{
-	//	//actor->SetFolderPath(NAME_Reality_FolderName);
-	//	PathUpdates.Add(ActorID, NAME_Reality_FolderName);
-	//}
-	//else if (actor->GetFolder().GetPath() == NAME_Reality_FolderName && !ActorsSpawnedByMediaZ.Contains(ActorID))
-	//{
-	//	PathUpdates.Add(ActorID, oldPath);
-	//}
-}
-
-void FMZClient::OnActorOuterChanged(AActor * actor, UObject * OldOuter)
-{
-	UE_LOG(LogTemp, Warning, TEXT("new out actor is %s "), actor->GetOuter() ? *actor->GetOuter()->GetFName().ToString() : TEXT("null"));
-}
-
 void FMZClient::StartupModule() {
-
 
 	if (!FApp::HasProjectName())
 	{
@@ -557,101 +527,15 @@ void FMZClient::StartupModule() {
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZClient::OnPreWorldFinishDestroy);
-
-	//FLevelActorFolderChangedEvent
-	GEngine->OnLevelActorFolderChanged().AddRaw(this, &FMZClient::OnActorFolderChanged);
-	GEngine->OnLevelActorOuterChanged().AddRaw(this, &FMZClient::OnActorOuterChanged);
-
-	//TODO remove debugactions from releaase
-	//if (GEditor)
-	//{
-	//	FMediaZPluginEditorCommands::Register();
-
-	//	FLevelEditorModule& LevelEditorModule = FModuleManager::LoadModuleChecked<FLevelEditorModule>("LevelEditor");
-	//	TSharedRef<FUICommandList> CommandList = LevelEditorModule.GetGlobalLevelEditorActions();
-
-	//	CommandList->MapAction(
-	//		FMediaZPluginEditorCommands::Get().TestCommand,
-	//		FExecuteAction::CreateRaw(this, &FMZClient::TestAction));
-	//	CommandList->MapAction(
-	//		FMediaZPluginEditorCommands::Get().PopulateRootGraph,
-	//		FExecuteAction::CreateLambda([=]() {
-	//			}));
-	//	CommandList->MapAction(
-	//		FMediaZPluginEditorCommands::Get().SendRootUpdate,
-	//		FExecuteAction::CreateLambda([=]() {
-	//			}));
-	//	CommandList->MapAction(
-	//		FMediaZPluginEditorCommands::Get().SendAssetList,
-	//		FExecuteAction::CreateLambda([=]() {
-	//			}));
-
-	//	UToolMenus* ToolMenus = UToolMenus::Get();
-	//	UToolMenu* Menu = UToolMenus::Get()->ExtendMenu("LevelEditor.MainMenu");
-	//	UToolMenu* MediaZMenu = Menu->AddSubMenu(
-	//		ToolMenus->CurrentOwner(),
-	//		NAME_None,
-	//		TEXT("MediaZ Debug Actions"),
-	//		LOCTEXT("DragDropMenu_MediaZ", "MediaZ"),
-	//		LOCTEXT("DragDropMenu_MediaZ_ToolTip", "Debug actions for the MediaZ plugin")
-	//	);
-
-	//	FToolMenuSection& Section = MediaZMenu->AddSection("DebugActions", NSLOCTEXT("LevelViewportContextMenu", "DebugActions", "DebugActions Collection"));
-	//	{
-	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().TestCommand);
-	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().PopulateRootGraph);
-	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendRootUpdate);
-	//		Section.AddMenuEntry(FMediaZPluginEditorCommands::Get().SendAssetList);
-	//	}
-	//}
 }
 
 void FMZClient::ShutdownModule()
 {
 	FMediaZ::Shutdown();
-	//FMediaZPluginEditorCommands::Unregister();
-}
-
-void FMZClient::TestAction()
-{
-	UE_LOG(LogTemp, Warning, TEXT("It Works!!!"));
 }
 
 bool FMZClient::Tick(float dt)
 {
-	// Uncomment when partial node updates are broadcasted by the mediaz engine.
-	//if (FPSCounter.Update(dt))
-	//{
-	//	UENodeStatusHandler.Add("fps", FPSCounter.GetNodeStatusMessage());
-	//}
-
-	//for (auto& [id, newPath] : PathUpdates)
-	//{
-	//	if(SceneTree.NodeMap.Contains(id))
-	//	{
-	//		auto actorNode = SceneTree.NodeMap.FindRef(id);
-	//		if (actorNode->GetAsActorNode() && actorNode->GetAsActorNode()->actor)
-	//		{
-	//			auto actor = actorNode->GetAsActorNode()->actor;
-	//			actor->SetFolderPath(newPath);
-
-	//			//check if parents path is changed
-	//			auto parent = actor->GetSceneOutlinerParent();
-	//			if (!parent)
-	//			{
-	//				continue;
-	//			}
-	//			bool actorSpawnedByMediaZ = ActorsSpawnedByMediaZ.Contains(actor->GetActorGuid());
-	//			bool parentSpawnedByMediaZ = ActorsSpawnedByMediaZ.Contains(parent->GetActorGuid());
-	//			if (actorSpawnedByMediaZ != parentSpawnedByMediaZ)
-	//			{
-	//				actor->DetachFromActor(FDetachmentTransformRules::KeepRelativeTransform);
-	//			}
-	//		}
-	//	}
-	//}
-	//PathUpdates.Empty();
-
     TryConnect();
 
 	while (!TaskQueue.IsEmpty()) {
@@ -659,9 +543,7 @@ bool FMZClient::Tick(float dt)
 		TaskQueue.Dequeue(task);
 		task();
 	}
-
 	UENodeStatusHandler.Update();
-
 	return true;
 }
 

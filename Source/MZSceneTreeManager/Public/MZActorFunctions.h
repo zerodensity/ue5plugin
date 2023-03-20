@@ -18,7 +18,6 @@ struct MZSCENETREEMANAGER_API MZFunction
 	flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
 	void Invoke();
-	//todo can call the function and change the arguments
 };
 
 struct MZSCENETREEMANAGER_API MZCustomFunction

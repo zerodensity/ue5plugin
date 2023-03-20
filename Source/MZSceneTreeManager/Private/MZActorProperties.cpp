@@ -7,8 +7,7 @@
 #include "Blueprint/UserWidget.h"
 #include "MZSceneTreeManager.h"
 
-//todo fix logs
-#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogTemp, Error, TEXT("Property size mismatch with mediaZ"));return;}}
+#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMZSceneTreeManager, Error, TEXT("Property size mismatch with mediaZ"));return;}}
 
 bool PropertyVisibleExp(FProperty* ueproperty)
 {
@@ -50,8 +49,6 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 	if (container && container->IsA<UActorComponent>())
 	{
 		PropertyName = *FString(container->GetFName().ToString() + "" + PropertyName);
-
-		UE_LOG(LogTemp, Warning, TEXT("The container full name: %s"), *(container->GetFullName()));
 	}
 
 	auto metaDataMap = uproperty->GetMetaDataMap();
@@ -67,28 +64,9 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		CategoryName = (metaData.Contains(NAME_Category) ? metaData[NAME_Category] : "Default");
 		UIMinString = metaData.Contains(NAME_UIMin) ? metaData[NAME_UIMin] : "";
 		UIMaxString = metaData.Contains(NAME_UIMax) ? metaData[NAME_UIMax] : "";
-
-		if (metaData.Contains(NAME_UIMin))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("metadata is found for uimin"));
-		}
-		if (metaData.Contains(NAME_UIMax))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("metadata is found for uimax"));
-		}
-		if (metaData.Contains("ClampMin"))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("metadata is found for cmin"));
-		}
-		if (metaData.Contains("ClampMax"))
-		{
-			UE_LOG(LogTemp, Warning, TEXT("metadata is found for cmax"));
-		}
-
 	}
 	else
 	{
-		//UE_LOG(LogTemp, Warning, TEXT("no_metadata_is_found " + TEXT(*uproperty->GetFName().ToString())));
 		DisplayName = uproperty->GetFName().ToString();
 		CategoryName = "Default";
 		UIMinString = "";
@@ -1098,7 +1076,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 	
 	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
-	UE_LOG(LogTemp, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
+	UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
 	return prop;
 }
 

@@ -301,7 +301,7 @@ public:
 	MZEnumProperty(UObject* container, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
 		: MZProperty(container, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
 	{
-		data = std::vector<uint8_t>(1, 0); //TODO
+		data = std::vector<uint8_t>(1, 0); 
 		TypeName = "string";
 
 		int EnumSize = Enum->NumEnums();

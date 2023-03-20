@@ -1,16 +1,14 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
-
 #include "MediaZ/AppInterface.h"
 #include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
-
 #include <mzFlatBuffersCommon.h>
-
 #include "MZSceneTree.h"
 #include "MZClient.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
 
 struct MZPortal
 {

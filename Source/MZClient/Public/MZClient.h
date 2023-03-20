@@ -17,7 +17,7 @@
 
 typedef std::function<void()> Task;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogMediaZ, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogMZClient, Log, All);
 
 //events coming from mediaz
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const&);
@@ -132,9 +132,6 @@ public:
 	//Tick is called every frame once and handles the tasks queued from grpc threads
 	bool Tick(float dt);
 
-	//Test action to test wheter debug menu works
-	void TestAction();
-
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
 	 
@@ -143,12 +140,6 @@ public:
 
 	//Called when the node is executed from mediaZ
 	void OnUpdatedNodeExecuted();
-
-	//delegate called when a actors folder path is changed
-	void OnActorFolderChanged(const AActor* actor, FName oldPath);
-
-	//delegate called when actor outer object changed
-	void OnActorOuterChanged(AActor* actor, UObject* OldOuter);
 	
 	//Grpc client to communicate
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;
@@ -168,10 +159,6 @@ public:
 
 	TMap<FGuid, FName> PathUpdates;
 
-	//TODO consider adding The world we currently see
-	//static TObjectPtr<UWorld> sceneWorld;
-
-	//EXPERIMENTAL START
 	FMZNodeConnected OnMZConnected;
 	FMZNodeUpdated OnMZNodeUpdated;
 	FMZContextMenuRequested OnMZContextMenuRequested;

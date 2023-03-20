@@ -134,6 +134,42 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	tex.format = mz::fb::Format(info.format);
 	tex.usage = mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED;
 	tex.type = 0x00000040;
+	// return tex;
+	UObject* obj = mzprop->GetRawObjectContainer();
+	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
+	UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+	auto TargetFormat = static_cast<DXGI_FORMAT>(GPixelFormats[trt2d->GetFormat()].PlatformFormat);
+	// Shared heaps are not supported on CPU-accessible heaps
+	D3D12_RESOURCE_DESC desc{};
+	desc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
+	desc.Alignment        = 0;
+	desc.Width            = info.width;
+	desc.Height           = info.height;
+	desc.DepthOrArraySize = 1;
+	desc.MipLevels        = 1;
+	desc.Format           = TargetFormat;
+	desc.SampleDesc.Count = 1;
+	desc.Layout           = D3D12_TEXTURE_LAYOUT_UNKNOWN;
+	desc.Flags            = D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS | D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET;
+
+	ID3D12Resource* res;
+	HANDLE handle;
+	
+	D3D12_HEAP_PROPERTIES props = {.Type = D3D12_HEAP_TYPE_DEFAULT};
+
+	auto state = D3D12_RESOURCE_STATE_COMMON;
+
+	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateCommittedResource(&props, D3D12_HEAP_FLAG_SHARED, &desc, state, 0, IID_PPV_ARGS(&res)));
+	
+	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
+	
+	res->Release();
+
+	tex.memory = (u64)handle;
+	tex.pid = FPlatformProcess::GetCurrentProcessId();
+	tex.unmanaged = true;
+	tex.offset = 0;
+	tex.handle = 0;
 	return tex;
 }
 
@@ -232,11 +268,46 @@ void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
 	{
 		std::unique_lock lock(CopyOnTickMutex);
-		CopyOnTick.Remove(textureProp);
+		if(CopyOnTick.Contains(textureProp))
+		{
+			auto CopyInfo = CopyOnTick.FindRef(textureProp);
+			if(CopyInfo.DstResource)
+			{
+				CopyInfo.DstResource->Release();
+			}
+			CopyOnTick.Remove(textureProp);
+		}
 	}
 	{
 		std::unique_lock lock(PendingCopyQueueMutex);
 		PendingCopyQueue.Remove(textureProp->Id);
+		auto tex = flatbuffers::GetRoot<mz::fb::Texture>(textureProp->data.data());
+		MzTextureShareInfo info = {
+		.type = tex->type(),
+		.handle = tex->handle(),
+		.pid = tex->pid(),
+		.memory = tex->memory(),
+		.offset = tex->offset(),
+		.textureInfo = {
+			.width = tex->width(),
+			.height = tex->height(),
+			.format = (MzFormat)tex->format(),
+			.usage = (MzImageUsage)tex->usage(),
+		},
+		};
+		if(!info.handle)
+		{
+			return;
+		}
+		ID3D12Resource* TextureResource = 0;
+		if (MzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &TextureResource))
+		{
+			abort();
+		}
+		if(TextureResource)
+		{
+			TextureResource->Release();
+		}
 	}
 }
 

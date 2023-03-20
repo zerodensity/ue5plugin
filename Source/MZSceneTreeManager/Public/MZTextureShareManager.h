@@ -20,6 +20,18 @@ void MemoryBarrier();
 #include "MZClient.h"
 #include "RHI.h"
 
+#define MZ_D3D12_ASSERT_SUCCESS(expr)                                                               \
+    {                                                                                               \
+        HRESULT re = (expr);                                                                        \
+        while (FAILED(re))                                                                          \
+        {                                                                                           \
+            std::string __err = std::system_category().message(re);                                 \
+            char errbuf[1024];                                                                      \
+            std::snprintf(errbuf, 1024, "[%lx] %s (%s:%d)", re, __err.c_str(), __FILE__, __LINE__); \
+            MZ_ABORT;                                                                           \
+        }                                                                                           \
+    }
+
 struct ResourceInfo
 {
 	MZProperty* SrcMzp = 0;
@@ -28,6 +40,7 @@ struct ResourceInfo
 	MzTextureShareInfo Info = {};
 	void Release()
 	{
+		
 		if (DstResource) DstResource->Release();
 		memset(this, 0, sizeof(*this));
 	}
@@ -77,3 +90,4 @@ public:
 private:
 	void Initiate();
 };
+
