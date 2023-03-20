@@ -366,7 +366,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 					ShowAs = Portal.ShowAs;
 				}
 			}
-			texman->UpdateTexturePin(mzprop, ShowAs, flatbuffers::GetRoot<mz::fb::Texture>(pin->data()->Data()));
+			texman->UpdateTexturePin(mzprop, ShowAs, (void*)pin->data()->Data(), pin->data()->size());
 		}
 	}
 }
@@ -515,7 +515,8 @@ void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 						ShowAs = Portal.ShowAs;
 					}
 				}
-				texman->UpdateTexturePin(mzprop.Get(), ShowAs, flatbuffers::GetRoot<mz::fb::Texture>(update->value()->data()));
+				texman->UpdateTexturePin(mzprop.Get(), ShowAs, (void*)update->value()->data(), update->value()->size());
+				
 			}
 		}
 		

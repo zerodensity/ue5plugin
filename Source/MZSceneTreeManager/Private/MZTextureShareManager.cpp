@@ -173,15 +173,17 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	return tex;
 }
 
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, mz::fb::Texture const* tex)
+void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, void* data, uint32_t size)
 {
+	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
 	if(tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset() && !PendingCopyQueue.Contains(mzprop->Id))
 	{
 		return;
 	}
-	
-	mzprop->data = mz::Buffer::From(*tex);
+
+	mzprop->data.resize(size);
+	memcpy(mzprop->data.data(), data, size);
 	//std::unique_lock lock(CopyOnTickMutex);
 	MzTextureShareInfo info = {
 	.type = tex->type(),
