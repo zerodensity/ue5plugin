@@ -19,6 +19,10 @@ TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> no
 	TSharedPtr<FolderNode> newChild(new FolderNode);
 	newChild->Parent = node;
 	newChild->Name = name;
+	if(name == NAME_Reality_FolderName.ToString())
+	{
+		newChild->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
+	}
 	newChild->Id = FGuid::NewGuid();
 	node->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
@@ -213,9 +217,14 @@ ActorNode::~ActorNode()
 
 flatbuffers::Offset<mz::fb::Node> SceneComponentNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
+	for (auto [key, value] : mzMetaData)
+	{
+		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
+	}
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0);
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0, 0, 0, &metadata);
 }
 
 std::vector<flatbuffers::Offset<mz::fb::Pin>> SceneComponentNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)

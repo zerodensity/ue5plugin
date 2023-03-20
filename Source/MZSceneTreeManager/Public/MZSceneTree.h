@@ -10,6 +10,9 @@ struct ActorNode;
 struct FolderNode;
 struct SceneComponentNode;
 
+static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
+static const FString HEXCOLOR_Reality_Node(TEXT("0xFE5000"));
+
 struct MZSCENETREEMANAGER_API  TreeNode {
 
 	virtual ActorNode* GetAsActorNode() { return nullptr; };

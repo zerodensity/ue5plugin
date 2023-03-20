@@ -24,7 +24,6 @@ DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
 
-static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 
 IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
@@ -1180,7 +1179,11 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		{
 			return false;
 		}
-			
+		bool ColoredChilds = false;
+		if(actorNode->mzMetaData.Contains("NodeColor"))
+		{
+			ColoredChilds = true;
+		}
 		auto ActorClass = actorNode->actor->GetClass();
 
 		//ITERATE PROPERTIES BEGIN
@@ -1329,6 +1332,10 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 							LOG("A Child node other than actor or component is present!");
 							continue;
 						}
+						if(ColoredChilds)
+						{
+							NewParentHandle->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
+						}
 						NewParentHandle->Children.clear();
 						OutArray.Add(NewParentHandle);
 
@@ -1348,11 +1355,16 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 
 			// Add the root component first
 			auto RootHandle = SceneTree.AddSceneComponent(actorNode, RootComponent);
-			// Clear the loading child
-			RootHandle->Children.clear();
-
-			OutArray.Add(RootHandle);
-
+			if(RootHandle)
+			{
+				if(ColoredChilds)
+				{
+					RootHandle->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
+				}
+				// Clear the loading child
+				RootHandle->Children.clear();
+				OutArray.Add(RootHandle);
+			}
 			// Recursively add
 			AddInstancedComponentsRecursive(RootComponent, RootHandle);
 		}
@@ -2077,12 +2089,13 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
 	savedMetadata.Add({"spawnTag", SpawnTag});
+	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 	Actors.Add({ MZActorReference(SpawnedActor),savedMetadata });
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
 	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
-	
-	
+	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
+	 
 	if (!MZClient->IsConnected())
 	{
 		return SpawnedActor;
@@ -2120,10 +2133,12 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	ActorIds.Add(UMGManager->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
 	savedMetadata.Add({"umgTag", umgTag});
+	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 	Actors.Add({ MZActorReference(UMGManager), savedMetadata});
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), UMGManager, mostRecentParent);
 	ActorNode->mzMetaData.Add("umgTag", umgTag);
+	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
 
 
 	if (!MZClient->IsConnected())
@@ -2165,7 +2180,8 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 	Actors.Add({MZActorReference(SpawnedActor), savedMetadata});
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
-
+	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
+	
 	if (!MZClient->IsConnected())
 	{
 		return SpawnedActor;
