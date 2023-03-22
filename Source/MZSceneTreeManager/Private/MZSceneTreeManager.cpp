@@ -397,6 +397,7 @@ bool IsActorDisplayable(const AActor* Actor)
 
 void FMZSceneTreeManager::OnMZConnectionClosed()
 {
+	MZActorManager->ClearActors();
 }
 
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
@@ -2198,6 +2199,21 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 	return SpawnedActor;
+}
+
+void FMZActorManager::ClearActors()
+{
+	// Remove/destroy actors from world
+	for (auto& [Actor, spawnTag] : Actors)
+		{
+		AActor* actor = Actor.Get();
+		if (actor)
+			GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->EditorDestroyActor(actor, false);
+		}
+	// Clear local structures
+	ActorIds.Reset();
+	Actors.Reset();
+	SceneTree.Clear();
 }
 
 void FMZActorManager::ReAddActorsToSceneTree()
