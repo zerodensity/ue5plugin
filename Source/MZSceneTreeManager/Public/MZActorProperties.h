@@ -26,7 +26,9 @@ public:
 		return Get();
 	}
 
+	bool UpdateActorPointer(UWorld* World);
 	bool UpdateActualActorPointer();
+
 	bool InvalidReference = false;
 private:
 	
