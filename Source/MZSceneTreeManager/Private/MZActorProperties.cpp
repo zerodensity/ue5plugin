@@ -1108,7 +1108,7 @@ AActor* MZActorReference::Get()
 	return nullptr;
 }
 
-bool MZActorReference::UpdateActualActorPointer()
+bool MZActorReference::UpdateActorPointer(UWorld* World)
 {
 	if (!ActorGuid.IsValid())
 	{
@@ -1116,21 +1116,10 @@ bool MZActorReference::UpdateActualActorPointer()
 		return false;
 	}
 
-	UWorld* theWorld = nullptr;
-	if (FMZSceneTreeManager::daWorld)
-	{
-		theWorld = FMZSceneTreeManager::daWorld;
-	}
-	else
-	{
-
-		theWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
-	}
-
 	TMap<FGuid, AActor*> sceneActorMap;
-	if (IsValid(theWorld))
+	if (IsValid(World))
 	{
-		for (TActorIterator<AActor> ActorItr(theWorld); ActorItr; ++ActorItr)
+		for (TActorIterator<AActor> ActorItr(World); ActorItr; ++ActorItr)
 		{
 			if (ActorItr->GetActorGuid() == ActorGuid)
 			{
@@ -1141,6 +1130,20 @@ bool MZActorReference::UpdateActualActorPointer()
 	}
 	InvalidReference = true;
 	return false;
+}
+
+bool MZActorReference::UpdateActualActorPointer()
+{
+	UWorld* World;
+	if (FMZSceneTreeManager::daWorld)
+	{
+		World = FMZSceneTreeManager::daWorld;
+	}
+	else
+	{
+		World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	}
+	return UpdateActorPointer(World);
 }
 
 MZComponentReference::MZComponentReference(TObjectPtr<UActorComponent> actorComponent)

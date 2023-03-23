@@ -2203,14 +2203,35 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 
 void FMZActorManager::ClearActors()
 {
-	// Remove/destroy actors from world
+	//
+	// Remove/destroy actors from Editor and PIE worlds.
+	//
+	// Remove from current (Editor or PIE) world.
 	for (auto& [Actor, spawnTag] : Actors)
-		{
+	{
 		AActor* actor = Actor.Get();
 		if (actor)
-			GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->EditorDestroyActor(actor, false);
+			actor->Destroy(false, false);
+	}
+	// When Play starts then actors are duplicated from Editor world into newly created PIE world.
+	if (FMZSceneTreeManager::daWorld)
+	{
+		EWorldType::Type CurrentWorldType = FMZSceneTreeManager::daWorld->WorldType.GetValue();
+		if (CurrentWorldType == EWorldType::PIE)
+		{
+			// Actor was removed from PIE world. Remove him also from Editor world.
+			UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+			for (auto& [Actor, spawnTag] : Actors)
+			{
+				Actor.UpdateActorPointer(EditorWorld);
+				AActor* actor = Actor.Get();
+				if (actor)
+					actor->Destroy(false, false);
+			}
 		}
-	// Clear local structures
+	}
+	
+	// Clear local structures.
 	ActorIds.Reset();
 	Actors.Reset();
 	SceneTree.Clear();
