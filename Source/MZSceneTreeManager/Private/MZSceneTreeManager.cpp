@@ -2168,7 +2168,7 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 	}
 
 	FActorSpawnParameters sp;
-	sp.bHideFromSceneOutliner = true;
+	sp.bHideFromSceneOutliner = MZAssetManager->HideFromOutliner();
 	AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(ClassToSpawn, 0, sp);
 	if (!SpawnedActor)
 	{

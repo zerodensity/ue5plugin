@@ -44,6 +44,11 @@ void FMZAssetManager::ShutdownModule()
 {
 }
 
+bool FMZAssetManager::HideFromOutliner() const
+{
+	return true;
+}
+
 void FMZAssetManager::OnAssetCreated(const FAssetData& createdAsset)
 {
 	if (!MZClient || !MZClient->IsConnected())
@@ -235,10 +240,13 @@ AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 	PlacementInfo.FactoryOverride = UActorFactoryBasicShape::StaticClass();
 	PlacementInfo.PreferredLevel = currentLevel;
 
+	FPlacementOptions PlacementOptions;
+	PlacementOptions.bIsCreatingPreviewElements = HideFromOutliner();
+
 	UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
 	if (PlacementSubsystem)
 	{
-		TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(PlacementInfo, FPlacementOptions());
+		TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(PlacementInfo, PlacementOptions);
 		for (auto elem : PlacedElements)
 		{
 			const FActorElementData* ActorElement = elem.GetData<FActorElementData>(true);
@@ -259,7 +267,7 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
 	UClass* LoadedAsset = ActorClass.LoadSynchronous();
 
 	FActorSpawnParameters sp;
-	sp.bHideFromSceneOutliner = true;
+	sp.bHideFromSceneOutliner = HideFromOutliner();
 	//todo look into hiding sp.bHideFromSceneOutliner = true;
 	AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedAsset, 0, sp);
 	if (!SpawnedActor)
