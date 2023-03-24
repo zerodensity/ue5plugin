@@ -59,7 +59,8 @@ public:
 		MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 		RegisterDelegates();
 	};
-	
+
+	AActor* GetParentTransformActor();
 	AActor* SpawnActor(FString SpawnTag);
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	AActor* SpawnActor(UClass* ClassToSpawn);
@@ -71,10 +72,12 @@ public:
 	void PreSave(uint32 SaveFlags, UWorld* World);
 	void PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess);
 
+	MZActorReference ParentTransformActor;
+
 	MZSceneTree& SceneTree;
 	class FMZAssetManager* MZAssetManager;
 	class FMZClient* MZClient;
-
+	
 	TSet<FGuid> ActorIds;
 	TArray< TPair<MZActorReference,TMap<FString,FString>> > Actors;
 };

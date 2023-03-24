@@ -222,6 +222,20 @@ void FMZAssetManager::SetupCustomSpawns()
 		{
 			return SpawnBasicShape(UActorFactoryBasicShape::BasicPlane);
 		});
+	CustomSpawns.Add("RealityParentTransform", [this]()
+		{
+			FActorSpawnParameters sp;
+			sp.bHideFromSceneOutliner = true;
+			AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(AActor::StaticClass(), 0, sp);
+			SpawnedActor->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("Reality Parent Transform Actor")).ToString());
+			auto RootComponent = NewObject<USceneComponent>(SpawnedActor, FName("DefaultSceneRoot"));
+			SpawnedActor->SetRootComponent(RootComponent);
+			RootComponent->CreationMethod = EComponentCreationMethod::Instance;
+			RootComponent->RegisterComponent();
+			SpawnedActor->AddInstanceComponent(RootComponent);
+			
+			return SpawnedActor;
+		});
 }
 
 AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)

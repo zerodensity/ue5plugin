@@ -2074,6 +2074,17 @@ void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 }
 
 
+AActor* FMZActorManager::GetParentTransformActor()
+{
+	if(!ParentTransformActor.Get())
+	{
+		ParentTransformActor = MZActorReference(SpawnActor("RealityParentTransform"));
+		ParentTransformActor->GetRootComponent()->SetMobility(EComponentMobility::Static);
+	}
+
+	return ParentTransformActor.Get();
+}
+
 AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 {
 	if (!MZAssetManager)
@@ -2086,7 +2097,10 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	{
 		return nullptr;
 	}
-	
+	if(SpawnTag != "RealityParentTransform")
+	{
+		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
+	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
@@ -2129,6 +2143,7 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	{
 		return nullptr;
 	}
+	UMGManager->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
 	UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName(umgTag)).ToString());
 	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
 
@@ -2174,7 +2189,7 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 	{
 		return nullptr;
 	}
-
+	SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
