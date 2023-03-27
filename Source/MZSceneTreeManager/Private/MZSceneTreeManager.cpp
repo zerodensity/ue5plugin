@@ -1250,8 +1250,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
-					auto mzprop = MZPropertyManager.CreateProperty(nullptr, *PropIt);
-					if (mzprop)
+					if (auto mzprop = MZPropertyManager.CreateProperty(nullptr, *PropIt))
 					{
 						mzfunc->Properties.push_back(mzprop);
 						//RegisteredProperties.Add(mzprop->Id, mzprop);			
@@ -2370,10 +2369,9 @@ void FMZPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container, 
 TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
 {
 	TSharedPtr<MZProperty> MzProperty = MZPropertyFactory::CreateProperty(container, uproperty, 0, 0, parentCategory);
-	
 	if (!MzProperty)
 	{
-		return TSharedPtr<MZProperty>();
+		return nullptr;
 	}
 
 	PropertiesById.Add(MzProperty->Id, MzProperty);

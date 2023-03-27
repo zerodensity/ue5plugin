@@ -920,6 +920,10 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 	else if (FObjectProperty* objectprop = CastField<FObjectProperty>(uproperty))
 	{
+		if (!container) // TODO: Handle inside MZObjectProperty
+		{
+			return nullptr;
+		}
 		prop = TSharedPtr<MZProperty>(new MZObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FStructProperty* structprop = CastField<FStructProperty>(uproperty))
