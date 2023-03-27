@@ -231,32 +231,26 @@ void FMZAssetManager::SetupCustomSpawns()
 
 AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 {
-	AActor* SpawnedActor = nullptr;
-	UWorld* currentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
-	ULevel* currentLevel = currentWorld->GetCurrentLevel();
+	UWorld* CurrentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	ULevel* CurrentLevel = CurrentWorld->GetCurrentLevel();
 
-	FAssetPlacementInfo PlacementInfo;
-	PlacementInfo.AssetToPlace = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
-	PlacementInfo.FactoryOverride = UActorFactoryBasicShape::StaticClass();
-	PlacementInfo.PreferredLevel = currentLevel;
-
-	FPlacementOptions PlacementOptions;
-	PlacementOptions.bIsCreatingPreviewElements = HideFromOutliner();
+	FAssetData AssetToPlace = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
 
 	UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
-	if (PlacementSubsystem)
-	{
-		TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(PlacementInfo, PlacementOptions);
-		for (auto elem : PlacedElements)
-		{
-			const FActorElementData* ActorElement = elem.GetData<FActorElementData>(true);
-			if (ActorElement)
-			{
-				SpawnedActor = ActorElement->Actor;
-			}
-		}
-	}
-	
+	TScriptInterface<IAssetFactoryInterface> FactoryInterface = PlacementSubsystem->FindAssetFactoryFromAssetData(AssetToPlace);
+	IAssetFactoryInterface* Interface = FactoryInterface.GetInterface();
+	UActorFactory* ActorInterface = dynamic_cast<UActorFactory*>(Interface);
+	if (!ActorInterface)
+		return nullptr;
+
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.bHideFromSceneOutliner = HideFromOutliner();
+	SpawnParams.OverrideLevel = CurrentLevel;
+
+	// SpawnParams.bHideFromSceneOutliner is overwritten in "ActorInterface->CreateActor" by state of PlacementSubsystem.
+	PlacementSubsystem->SetIsCreatingPreviewElements(HideFromOutliner());
+	AActor* SpawnedActor = ActorInterface->CreateActor(AssetToPlace.GetAsset(), CurrentLevel, FTransform(), SpawnParams);
+	PlacementSubsystem->SetIsCreatingPreviewElements(false);
 	return SpawnedActor;
 }
 
