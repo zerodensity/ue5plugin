@@ -8,6 +8,7 @@
 #include "UObject/SoftObjectPath.h"
 #include "Blueprint/UserWidget.h"
 #include "UObject/Object.h"
+#include "Engine/StaticMeshActor.h"
 
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
@@ -232,25 +233,47 @@ void FMZAssetManager::SetupCustomSpawns()
 AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 {
 	UWorld* CurrentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
-	ULevel* CurrentLevel = CurrentWorld->GetCurrentLevel();
 
-	FAssetData AssetToPlace = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
+	FAssetData AssetData = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
+	UObject* Asset = AssetData.GetAsset();
 
 	UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
-	TScriptInterface<IAssetFactoryInterface> FactoryInterface = PlacementSubsystem->FindAssetFactoryFromAssetData(AssetToPlace);
+	TScriptInterface<IAssetFactoryInterface> FactoryInterface = PlacementSubsystem->FindAssetFactoryFromAssetData(AssetData);
 	IAssetFactoryInterface* Interface = FactoryInterface.GetInterface();
 	UActorFactory* ActorInterface = dynamic_cast<UActorFactory*>(Interface);
 	if (!ActorInterface)
 		return nullptr;
 
+	FTransform Transform;
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.bHideFromSceneOutliner = HideFromOutliner();
-	SpawnParams.OverrideLevel = CurrentLevel;
 
-	// SpawnParams.bHideFromSceneOutliner is overwritten in "ActorInterface->CreateActor" by state of PlacementSubsystem.
-	PlacementSubsystem->SetIsCreatingPreviewElements(HideFromOutliner());
-	AActor* SpawnedActor = ActorInterface->CreateActor(AssetToPlace.GetAsset(), CurrentLevel, FTransform(), SpawnParams);
-	PlacementSubsystem->SetIsCreatingPreviewElements(false);
+	// Implemented on base of UActorFactory::CreateActor
+	AActor* DefaultActor = ActorInterface->GetDefaultActor(AssetData);
+	AActor* SpawnedActor = CurrentWorld->SpawnActor(DefaultActor->GetClass(), &Transform, SpawnParams);
+	if (SpawnedActor)
+	{
+		FActorLabelUtilities::SetActorLabelUnique(SpawnedActor, Asset->GetName());
+
+		// Implemented on base of UActorFactoryBasicShape::PostSpawnActor
+		UStaticMesh* StaticMesh = Cast<UStaticMesh>(Asset);
+		if (StaticMesh)
+		{
+			AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>(SpawnedActor);
+			UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
+			if (StaticMeshComponent)
+			{
+				StaticMeshComponent->UnregisterComponent();
+				StaticMeshComponent->SetStaticMesh(StaticMesh);
+				StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->GetRenderData()->DerivedDataKey;
+				StaticMeshComponent->SetMaterial(0, LoadObject<UMaterial>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")));
+				StaticMeshComponent->RegisterComponent();
+			}
+		}
+
+		SpawnedActor->PostEditChange();
+		SpawnedActor->PostEditMove(true);
+	}
 	return SpawnedActor;
 }
 
