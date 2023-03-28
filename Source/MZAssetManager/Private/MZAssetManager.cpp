@@ -232,6 +232,12 @@ void FMZAssetManager::SetupCustomSpawns()
 
 AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 {
+	if (!GEditor)
+	{
+		// Game mode probably
+		return nullptr;
+	}
+
 	UWorld* CurrentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
 	FAssetData AssetData = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
