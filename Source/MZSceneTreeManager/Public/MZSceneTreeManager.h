@@ -154,6 +154,9 @@ public:
 	//Called when the level destruction began
 	void OnPreWorldFinishDestroy(UWorld* World);
 
+	// Called when object are replaced (like reinstancing)
+	void OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap);
+
 	//delegate called when a property is changed from unreal engine editor
 	//it updates thecorresponding property in mediaz
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
@@ -214,6 +217,8 @@ public:
 
 	void* FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
 
+	void AddBlueprintOnCompileHandler(AActor *actor);
+
 	// UObject* FMZSceneTreeManager::FindObjectContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(TSharedPtr<TreeNode> Node,
@@ -268,5 +273,11 @@ public:
 	FMZActorManager* MZActorManager;
 
 	FMZPropertyManager MZPropertyManager;
+
+private:
+	void OnBlueprintCompiled(UBlueprint *BP);
+	UClass * GetRootActorOfNode(TSharedPtr<TreeNode> node);
+
+	TMap<UObject*, UObject*> ReInstanceCache;
 };
 
