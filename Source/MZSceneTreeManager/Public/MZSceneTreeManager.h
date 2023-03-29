@@ -273,10 +273,18 @@ public:
 	FMZActorManager* MZActorManager;
 
 	FMZPropertyManager MZPropertyManager;
-
+	
+	static void GetNodeAndDescendantNodesRecursive(TSharedPtr<TreeNode> Node, TArray<TSharedPtr<TreeNode>> &OutNodeList);
+	static UClass* GetRootActorOfNode(TSharedPtr<TreeNode> Node);
+	static bool CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty);
+	TArray<TPair<FGuid, TSharedPtr<TreeNode>>> GetRootActorNodesRelatedWithBP(UBlueprint *BP);
+	
 private:
 	void OnBlueprintCompiled(UBlueprint *BP);
-	UClass * GetRootActorOfNode(TSharedPtr<TreeNode> node);
+
+	static std::vector<TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
+	
+	
 
 	TMap<UObject*, UObject*> ReInstanceCache;
 };

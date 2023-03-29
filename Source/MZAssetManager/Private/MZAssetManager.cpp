@@ -273,7 +273,7 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
 	UClass* LoadedAsset = ActorClass.LoadSynchronous();
 
 	FActorSpawnParameters sp;
-	sp.bHideFromSceneOutliner = true;
+	sp.bHideFromSceneOutliner = false;
 	//todo look into hiding sp.bHideFromSceneOutliner = true;
 	AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedAsset, 0, sp);
 	if (!SpawnedActor)
@@ -289,6 +289,7 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
 		RootComponent->RegisterComponent();
 		SpawnedActor->AddInstanceComponent(RootComponent);
 	}
+	
 	return SpawnedActor;
 }
 
