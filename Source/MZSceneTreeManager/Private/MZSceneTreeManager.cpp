@@ -430,7 +430,27 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Property with given id is not found."));
 	}
-
+	if(MZPropertyManager.PropertyToPortalPin.Contains(pinId))
+	{
+		auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(pinId);
+		if(MZPropertyManager.PortalPinsById.Contains(PortalId))
+		{
+			auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
+			if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+			{
+				auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+				flatbuffers::FlatBufferBuilder mb;
+				auto offset = mz::CreateAppEventOffset(mb ,mz::CreatePinShowAsChanged(mb, (mz::fb::UUID*)&PortalId, newShowAs));
+				mb.Finish(offset);
+				auto buf = mb.Release();
+				auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
+				MZClient->AppServiceClient->Send(*root);
+				
+				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
+			}
+		}
+	}
+		
 	if(MZPropertyManager.PortalPinsById.Contains(pinId))
 	{
 		auto Portal = MZPropertyManager.PortalPinsById.FindRef(pinId);
