@@ -246,31 +246,16 @@ void FMZAssetManager::SetupCustomSpawns()
 
 AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 {
-	if (!GEditor)
-	{
-		// Game mode probably
-		return nullptr;
-	}
-
 	UWorld* CurrentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
 	FAssetData AssetData = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
 	UObject* Asset = AssetData.GetAsset();
-
-	UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
-	TScriptInterface<IAssetFactoryInterface> FactoryInterface = PlacementSubsystem->FindAssetFactoryFromAssetData(AssetData);
-	IAssetFactoryInterface* Interface = FactoryInterface.GetInterface();
-	UActorFactory* ActorInterface = dynamic_cast<UActorFactory*>(Interface);
-	if (!ActorInterface)
-		return nullptr;
-
 	FTransform Transform;
 	FActorSpawnParameters SpawnParams;
 	SpawnParams.bHideFromSceneOutliner = HideFromOutliner();
 
 	// Implemented on base of UActorFactory::CreateActor
-	AActor* DefaultActor = ActorInterface->GetDefaultActor(AssetData);
-	AActor* SpawnedActor = CurrentWorld->SpawnActor(DefaultActor->GetClass(), &Transform, SpawnParams);
+	AActor* SpawnedActor = CurrentWorld->SpawnActor(AStaticMeshActor::StaticClass(), &Transform, SpawnParams);
 	if (SpawnedActor)
 	{
 		FActorLabelUtilities::SetActorLabelUnique(SpawnedActor, Asset->GetName());
