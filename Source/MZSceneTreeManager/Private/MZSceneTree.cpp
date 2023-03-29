@@ -3,6 +3,7 @@
 MZSceneTree::MZSceneTree()
 {
 	Root = TSharedPtr<FolderNode>(new FolderNode);
+	Root->mzMetaData.Add("PinnedCategories", "Control");
 	Root->Name = FString("UE5");
 	Root->Parent = nullptr;
 }
@@ -139,6 +140,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor*
 TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
+	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
 	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
@@ -159,6 +161,7 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNo
 TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
+	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
 	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
@@ -179,23 +182,14 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneCo
 
 flatbuffers::Offset<mz::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
-	for (auto [key, value] : mzMetaData)
-	{
-		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
-	}
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
 	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0, 0, 0, &metadata);
 }
 
 flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
-	for (auto [key, value] : mzMetaData)
-	{
-		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
-	}
-
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
 	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0, 0, 0, &metadata);
@@ -217,11 +211,7 @@ ActorNode::~ActorNode()
 
 flatbuffers::Offset<mz::fb::Node> SceneComponentNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
-	for (auto [key, value] : mzMetaData)
-	{
-		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
-	}
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
 	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), "UE5", 0, 0, 0, 0, &metadata);
@@ -252,6 +242,16 @@ std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatb
 	}
 
 	return childNodes;
+}
+
+std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> TreeNode::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
+{
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
+	for (auto [key, value] : mzMetaData)
+	{
+		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
+	}
+	return metadata;
 }
 
 TreeNode::~TreeNode()
