@@ -120,182 +120,53 @@ protected:
 
 };
 
-class MZBoolProperty : public MZProperty
-{
+template<typename T, mz::tmp::StrLiteral LitType, typename CppType = T::TCppType>
+requires std::is_base_of_v<FProperty, T>
+class MZNumericProperty : public MZProperty {
 public:
-	MZBoolProperty(UObject* container, FBoolProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), boolprop(uproperty) 
+	MZNumericProperty(UObject* container, T* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr) :
+		MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
 	{
-		data = std::vector<uint8_t>(1, 0);
-		TypeName = "bool";
+		data = std::vector<uint8_t>(sizeof(CppType), 0);
+		TypeName = LitType.val;
+	}
+	T* Property;
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override 
+	{
+		void* container = nullptr;
+		if (customContainer) container = customContainer;
+		else if (ComponentContainer) container = ComponentContainer.Get();
+		else if (ActorContainer) container = ActorContainer.Get();
+		else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
+		else if (StructPtr) container = StructPtr;
+
+		if (container)
+		{
+			CppType val = static_cast<CppType>(Property->GetPropertyValue_InContainer(container));
+			memcpy(data.data(), &val, data.size());
+		}
+
+		return data;
 	}
 
-	FBoolProperty* boolprop;
-	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
-
 protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-
-};
-
-class MZFloatProperty : public MZProperty
-{
-public:
-	MZFloatProperty(UObject* container, FFloatProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), floatprop(uproperty) 
+	virtual void SetProperty_InCont(void* container, void* val) override 
 	{
-		data = std::vector<uint8_t>(4, 0);
-		TypeName = "float";
+		Property->SetPropertyValue_InContainer(container, (*(CppType*)val));
 	}
-	FFloatProperty* floatprop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-	
 };
 
-class MZDoubleProperty : public MZProperty
-{
-public:
-	MZDoubleProperty(UObject* container, FDoubleProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), doubleprop(uproperty) 
-	{
-		data = std::vector<uint8_t>(8, 0);
-		TypeName = "double";
-	}
-	FDoubleProperty* doubleprop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZInt8Property : public MZProperty
-{
-public:
-	MZInt8Property(UObject* container, FInt8Property* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), int8prop(uproperty) 
-	{
-		data = std::vector<uint8_t>(1, 0);
-		TypeName = "byte";
-	}
-
-	FInt8Property* int8prop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZInt16Property : public MZProperty
-{
-public:
-	MZInt16Property(UObject* container, FInt16Property* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), int16prop(uproperty) 
-	{
-		data = std::vector<uint8_t>(2, 0);
-		TypeName = "short";
-	}
-
-	FInt16Property* int16prop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZIntProperty : public MZProperty
-{
-public:
-	MZIntProperty(UObject* container, FIntProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), intprop(uproperty) 
-	{
-		data = std::vector<uint8_t>(4, 0);
-		TypeName = "int";
-	}
-
-	FIntProperty* intprop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZInt64Property : public MZProperty
-{
-public:
-	MZInt64Property(UObject* container, FInt64Property* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), int64prop(uproperty) 
-	{
-		data = std::vector<uint8_t>(8, 0);
-		TypeName = "long";
-	}
-
-	FInt64Property* int64prop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZByteProperty : public MZProperty
-{
-public:
-	MZByteProperty(UObject* container, FByteProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), byteprop(uproperty) 
-	{
-		data = std::vector<uint8_t>(1, 0);
-		TypeName = "ubyte";
-	}
-
-	FByteProperty* byteprop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZUInt16Property : public MZProperty
-{
-public:
-	MZUInt16Property(UObject* container, FUInt16Property* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), uint16prop(uproperty) 
-	{
-		data = std::vector<uint8_t>(2, 0);
-		TypeName = "ushort";
-	}
-
-	FUInt16Property* uint16prop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZUInt32Property : public MZProperty
-{
-public:
-	MZUInt32Property(UObject* container, FUInt32Property* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), uint32prop(uproperty) 
-	{
-		data = std::vector<uint8_t>(4, 0);
-		TypeName = "uint";
-	}
-
-	FUInt32Property* uint32prop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZUInt64Property : public MZProperty
-{
-public:
-	MZUInt64Property(UObject* container, FUInt64Property* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), uint64prop(uproperty) 
-	{
-		data = std::vector<uint8_t>(8, 0);
-		TypeName = "ulong";
-	}
-
-	FUInt64Property* uint64prop;
-
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
+using MZBoolProperty = MZNumericProperty<FBoolProperty, "bool">;
+using MZFloatProperty = MZNumericProperty<FFloatProperty, "float">;
+using MZDoubleProperty = MZNumericProperty<FDoubleProperty, "double">;
+using MZInt8Property = MZNumericProperty<FInt8Property, "byte">;
+using MZInt16Property = MZNumericProperty<FInt16Property, "short">;
+using MZIntProperty = MZNumericProperty<FIntProperty, "int">;
+using MZInt64Property = MZNumericProperty<FInt64Property, "long">;
+using MZByteProperty = MZNumericProperty<FByteProperty, "ubyte">;
+using MZUInt16Property = MZNumericProperty<FUInt16Property, "ushort">;
+using MZUInt32Property = MZNumericProperty<FUInt32Property, "uint">;
+using MZUInt64Property = MZNumericProperty<FUInt64Property, "ulong">;
 
 class MZEnumProperty : public MZProperty
 {
@@ -417,35 +288,28 @@ public:
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
 };
 
-class MZVec2Property : public MZProperty
+template<typename T, mz::tmp::StrLiteral LitType>
+class MZCustomStructProperty : public MZProperty 
 {
 public:
-	MZVec2Property(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+	MZCustomStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
 		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
-		data = std::vector<uint8_t>(sizeof(FVector2D), 0);
-		TypeName = "mz.fb.vec2d";
+		data = std::vector<uint8_t>(sizeof(T), 0);
+		TypeName = LitType.val;
 	}
 
 	FStructProperty* structprop;
 protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
-};
-
-class MZVec3Property : public MZProperty
-{
-public:
-	MZVec3Property(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	virtual void SetProperty_InCont(void* container, void* val) override 
 	{
-		data = std::vector<uint8_t>(sizeof(FVector), 0);
-		TypeName = "mz.fb.vec3d";
+		structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (T*)val);
 	}
-
-	FStructProperty* structprop;
-protected:
-	virtual void SetProperty_InCont(void* container, void* val) override;
 };
+
+using MZVec2Property = MZCustomStructProperty<FVector2D, "mz.fb.vec2d">;
+using MZVec3Property = MZCustomStructProperty<FVector, "mz.fb.vec3d">;
+using MZVec4Property = MZCustomStructProperty < FVector4, "mz.fb.vec4d">;
 
 class MZRotatorProperty : public MZProperty
 {
@@ -463,20 +327,7 @@ protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };
 
-class MZVec4Property : public MZProperty
-{
-public:
-	MZVec4Property(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
-	{
-		data = std::vector<uint8_t>(sizeof(FVector4), 0);
-		TypeName = "mz.fb.vec4d";
-	}
 
-	FStructProperty* structprop; 
-protected:
-		virtual void SetProperty_InCont(void* container, void* val) override;
-};
 
 class MZTrackProperty : public MZProperty
 {
