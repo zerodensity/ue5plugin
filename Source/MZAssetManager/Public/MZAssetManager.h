@@ -21,6 +21,8 @@ public:
 	//Called on shutdown of the module on Unreal Engine exit
 	virtual void ShutdownModule() override;
 
+	bool HideFromOutliner() const;
+
 	//update asset lists when a new asset is created
 	void OnAssetCreated(const FAssetData& createdAsset);
 
