@@ -767,12 +767,8 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 			{
 				ReInstanceCache.Add(Replacement);
 			}
-			//AActor* ReplacementActor = Cast<AActor>(*ReplacementObjectPtr);
-			
 		}
-		
 	}
-		
 }
 
 void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
@@ -793,7 +789,6 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 		SendActorDeleted(id, RemovedItems);
 	}
 	ReInstanceCache.Remove(InActor);	// Delete from cache
-	return;
 }
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
