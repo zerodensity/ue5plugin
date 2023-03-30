@@ -48,7 +48,6 @@ public class MZClient : ModuleRules
 				PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 				PublicIncludePaths.Add(SDKIncludeDir);
 
-
 				PublicDependencyModuleNames.AddRange(
 					new string[]
 					{

@@ -181,54 +181,6 @@ UObject* MZProperty::GetRawObjectContainer()
 
 void MZProperty::SetProperty_InCont(void* container, void* val) { return; }
 
-std::vector<uint8> MZBoolProperty::UpdatePinValue(uint8* customContainer)
-{
-
-	void* container = nullptr;
-	if (customContainer) container = customContainer;
-	else if (ComponentContainer) container = ComponentContainer.Get();
-	else if (ActorContainer) container = ActorContainer.Get();
-	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
-	else if (StructPtr) container = StructPtr;
-
-	if (container)
-	{
-		auto val = !!(boolprop->GetPropertyValue_InContainer(container));
-		memcpy(data.data(), &val, data.size());
-	}
-
-	return data;
-}
-
-void MZBoolProperty::SetProperty_InCont(void* container, void* val) { boolprop->SetPropertyValue_InContainer(container, !!(*(bool*)val)); }
-
-void MZFloatProperty::SetProperty_InCont(void* container, void* val) { floatprop->SetPropertyValue_InContainer(container, *(float*)val); }
-
-void MZDoubleProperty::SetProperty_InCont(void* container, void* val) { doubleprop->SetPropertyValue_InContainer(container, *(double*)val); }
-
-void MZInt8Property::SetProperty_InCont(void* container, void* val) { int8prop->SetPropertyValue_InContainer(container, *(int8*)val); }
-
-void MZInt16Property::SetProperty_InCont(void* container, void* val) { int16prop->SetPropertyValue_InContainer(container, *(int16*)val); }
-
-void MZIntProperty::SetProperty_InCont(void* container, void* val) { intprop->SetPropertyValue_InContainer(container, *(int*)val); }
-
-void MZInt64Property::SetProperty_InCont(void* container, void* val) { int64prop->SetPropertyValue_InContainer(container, *(int64*)val); }
-
-void MZByteProperty::SetProperty_InCont(void* container, void* val) { byteprop->SetPropertyValue_InContainer(container, *(uint8*)val); }
-
-void MZUInt16Property::SetProperty_InCont(void* container, void* val) { uint16prop->SetPropertyValue_InContainer(container, *(uint16*)val); }
-
-void MZUInt32Property::SetProperty_InCont(void* container, void* val) { uint32prop->SetPropertyValue_InContainer(container, *(uint32*)val); }
-
-void MZUInt64Property::SetProperty_InCont(void* container, void* val) { uint64prop->SetPropertyValue_InContainer(container, *(uint64*)val); }
-
-void MZVec2Property::SetProperty_InCont(void* container, void* val) { structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FVector2D*)val); }
-
-void MZVec3Property::SetProperty_InCont(void* container, void* val) { structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FVector*)val); }
-
-void MZVec4Property::SetProperty_InCont(void* container, void* val) { structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (FVector4*)val); }
-
-
 void MZTrackProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
@@ -920,6 +872,10 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 	else if (FObjectProperty* objectprop = CastField<FObjectProperty>(uproperty))
 	{
+		if (!container) // TODO: Handle inside MZObjectProperty
+		{
+			return nullptr;
+		}
 		prop = TSharedPtr<MZProperty>(new MZObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FStructProperty* structprop = CastField<FStructProperty>(uproperty))

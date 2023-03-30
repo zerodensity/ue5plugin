@@ -8,6 +8,7 @@
 #include "UObject/SoftObjectPath.h"
 #include "Blueprint/UserWidget.h"
 #include "UObject/Object.h"
+#include "Engine/StaticMeshActor.h"
 
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
@@ -42,6 +43,11 @@ void FMZAssetManager::StartupModule()
 
 void FMZAssetManager::ShutdownModule()
 {
+}
+
+bool FMZAssetManager::HideFromOutliner() const
+{
+	return true;
 }
 
 void FMZAssetManager::OnAssetCreated(const FAssetData& createdAsset)
@@ -240,29 +246,39 @@ void FMZAssetManager::SetupCustomSpawns()
 
 AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 {
-	AActor* SpawnedActor = nullptr;
-	UWorld* currentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
-	ULevel* currentLevel = currentWorld->GetCurrentLevel();
+	UWorld* CurrentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
-	FAssetPlacementInfo PlacementInfo;
-	PlacementInfo.AssetToPlace = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
-	PlacementInfo.FactoryOverride = UActorFactoryBasicShape::StaticClass();
-	PlacementInfo.PreferredLevel = currentLevel;
+	FAssetData AssetData = FAssetData(LoadObject<UStaticMesh>(nullptr, *BasicShape.ToString()));
+	UObject* Asset = AssetData.GetAsset();
+	FTransform Transform;
+	FActorSpawnParameters SpawnParams;
+	SpawnParams.bHideFromSceneOutliner = HideFromOutliner();
 
-	UPlacementSubsystem* PlacementSubsystem = GEditor->GetEditorSubsystem<UPlacementSubsystem>();
-	if (PlacementSubsystem)
+	// Implemented on base of UActorFactory::CreateActor
+	AActor* SpawnedActor = CurrentWorld->SpawnActor(AStaticMeshActor::StaticClass(), &Transform, SpawnParams);
+	if (SpawnedActor)
 	{
-		TArray<FTypedElementHandle> PlacedElements = PlacementSubsystem->PlaceAsset(PlacementInfo, FPlacementOptions());
-		for (auto elem : PlacedElements)
+		FActorLabelUtilities::SetActorLabelUnique(SpawnedActor, Asset->GetName());
+
+		// Implemented on base of UActorFactoryBasicShape::PostSpawnActor
+		UStaticMesh* StaticMesh = Cast<UStaticMesh>(Asset);
+		if (StaticMesh)
 		{
-			const FActorElementData* ActorElement = elem.GetData<FActorElementData>(true);
-			if (ActorElement)
+			AStaticMeshActor* StaticMeshActor = CastChecked<AStaticMeshActor>(SpawnedActor);
+			UStaticMeshComponent* StaticMeshComponent = StaticMeshActor->GetStaticMeshComponent();
+			if (StaticMeshComponent)
 			{
-				SpawnedActor = ActorElement->Actor;
+				StaticMeshComponent->UnregisterComponent();
+				StaticMeshComponent->SetStaticMesh(StaticMesh);
+				StaticMeshComponent->StaticMeshDerivedDataKey = StaticMesh->GetRenderData()->DerivedDataKey;
+				StaticMeshComponent->SetMaterial(0, LoadObject<UMaterial>(nullptr, TEXT("/Engine/BasicShapes/BasicShapeMaterial.BasicShapeMaterial")));
+				StaticMeshComponent->RegisterComponent();
 			}
 		}
+
+		SpawnedActor->PostEditChange();
+		SpawnedActor->PostEditMove(true);
 	}
-	
 	return SpawnedActor;
 }
 
@@ -273,7 +289,8 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
 	UClass* LoadedAsset = ActorClass.LoadSynchronous();
 
 	FActorSpawnParameters sp;
-	sp.bHideFromSceneOutliner = false;
+	sp.bHideFromSceneOutliner = HideFromOutliner();
+
 	//todo look into hiding sp.bHideFromSceneOutliner = true;
 	AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(LoadedAsset, 0, sp);
 	if (!SpawnedActor)
