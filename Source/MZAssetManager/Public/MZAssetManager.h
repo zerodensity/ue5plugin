@@ -33,6 +33,8 @@ public:
 
 	void SendUMGList();
 
+	void SendLevelSequencerList();
+
 	void RescanAndSendAll();
 
 	TSet<FTopLevelAssetPath> GetAssetPathsOfClass(UClass* ParentClass);
@@ -46,21 +48,34 @@ public:
 
 	void ScanUMGs();
 
+	void ScanLevelSequencers();
+
 	AActor* SpawnFromTag(FString SpawnTag);
 
 	AActor* SpawnFromAssetPath(FTopLevelAssetPath AssetPath);
 
 	UUserWidget* CreateUMGFromTag(FString UMGTag);
 
+	typedef TMap<FString, FTopLevelAssetPath> TAssetNameToPathMap;
+
 	//spawnable actor assets
-	TMap<FString, FTopLevelAssetPath> SpawnableAssets;
+	TAssetNameToPathMap SpawnableAssets;
 
 	//UMG assets list
-	TMap<FString, FTopLevelAssetPath> UMGs;
+	TAssetNameToPathMap UMGs;
+
+	TAssetNameToPathMap LevelSequencers;
 
 	//for custom spawnables like basic shapes(cube, sphere etc.)
 	TMap<FString, TFunction<AActor*()>> CustomSpawns;
 
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;
+
+	static const char* LevelSequencerList;
+
+private:
+	void Scan(TAssetNameToPathMap& Map, UClass* ParentClass);
+	void SendList(const char* ListName, const TArray<FString>& Value);
+	void SendList(const char* ListName, const TAssetNameToPathMap& Value);
 };

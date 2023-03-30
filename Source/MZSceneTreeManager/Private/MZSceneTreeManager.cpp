@@ -17,6 +17,9 @@
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
+#include "LevelSequence.h"
+#include "LevelSequenceActor.h"
+#include "AssetToolsModule.h"
 
 //#define VIEWPORT_TEXTURE
 
@@ -296,6 +299,32 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
+	// Add Level Sequencer function
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		mzcf->Id = FGuid::NewGuid();
+		FGuid actorPinId = FGuid::NewGuid();
+		mzcf->Params.Add(actorPinId, "Level Sequencer to spawn");
+		mzcf->Serialize = [funcid = mzcf->Id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		{
+			auto data = std::vector<uint8_t>(1, 0);
+			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = 
+			{
+				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Level Sequencer to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, FMZAssetManager::LevelSequencerList), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
+			};
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Level Sequencer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "ENGINE FUNCTIONS");
+		};
+		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
+		{
+			FString SpawnTag((char*)properties.FindRef(actorPinId).data());
+			if (SpawnTag.IsEmpty())
+				return;
+			AActor* SpawnedActor = MZActorManager->SpawnLevelSequenceActor(SpawnTag);
+			LOGF("Level Sequencer with tag %s is spawned", *SpawnTag);
+		};
+		CustomFunctions.Add(mzcf->Id, mzcf);
+	}
+
 	LOG("MZSceneTreeManager module successfully loaded.");
 }
 
@@ -2149,6 +2178,31 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
 	return SpawnedActor;
+}
+
+AActor* FMZActorManager::SpawnLevelSequenceActor(
+	FString SpawnTag)
+{
+	AActor* Actor = SpawnActor(SpawnTag);
+	ALevelSequenceActor* LevelSequenceActor = dynamic_cast<ALevelSequenceActor*>(Actor);
+	if (LevelSequenceActor)
+	{
+		FString PackagePath = "/Game";
+		FString SequenceName = Actor->GetName();
+
+		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
+		FString UniquePackageName;
+		FString UniqueAssetName;
+		AssetToolsModule.Get().CreateUniqueAssetName(PackagePath / SequenceName, TEXT(""), UniquePackageName, UniqueAssetName);
+
+		UPackage* Package = CreatePackage(*UniquePackageName);
+		ULevelSequence* Sequence = NewObject<ULevelSequence>(Package, *UniqueAssetName, RF_Public | RF_Standalone);
+		Sequence->Initialize();
+		Sequence->MarkPackageDirty();
+
+		LevelSequenceActor->SetSequence(Sequence);
+	}
+	return Actor;
 }
 
 AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)
