@@ -61,7 +61,7 @@ public:
 	};
 
 	AActor* GetParentTransformActor();
-	AActor* SpawnActor(FString SpawnTag);
+	AActor* SpawnActor(FString SpawnTag, TFunction<void(AActor *Actor)> OnSpawnedCallback = nullptr);
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	AActor* SpawnActor(UClass* ClassToSpawn);
 	void ClearActors();

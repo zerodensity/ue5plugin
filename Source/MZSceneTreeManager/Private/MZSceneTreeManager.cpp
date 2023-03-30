@@ -158,7 +158,9 @@ void FMZSceneTreeManager::StartupModule()
 			{
 				return;
 			}
-			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag);
+			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag, [this](AActor* Actor) {
+				AddBlueprintOnCompileHandler(Actor);
+			});
 			LOGF("Actor with tag %s is spawned", *SpawnTag);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -181,7 +183,9 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 		{
 
-			AActor* realityCamera = MZActorManager->SpawnActor("CustomRealityCamera");
+			AActor* realityCamera = MZActorManager->SpawnActor("CustomRealityCamera", [this](AActor* Actor) {
+				AddBlueprintOnCompileHandler(Actor);
+			});
 			if (!realityCamera || !SceneTree.NodeMap.Contains(realityCamera->GetActorGuid()))
 			{
 				return;
@@ -197,7 +201,7 @@ void FMZSceneTreeManager::StartupModule()
 				SendNodeUpdate(ChildNode->Id);
 			}
 			
-			AddBlueprintOnCompileHandler(realityCamera);
+			
 
 			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
 			auto FrameTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
@@ -236,7 +240,9 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 		{
 
-			AActor* projectionCube = MZActorManager->SpawnActor("CustomProjectionCube");
+			AActor* projectionCube = MZActorManager->SpawnActor("CustomProjectionCube", [this](AActor* Actor) {
+				AddBlueprintOnCompileHandler(Actor);
+			});
 			if (!projectionCube || !SceneTree.NodeMap.Contains(projectionCube->GetActorGuid()))
 			{
 				return;
@@ -774,18 +780,7 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 	LOGF("%s is destroyed.", *(InActor->GetFName().ToString()));
 
 	// Check if destroyed actor is being reinstanced
-	if(ReInstanceCache.Contains(InActor))
-	{
-		// Actor is destroyed because of ReInstancing. Update actor related entries in MZ side.
-		UObject *NewObject = ReInstanceCache.FindRef(InActor);
-		UObject *NewObject2 = ReInstanceCache[InActor];
-		AActor *NewActor = Cast<AActor>(NewObject);
-		AActor *NewActor2 = Cast<AActor>(NewObject2);
-		ReInstanceCache.Remove(InActor);	// Delete from cache
-		// Actor is Destroyed because of ReInstancing, ignore OnDestroy calls
-		return;
-	}
-	else
+	if(!ReInstanceCache.Contains(InActor))
 	{
 		auto id = InActor->GetActorGuid();
 		TSet<UObject*> RemovedItems;
@@ -797,21 +792,8 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 		}
 		SendActorDeleted(id, RemovedItems);
 	}
-
-
-
-
-	
+	ReInstanceCache.Remove(InActor);	// Delete from cache
 	return;
-	auto id = InActor->GetActorGuid();
-	TSet<UObject*> RemovedItems;
-	RemovedItems.Add(InActor);
-	auto Components = InActor->GetComponents();
-	for (auto comp : Components)
-	{
-		RemovedItems.Add(comp);
-	}
-	SendActorDeleted(id, RemovedItems);
 }
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
@@ -2141,7 +2123,7 @@ AActor* FMZActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag)
+AActor* FMZActorManager::SpawnActor(FString SpawnTag, TFunction<void(AActor *actor)> OnSpawnedCallback)
 {
 	if (!MZAssetManager)
 	{
@@ -2182,6 +2164,14 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(mb, mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes)));
 
+	if(OnSpawnedCallback)
+	{
+		OnSpawnedCallback(SpawnedActor);
+	}
+//	[](URigVMPin* Pin) {
+//		Pin->bIsExpanded = true;
+//	}
+	
 	return SpawnedActor;
 }
 
@@ -2638,7 +2628,7 @@ std::vector<TSharedPtr<MZProperty>>* FMZSceneTreeManager::GetNodeProperties(TSha
 bool FMZSceneTreeManager::CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty)
 {
 	const UClass *PropertyOwner = (TargetNode->GetAsActorNode())?(TargetNode->GetAsActorNode()->actor.Get()->GetClass()):(TargetNode->GetAsSceneComponentNode()->sceneComponent.Get()->GetClass());
-	const FProperty* UEProperty = PropertyOwner->FindPropertyByName(FName(MZProperty->Property->GetName()));
+	const FProperty* UEProperty = PropertyOwner->FindPropertyByName(MZProperty->Property->GetFName());
 
 	if(!UEProperty)
 	{
