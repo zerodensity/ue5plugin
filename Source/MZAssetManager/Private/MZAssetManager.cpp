@@ -9,7 +9,7 @@
 #include "Blueprint/UserWidget.h"
 #include "UObject/Object.h"
 #include "Engine/StaticMeshActor.h"
-#include "LevelSequenceActor.h"
+#include "LevelSequence.h"
 
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
@@ -172,7 +172,7 @@ void FMZAssetManager::RescanAndSendAll()
 	SendLevelSequencerList();
 }
 
-void FMZAssetManager::Scan(
+void FMZAssetManager::ScanAssets(
 	TAssetNameToPathMap& Map,
 	UClass* ParentClass)
 {
@@ -190,19 +190,33 @@ void FMZAssetManager::Scan(
 	}
 }
 
+void FMZAssetManager::ScanAssetInstances(
+	TAssetInstancesArray& Array,
+	const UClass* ParentClass)
+{
+	Array.Empty();
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	TArray<FAssetData> ObjectList;
+	AssetRegistryModule.Get().GetAssetsByClass(ParentClass->GetClassPathName(), ObjectList);
+	for (const FAssetData& Object : ObjectList)
+		Array.Add(Object.AssetName.ToString());
+}
+
 void FMZAssetManager::ScanUMGs()
 {
-	Scan(UMGs, UUserWidget::StaticClass());
+	ScanAssets(UMGs, UUserWidget::StaticClass());
 }
 
 void FMZAssetManager::ScanAssets()
 {
-	Scan(SpawnableAssets, AActor::StaticClass());
+	ScanAssets(SpawnableAssets, AActor::StaticClass());
 }
 
 void FMZAssetManager::ScanLevelSequencers()
 {
-	Scan(LevelSequencers, ALevelSequenceActor::StaticClass());
+	ScanAssetInstances(LevelSequencers, ULevelSequence::StaticClass());
 }
 
 void FMZAssetManager::SetupCustomSpawns()

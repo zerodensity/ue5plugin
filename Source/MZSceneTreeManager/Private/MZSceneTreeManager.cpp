@@ -18,8 +18,6 @@
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 #include "LevelSequence.h"
-#include "LevelSequenceActor.h"
-#include "AssetToolsModule.h"
 
 //#define VIEWPORT_TEXTURE
 
@@ -2183,6 +2181,7 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 AActor* FMZActorManager::SpawnLevelSequenceActor(
 	FString SpawnTag)
 {
+/*
 	AActor* Actor = SpawnActor(SpawnTag);
 	ALevelSequenceActor* LevelSequenceActor = dynamic_cast<ALevelSequenceActor*>(Actor);
 	if (LevelSequenceActor)
@@ -2203,6 +2202,8 @@ AActor* FMZActorManager::SpawnLevelSequenceActor(
 		LevelSequenceActor->SetSequence(Sequence);
 	}
 	return Actor;
+*/
+	return nullptr;
 }
 
 AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)
