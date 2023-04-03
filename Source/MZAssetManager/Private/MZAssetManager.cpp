@@ -14,6 +14,7 @@
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
 const char* FMZAssetManager::LevelSequencerList = "UE5_LEVEL_SEQUENCER_LIST";
+const char* FMZAssetManager::CustomLevelSequencerName = "CustomLevelSequencer";
 
 template<typename T>
 inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
@@ -74,6 +75,9 @@ void FMZAssetManager::OnAssetDeleted(const FAssetData& removedAsset)
 
 void FMZAssetManager::SendList(const char* ListName, const TArray<FString>& Value)
 {
+	if (!(MZClient && MZClient->IsConnected()))
+		return;
+
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<mz::fb::String256> NameList;
 	for (auto name : Value)
@@ -96,9 +100,15 @@ void FMZAssetManager::SendList(const char* ListName, const TArray<FString>& Valu
 
 void FMZAssetManager::SendList(const char* ListName, const TAssetNameToPathMap& Value)
 {
-	if (!(MZClient && MZClient->IsConnected()))
-		return;
+	TArray<FString> Names;
+	for (auto [Name, _] : Value)
+		Names.Add(Name);
 
+	SendList(ListName, Names);
+}
+
+void FMZAssetManager::SendList(const char* ListName, const TAssetNameToObjectMap& Value)
+{
 	TArray<FString> Names;
 	for (auto [Name, _] : Value)
 		Names.Add(Name);
@@ -190,18 +200,18 @@ void FMZAssetManager::ScanAssets(
 	}
 }
 
-void FMZAssetManager::ScanAssetInstances(
-	TAssetInstancesArray& Array,
+void FMZAssetManager::ScanAssetObjects(
+	TAssetNameToObjectMap& Map,
 	const UClass* ParentClass)
 {
-	Array.Empty();
+	Map.Empty();
 
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 
 	TArray<FAssetData> ObjectList;
 	AssetRegistryModule.Get().GetAssetsByClass(ParentClass->GetClassPathName(), ObjectList);
 	for (const FAssetData& Object : ObjectList)
-		Array.Add(Object.AssetName.ToString());
+		Map.Add(Object.AssetName.ToString(), Object.GetAsset());
 }
 
 void FMZAssetManager::ScanUMGs()
@@ -216,7 +226,7 @@ void FMZAssetManager::ScanAssets()
 
 void FMZAssetManager::ScanLevelSequencers()
 {
-	ScanAssetInstances(LevelSequencers, ULevelSequence::StaticClass());
+	ScanAssetObjects(LevelSequencers, ULevelSequence::StaticClass());
 }
 
 void FMZAssetManager::SetupCustomSpawns()

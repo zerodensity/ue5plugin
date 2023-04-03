@@ -298,6 +298,13 @@ void FMZSceneTreeManager::StartupModule()
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
 	// Add Level Sequencer function
+	MZAssetManager->CustomSpawns.Add(FMZAssetManager::CustomLevelSequencerName, [this]()
+		{
+//			const char* AssetPathName = "/Script/Engine.Blueprint'/Game/StarterContent/Blueprints/Assets/Reality_LevelSequencer.Reality_LevelSequencer_C'";
+			const char* AssetPathName = "/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_LevelSequencer.Reality_LevelSequencer_C'";
+			AActor* LevelSequencer = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath(AssetPathName));
+			return LevelSequencer;
+		});
 	{
 		MZCustomFunction* mzcf = new MZCustomFunction;
 		mzcf->Id = FGuid::NewGuid();
@@ -314,11 +321,11 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
-			FString SpawnTag((char*)properties.FindRef(actorPinId).data());
-			if (SpawnTag.IsEmpty())
+			FString Name((char*)properties.FindRef(actorPinId).data());
+			if (Name.IsEmpty())
 				return;
-			AActor* SpawnedActor = MZActorManager->SpawnLevelSequenceActor(SpawnTag);
-			LOGF("Level Sequencer with tag %s is spawned", *SpawnTag);
+			AActor* SpawnedActor = MZActorManager->SpawnLevelSequencer(Name);
+			LOGF("Level Sequencer with tag %s is spawned", *Name);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
@@ -2178,32 +2185,22 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	return SpawnedActor;
 }
 
-AActor* FMZActorManager::SpawnLevelSequenceActor(
-	FString SpawnTag)
+AActor* FMZActorManager::SpawnLevelSequencer(
+	const FString& LevelSequenceName)
 {
-/*
-	AActor* Actor = SpawnActor(SpawnTag);
-	ALevelSequenceActor* LevelSequenceActor = dynamic_cast<ALevelSequenceActor*>(Actor);
-	if (LevelSequenceActor)
+	AActor* LevelSequencer = MZAssetManager->SpawnFromTag(FMZAssetManager::CustomLevelSequencerName);
+	if (LevelSequencer)
 	{
-		FString PackagePath = "/Game";
-		FString SequenceName = Actor->GetName();
-
-		FAssetToolsModule& AssetToolsModule = FModuleManager::LoadModuleChecked<FAssetToolsModule>("AssetTools");
-		FString UniquePackageName;
-		FString UniqueAssetName;
-		AssetToolsModule.Get().CreateUniqueAssetName(PackagePath / SequenceName, TEXT(""), UniquePackageName, UniqueAssetName);
-
-		UPackage* Package = CreatePackage(*UniquePackageName);
-		ULevelSequence* Sequence = NewObject<ULevelSequence>(Package, *UniqueAssetName, RF_Public | RF_Standalone);
-		Sequence->Initialize();
-		Sequence->MarkPackageDirty();
-
-		LevelSequenceActor->SetSequence(Sequence);
+		FObjectProperty* LevelSequenceProperty = FindFProperty<FObjectProperty>(LevelSequencer->GetClass(), "LevelSequence");
+		if (LevelSequenceProperty)
+		{
+			typedef UObject* UObjectPtr;
+			UObjectPtr* Ptr = MZAssetManager->LevelSequencers.Find(LevelSequenceName);
+			if (Ptr)
+				LevelSequenceProperty->SetObjectPropertyValue_InContainer(LevelSequencer, *Ptr);
+		}
 	}
-	return Actor;
-*/
-	return nullptr;
+	return LevelSequencer;
 }
 
 AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)

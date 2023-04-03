@@ -57,7 +57,7 @@ public:
 	UUserWidget* CreateUMGFromTag(FString UMGTag);
 
 	typedef TMap<FString, FTopLevelAssetPath> TAssetNameToPathMap;
-	typedef TArray<FString> TAssetInstancesArray;
+	typedef TMap<FString, UObject*> TAssetNameToObjectMap;
 
 	//spawnable actor assets
 	TAssetNameToPathMap SpawnableAssets;
@@ -65,7 +65,7 @@ public:
 	//UMG assets list
 	TAssetNameToPathMap UMGs;
 
-	TAssetInstancesArray LevelSequencers;
+	TAssetNameToObjectMap LevelSequencers;
 
 	//for custom spawnables like basic shapes(cube, sphere etc.)
 	TMap<FString, TFunction<AActor*()>> CustomSpawns;
@@ -74,10 +74,12 @@ public:
 	class FMZClient* MZClient;
 
 	static const char* LevelSequencerList;
+	static const char* CustomLevelSequencerName;
 
 private:
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);
-	void ScanAssetInstances(TAssetInstancesArray& Array, const UClass* ParentClass);
+	void ScanAssetObjects(TAssetNameToObjectMap& Map, const UClass* ParentClass);
 	void SendList(const char* ListName, const TArray<FString>& Value);
 	void SendList(const char* ListName, const TAssetNameToPathMap& Value);
+	void SendList(const char* ListName, const TAssetNameToObjectMap& Value);
 };
