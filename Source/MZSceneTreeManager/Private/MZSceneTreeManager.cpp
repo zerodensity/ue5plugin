@@ -2001,6 +2001,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 				pPortal->SourceId = MzProperty->Id;
 			}
 			portal.SourceId = MzProperty->Id;
+			MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, portal.Id);
 			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, notOrphan ? mz::Action::SET : mz::Action::RESET));
 		}
 		else
@@ -2130,19 +2131,26 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	{
 		return nullptr;
 	}
-	if(SpawnTag != "RealityParentTransform")
+	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
+	if(!bIsSpawningParentTransform)
 	{
 		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
-	savedMetadata.Add({"spawnTag", SpawnTag});
+	if(!bIsSpawningParentTransform)
+	{
+		savedMetadata.Add({"spawnTag", SpawnTag});
+	}
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 	Actors.Add({ MZActorReference(SpawnedActor),savedMetadata });
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
-	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
+	if(!bIsSpawningParentTransform)
+	{
+		ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
+	}
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
 	 
 	if (!MZClient->IsConnected())
