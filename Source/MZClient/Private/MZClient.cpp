@@ -211,7 +211,7 @@ void MZEventDelegates::OnNodeRemoved()
 		return;
 	}
 
-	if (PluginClient->MZTimeStep)
+	if (PluginClient->MZTimeStep.IsValid())
 	{
 		PluginClient->MZTimeStep->Step();
 	}
@@ -411,7 +411,7 @@ void FMZClient::Connected()
 
 void FMZClient::Disconnected()
 {
-	if (MZTimeStep)
+	if (MZTimeStep.IsValid())
 	{
 		MZTimeStep->Step();
 	}
@@ -454,7 +454,7 @@ void FMZClient::TryConnect()
 	{
 		MZTimeStep = NewObject<UMZCustomTimeStep>();
 		MZTimeStep->PluginClient = this;
-		if (GEngine->SetCustomTimeStep(MZTimeStep))
+		if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
 		{
 			CustomTimeStepBound = true;
 		}
@@ -531,6 +531,8 @@ void FMZClient::StartupModule() {
 
 void FMZClient::ShutdownModule()
 {
+	// AppServiceClient-/*>*/
+	MZTimeStep = nullptr;
 	FMediaZ::Shutdown();
 }
 
@@ -549,7 +551,7 @@ bool FMZClient::Tick(float dt)
 
 void FMZClient::OnUpdatedNodeExecuted()
 {
-	if (MZTimeStep)
+	if (MZTimeStep.IsValid())
 	{
 		MZTimeStep->Step();
 	}

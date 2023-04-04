@@ -140,6 +140,7 @@ public:
 	//called when a action is selected from context menu
 	void OnMZContextMenuCommandFired(mz::ContextMenuAction const& action);
 
+	void OnMZNodeRemoved();
 	//END OF MediaZ DELEGATES
 	 
 	void PopulateAllChilds(AActor* actor);

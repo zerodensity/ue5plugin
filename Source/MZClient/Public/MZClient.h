@@ -15,6 +15,7 @@
 #include <mzFlatBuffersCommon.h>
 #include <functional> 
 
+class UMZCustomTimeStep;
 typedef std::function<void()> Task;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMZClient, Log, All);
@@ -151,7 +152,8 @@ public:
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;
 
 	//Custom time step implementation for mediaZ controlling the unreal editor in play mode
-	class UMZCustomTimeStep* MZTimeStep = nullptr;
+	UPROPERTY()
+	TWeakObjectPtr<UMZCustomTimeStep> MZTimeStep = nullptr;
 	bool CustomTimeStepBound = false;
 
 	//MediaZ root node id

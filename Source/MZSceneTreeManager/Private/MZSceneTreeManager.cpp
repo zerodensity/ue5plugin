@@ -111,7 +111,8 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZContextMenuRequested.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuRequested);
 	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
 	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
-
+	MZClient->OnMZNodeRemoved.AddRaw(this, &FMZSceneTreeManager::OnMZNodeRemoved);
+	
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZSceneTreeManager::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZSceneTreeManager::HandleEndPIE);
 	FEditorDelegates::NewCurrentLevel.AddRaw(this, &FMZSceneTreeManager::OnNewCurrentLevel);
@@ -608,6 +609,11 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 	}
 }
 
+void FMZSceneTreeManager::OnMZNodeRemoved()
+{
+	MZActorManager->ClearActors();
+}
+
 void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues)
 {
 	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
@@ -781,6 +787,8 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 {
+	MZActorManager->ClearActors();
+	
 	SceneTree.Root->Id = FMZClient::NodeId;
 
 	auto node = &appNode;
@@ -2247,6 +2255,10 @@ void FMZActorManager::ClearActors()
 	// Remove/destroy actors from Editor and PIE worlds.
 	//
 	// Remove from current (Editor or PIE) world.
+	if(ParentTransformActor)
+	{
+		ParentTransformActor->Destroy(false, false);
+	}
 	for (auto& [Actor, spawnTag] : Actors)
 	{
 		AActor* actor = Actor.Get();
@@ -2261,6 +2273,11 @@ void FMZActorManager::ClearActors()
 		{
 			// Actor was removed from PIE world. Remove him also from Editor world.
 			UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+			ParentTransformActor.UpdateActorPointer(EditorWorld);
+			if(ParentTransformActor)
+			{
+				ParentTransformActor->Destroy();
+			}
 			for (auto& [Actor, spawnTag] : Actors)
 			{
 				Actor.UpdateActorPointer(EditorWorld);
