@@ -7,7 +7,6 @@
 #include "MZUMGRenderManager.h"
 #include "MZAssetManager.h"
 #include "MZViewportManager.h"
-#include "MZViewportClient.h"
 
 //unreal engine includes
 #include "EngineUtils.h"
@@ -17,8 +16,6 @@
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
-
-//#define VIEWPORT_TEXTURE
 
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
@@ -125,14 +122,17 @@ void FMZSceneTreeManager::StartupModule()
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZSceneTreeManager::OnPreWorldFinishDestroy);
 	
-	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
 #ifdef VIEWPORT_TEXTURE
+	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
 	//custom pins
 	{
-		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
-		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-		CustomProperties.Add(mzprop->Id, mzprop);
-		ViewportTextureProperty = mzprop.Get();
+		auto mzprop = MZPropertyManager.CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
+		if(mzprop) {
+			MZPropertyManager.CreatePortal(mzprop->Id, mz::fb::ShowAs::INPUT_PIN);
+			mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+			CustomProperties.Add(mzprop->Id, mzprop);
+			ViewportTextureProperty = mzprop.Get();
+		}
 	}
 #endif
 
@@ -1097,31 +1097,32 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 	
 }
 
+#ifdef VIEWPORT_TEXTURE
 void FMZSceneTreeManager::ConnectViewportTexture()
 {
-#ifdef VIEWPORT_TEXTURE
 	auto viewport = Cast<UMZViewportClient>(GEngine->GameViewport);
-	if (IsValid(viewport))
+	if (IsValid(viewport) && ViewportTextureProperty)
 	{
 		auto mzprop = ViewportTextureProperty;
 		mzprop->ObjectPtr = viewport;
 
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(mzprop);
-		mzprop->data = mz::Buffer::FromNativeTable(tex);
+		mzprop->data = mz::Buffer::From(tex);
 	}
-#endif
 }
 
 void FMZSceneTreeManager::DisconnectViewportTexture()
 {
-#ifdef VIEWPORT_TEXTURE
-	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
-	ViewportTextureProperty->ObjectPtr = nullptr;
-	auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
-	ViewportTextureProperty->data = mz::Buffer::FromNativeTable(tex);
-	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
-#endif
+	if (ViewportTextureProperty) {
+		MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+		ViewportTextureProperty->ObjectPtr = nullptr;
+		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
+		ViewportTextureProperty->data = mz::Buffer::From
+		(tex);
+		MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+	}
 }
+#endif
 
 void FMZSceneTreeManager::RescanScene(bool reset)
 {
@@ -1168,7 +1169,9 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 				newNode->actor = MZActorReference(*ActorItr);
 			}
 		}
+#ifdef VIEWPORT_TEXTURE
 		ConnectViewportTexture();
+#endif
 	}
 	LOG("SceneTree is constructed.");
 }

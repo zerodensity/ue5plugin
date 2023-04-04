@@ -2,6 +2,7 @@
 #include "CanvasTypes.h"
 #include "UObject/ObjectPtr.h"
 
+#ifdef VIEWPORT_TEXTURE
 FSimpleMulticastDelegate UMZViewportClient::MZViewportDestroyedDelegate;
 
 void UMZViewportClient::Init(FWorldContext& WorldContext, UGameInstance* OwningGameInstance, bool bCreateNewAudioDevice)
@@ -9,23 +10,24 @@ void UMZViewportClient::Init(FWorldContext& WorldContext, UGameInstance* OwningG
 	Super::Init(WorldContext, OwningGameInstance, bCreateNewAudioDevice);
 	Super::OnViewportCreated().AddUObject(this, &UMZViewportClient::OnViewportCreated);
 }
+#endif
 
 void UMZViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
-	float FrameTime = FPlatformTime::ToSeconds(FMath::Max3<uint32>(GRenderThreadTime, GGameThreadTime, GGPUFrameTime));
-	const float FrameRate = FrameTime > 0 ? 1 / FrameTime : 0;
 	bDisableWorldRendering = true;
+#ifdef VIEWPORT_TEXTURE
 	SceneCanvas->DrawTile(0, 0, ViewportTexture->SizeX, ViewportTexture->SizeY, 0, 0, 1, 1, FLinearColor::White, ViewportTexture->GetResource(), ESimpleElementBlendMode::SE_BLEND_Additive);
-
+#endif
 	Super::Draw(InViewport, SceneCanvas);
 }
-
 UMZViewportClient::~UMZViewportClient()
 {
 	//ViewportTexture->ReleaseResource();
+#ifdef VIEWPORT_TEXTURE
 	MZViewportDestroyedDelegate.Broadcast();
+#endif
 }
-
+#ifdef VIEWPORT_TEXTURE
 void UMZViewportClient::OnViewportCreated()
 {
 	ViewportTexture = NewObject<UTextureRenderTarget2D>(this);
@@ -42,3 +44,4 @@ void UMZViewportClient::OnViewportResized(FViewport* viewport, uint32 val)
 	ViewportTexture->ResizeTarget(viewport->GetSizeXY().X, viewport->GetSizeXY().Y);
 	UE_LOG(LogTemp, Warning, TEXT("Viewport Resized"));
 }
+#endif
