@@ -7,6 +7,7 @@
 #include <mzFlatBuffersCommon.h>
 #include "MZSceneTree.h"
 #include "MZClient.h"
+#include "MZViewportClient.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
 
@@ -139,6 +140,7 @@ public:
 	//called when a action is selected from context menu
 	void OnMZContextMenuCommandFired(mz::ContextMenuAction const& action);
 
+	void OnMZNodeRemoved();
 	//END OF MediaZ DELEGATES
 	 
 	void PopulateAllChilds(AActor* actor);
@@ -173,11 +175,13 @@ public:
 	//Set a properties value
 	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 
+#ifdef VIEWPORT_TEXTURE
 	//Set viewport texture pin's container to current viewport client's texture on play
 	void ConnectViewportTexture();
 
 	//Set viewport texture pin's container to null
 	void DisconnectViewportTexture();
+#endif
 
 	//Rescans the current viewports world scene to get the current state of the scene outliner
 	void RescanScene(bool reset = true);
@@ -251,7 +255,9 @@ public:
 	//custom properties like viewport texture
 	TMap<FGuid, TSharedPtr<MZProperty>> CustomProperties;
 
+#ifdef VIEWPORT_TEXTURE
 	MZProperty* ViewportTextureProperty;
+#endif
 
 	//custom functions like spawn actor
 	TMap<FGuid, MZCustomFunction*> CustomFunctions;

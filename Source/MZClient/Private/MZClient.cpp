@@ -211,7 +211,7 @@ void MZEventDelegates::OnNodeRemoved()
 		return;
 	}
 
-	if (PluginClient->MZTimeStep)
+	if (PluginClient->MZTimeStep.IsValid())
 	{
 		PluginClient->MZTimeStep->Step();
 	}
@@ -411,7 +411,7 @@ void FMZClient::Connected()
 
 void FMZClient::Disconnected()
 {
-	if (MZTimeStep)
+	if (MZTimeStep.IsValid())
 	{
 		MZTimeStep->Step();
 	}
@@ -429,7 +429,7 @@ void FMZClient::TryConnect()
 		
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
-		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\"\"";
+		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
 		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", "UE5", "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
@@ -454,7 +454,7 @@ void FMZClient::TryConnect()
 	{
 		MZTimeStep = NewObject<UMZCustomTimeStep>();
 		MZTimeStep->PluginClient = this;
-		if (GEngine->SetCustomTimeStep(MZTimeStep))
+		if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
 		{
 			CustomTimeStepBound = true;
 		}
@@ -531,6 +531,8 @@ void FMZClient::StartupModule() {
 
 void FMZClient::ShutdownModule()
 {
+	// AppServiceClient-/*>*/
+	MZTimeStep = nullptr;
 	FMediaZ::Shutdown();
 }
 
@@ -549,7 +551,7 @@ bool FMZClient::Tick(float dt)
 
 void FMZClient::OnUpdatedNodeExecuted()
 {
-	if (MZTimeStep)
+	if (MZTimeStep.IsValid())
 	{
 		MZTimeStep->Step();
 	}

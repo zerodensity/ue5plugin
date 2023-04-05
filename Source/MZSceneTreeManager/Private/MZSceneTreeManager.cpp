@@ -7,7 +7,6 @@
 #include "MZUMGRenderManager.h"
 #include "MZAssetManager.h"
 #include "MZViewportManager.h"
-#include "MZViewportClient.h"
 
 //unreal engine includes
 #include "EngineUtils.h"
@@ -17,8 +16,6 @@
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
-
-//#define VIEWPORT_TEXTURE
 
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
@@ -114,7 +111,8 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZContextMenuRequested.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuRequested);
 	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
 	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
-
+	MZClient->OnMZNodeRemoved.AddRaw(this, &FMZSceneTreeManager::OnMZNodeRemoved);
+	
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZSceneTreeManager::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZSceneTreeManager::HandleEndPIE);
 	FEditorDelegates::NewCurrentLevel.AddRaw(this, &FMZSceneTreeManager::OnNewCurrentLevel);
@@ -126,14 +124,17 @@ void FMZSceneTreeManager::StartupModule()
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZSceneTreeManager::OnPreWorldFinishDestroy);
 	
-	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
 #ifdef VIEWPORT_TEXTURE
+	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
 	//custom pins
 	{
-		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
-		mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-		CustomProperties.Add(mzprop->Id, mzprop);
-		ViewportTextureProperty = mzprop.Get();
+		auto mzprop = MZPropertyManager.CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
+		if(mzprop) {
+			MZPropertyManager.CreatePortal(mzprop->Id, mz::fb::ShowAs::INPUT_PIN);
+			mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
+			CustomProperties.Add(mzprop->Id, mzprop);
+			ViewportTextureProperty = mzprop.Get();
+		}
 	}
 #endif
 
@@ -617,6 +618,11 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 	}
 }
 
+void FMZSceneTreeManager::OnMZNodeRemoved()
+{
+	MZActorManager->ClearActors();
+}
+
 void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues)
 {
 	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
@@ -813,6 +819,8 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 {
+	MZActorManager->ClearActors();
+	
 	SceneTree.Root->Id = FMZClient::NodeId;
 
 	auto node = &appNode;
@@ -1129,31 +1137,32 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 	
 }
 
+#ifdef VIEWPORT_TEXTURE
 void FMZSceneTreeManager::ConnectViewportTexture()
 {
-#ifdef VIEWPORT_TEXTURE
 	auto viewport = Cast<UMZViewportClient>(GEngine->GameViewport);
-	if (IsValid(viewport))
+	if (IsValid(viewport) && ViewportTextureProperty)
 	{
 		auto mzprop = ViewportTextureProperty;
 		mzprop->ObjectPtr = viewport;
 
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(mzprop);
-		mzprop->data = mz::Buffer::FromNativeTable(tex);
+		mzprop->data = mz::Buffer::From(tex);
 	}
-#endif
 }
 
 void FMZSceneTreeManager::DisconnectViewportTexture()
 {
-#ifdef VIEWPORT_TEXTURE
-	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
-	ViewportTextureProperty->ObjectPtr = nullptr;
-	auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
-	ViewportTextureProperty->data = mz::Buffer::FromNativeTable(tex);
-	MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
-#endif
+	if (ViewportTextureProperty) {
+		MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+		ViewportTextureProperty->ObjectPtr = nullptr;
+		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
+		ViewportTextureProperty->data = mz::Buffer::From
+		(tex);
+		MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+	}
 }
+#endif
 
 void FMZSceneTreeManager::RescanScene(bool reset)
 {
@@ -1200,7 +1209,9 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 				newNode->actor = MZActorReference(*ActorItr);
 			}
 		}
+#ifdef VIEWPORT_TEXTURE
 		ConnectViewportTexture();
+#endif
 	}
 	LOG("SceneTree is constructed.");
 }
@@ -2022,6 +2033,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 				pPortal->SourceId = MzProperty->Id;
 			}
 			portal.SourceId = MzProperty->Id;
+			MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, portal.Id);
 			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, notOrphan ? mz::Action::SET : mz::Action::RESET));
 		}
 		else
@@ -2152,19 +2164,26 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, TFunction<void(AActor *act
 	{
 		return nullptr;
 	}
-	if(SpawnTag != "RealityParentTransform")
+	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
+	if(!bIsSpawningParentTransform)
 	{
 		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
-	savedMetadata.Add({"spawnTag", SpawnTag});
+	if(!bIsSpawningParentTransform)
+	{
+		savedMetadata.Add({"spawnTag", SpawnTag});
+	}
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 	Actors.Add({ MZActorReference(SpawnedActor),savedMetadata });
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
-	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
+	if(!bIsSpawningParentTransform)
+	{
+		ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
+	}
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
 	 
 	if (!MZClient->IsConnected())
@@ -2286,6 +2305,10 @@ void FMZActorManager::ClearActors()
 	// Remove/destroy actors from Editor and PIE worlds.
 	//
 	// Remove from current (Editor or PIE) world.
+	if(ParentTransformActor)
+	{
+		ParentTransformActor->Destroy(false, false);
+	}
 	for (auto& [Actor, spawnTag] : Actors)
 	{
 		AActor* actor = Actor.Get();
@@ -2300,6 +2323,11 @@ void FMZActorManager::ClearActors()
 		{
 			// Actor was removed from PIE world. Remove him also from Editor world.
 			UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+			ParentTransformActor.UpdateActorPointer(EditorWorld);
+			if(ParentTransformActor)
+			{
+				ParentTransformActor->Destroy();
+			}
 			for (auto& [Actor, spawnTag] : Actors)
 			{
 				Actor.UpdateActorPointer(EditorWorld);
