@@ -1259,8 +1259,9 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
 			UFunction* UEFunction = *FuncIt;
-			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable | FUNC_Public) &&
-				!UEFunction->HasAllFunctionFlags(FUNC_Event))
+			// LOGF("function with name %s is a function, indeed!", *UEFunction->GetFName().ToString());
+			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable /*| FUNC_Public*/) /*&&
+				!UEFunction->HasAllFunctionFlags(FUNC_Event)*/) //commented out because custom events are seems to public? and not has FUNC_Event flags?
 			{
 				auto UEFunctionName = UEFunction->GetFName().ToString();
 
@@ -1278,7 +1279,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor.Get(), UEFunction));
 
 				// Parse all function parameters.
-
+				bool bNotSupported = false;
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
 					if (auto mzprop = MZPropertyManager.CreateProperty(nullptr, *PropIt))
@@ -1290,6 +1291,15 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 							mzfunc->OutProperties.push_back(mzprop);
 						}
 					}
+					else
+					{
+						bNotSupported = true;
+						break;
+					}
+				}
+				if(bNotSupported)
+				{
+					continue;
 				}
 
 				actorNode->Functions.push_back(mzfunc);
