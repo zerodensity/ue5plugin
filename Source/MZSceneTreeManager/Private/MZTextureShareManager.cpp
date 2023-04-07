@@ -177,10 +177,12 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 {
 	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
-	if(tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset() && !PendingCopyQueue.Contains(mzprop->Id))
+	auto pid = tex->pid();
+	if(pid != (uint64_t)FPlatformProcess::GetCurrentProcessId() || (tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset() && !PendingCopyQueue.Contains(mzprop->Id)))
 	{
 		return;
 	}
+	
 
 	mzprop->data.resize(size);
 	memcpy(mzprop->data.data(), data, size);
@@ -198,7 +200,6 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 		.usage = (MzImageUsage)tex->usage(),
 	},
 	};
-
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
 		.ReadOnly = RealShowAs == mz::fb::ShowAs::INPUT_PIN,
