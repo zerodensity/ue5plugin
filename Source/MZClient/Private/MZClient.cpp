@@ -426,11 +426,15 @@ void FMZClient::TryConnect()
 
 	if (!AppServiceClient)
 	{
-		
+		FString AppKey;
+		if (FParse::Value(FCommandLine::Get(), TEXT("mzname"), AppKey))
+		{
+			LOGF("MediaZ app key is provided: %s", *AppKey);
+		}
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
-		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", "UE5", "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
+		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", AppKey.IsEmpty() ? "UE5" : TCHAR_TO_ANSI(*AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
