@@ -2343,11 +2343,11 @@ void FMZActorManager::ReAddActorsToSceneTree()
 
 void FMZActorManager::RegisterDelegates()
 {
-	FEditorDelegates::PreSaveWorld.AddRaw(this, &FMZActorManager::PreSave);
-	FEditorDelegates::PostSaveWorld.AddRaw(this, &FMZActorManager::PostSave);
+	FEditorDelegates::PreSaveWorldWithContext.AddRaw(this, &FMZActorManager::PreSave);
+	FEditorDelegates::PostSaveWorldWithContext.AddRaw(this, &FMZActorManager::PostSave);
 }
 
-void FMZActorManager::PreSave(uint32 SaveFlags, UWorld* World)
+void FMZActorManager::PreSave(UWorld* World, FObjectPreSaveContext Context)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{
@@ -2361,7 +2361,7 @@ void FMZActorManager::PreSave(uint32 SaveFlags, UWorld* World)
 	}
 }
 
-void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
+void FMZActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{

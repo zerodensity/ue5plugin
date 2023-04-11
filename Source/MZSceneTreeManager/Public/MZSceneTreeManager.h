@@ -70,8 +70,8 @@ public:
 	void ReAddActorsToSceneTree();
 
 	void RegisterDelegates();
-	void PreSave(uint32 SaveFlags, UWorld* World);
-	void PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess);
+	void PreSave(UWorld* World, FObjectPreSaveContext Context);
+	void PostSave(UWorld* World, FObjectPostSaveContext Context);
 
 	MZActorReference ParentTransformActor;
 
