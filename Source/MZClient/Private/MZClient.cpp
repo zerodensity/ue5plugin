@@ -213,7 +213,7 @@ void MZEventDelegates::OnNodeRemoved()
 
 	if (PluginClient->MZTimeStep.IsValid())
 	{
-		PluginClient->MZTimeStep->Step();
+		PluginClient->MZTimeStep->Step(1.f / 50.f);
 	}
 
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
@@ -285,8 +285,8 @@ void MZEventDelegates::OnExecuteApp(mz::app::AppExecute const& appExecute)
 	{
 		return;
 	}
-
-	PluginClient->OnUpdatedNodeExecuted();
+	
+	PluginClient->OnUpdatedNodeExecuted(appExecute.delta_seconds());
 
 	mz::app::TAppExecute appExecuteCopy;
 	appExecute.UnPackTo(&appExecuteCopy);
@@ -413,7 +413,7 @@ void FMZClient::Disconnected()
 {
 	if (MZTimeStep.IsValid())
 	{
-		MZTimeStep->Step();
+		MZTimeStep->Step(1.f / 50.f);
 	}
 }
 
@@ -553,11 +553,11 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
-void FMZClient::OnUpdatedNodeExecuted()
+void FMZClient::OnUpdatedNodeExecuted(float deltaTime)
 {
 	if (MZTimeStep.IsValid())
 	{
-		MZTimeStep->Step();
+		MZTimeStep->Step(deltaTime);
 	}
 }
 

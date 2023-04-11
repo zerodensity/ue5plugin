@@ -25,6 +25,7 @@ public:
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
 	bool Initialize(class UEngine* InEngine) override
 	{
+		timetime = FPlatformTime::Seconds();
 		return true;
 	}
 
@@ -34,9 +35,13 @@ public:
 
 	}
 
-	void Step()
+	void Step(float deltaTime)
 	{
 		std::unique_lock lock(Mutex);
+		if(deltaTime > 0.0001)
+		{
+			CustomDeltaTime = deltaTime;
+		}
 		IsReadyForNextStep = true;
 		lock.unlock();
 		CV.notify_one();
@@ -48,14 +53,27 @@ public:
 	 */
 	bool UpdateTimeStep(class UEngine* InEngine) override
 	{
-		UpdateApplicationLastTime();
+		// UpdateApplicationLastTime();
+		if (FMath::IsNearlyZero(FApp::GetLastTime()))
+		{
+			FApp::SetCurrentTime(FPlatformTime::Seconds() - 0.0001);
+		}
+		FApp::SetCurrentTime(FApp::GetLastTime() + CustomDeltaTime);
+		FApp::UpdateLastTime();
+		//timetime += CustomDeltaTime;
+		FApp::SetDeltaTime(CustomDeltaTime);	
 		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
 			std::unique_lock lock(Mutex);
 			CV.wait(lock, [this] { return IsReadyForNextStep; });
 			IsReadyForNextStep = false;
+			//FApp::SetCurrentTime(FPlatformTime::Seconds());
+			return false;
 		}
-		return true;
+		else
+		{
+			return true;
+		}
 	}
 
 	/** The state of the CustomTimeStep. */
@@ -84,5 +102,7 @@ private:
 	std::mutex Mutex;
 	std::condition_variable CV;
 	bool IsReadyForNextStep = false;
+	double CustomDeltaTime = 1. / 50.;
+	double timetime;
 };
 

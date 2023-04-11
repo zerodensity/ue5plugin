@@ -1778,8 +1778,13 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 		RemoveProperties(node, propertiesToRemove);
 		TSet<FGuid> PropertiesWithPortals;
 		TSet<FGuid> PortalsToRemove;
+		auto texman = MZTextureShareManager::GetInstance();
 		for (auto prop : propertiesToRemove)
 		{
+			if(prop->TypeName == "mz.fb.Texture")
+			{
+				texman->TextureDestroyed(prop.Get());
+			}
 			if (!MZPropertyManager.PropertyToPortalPin.Contains(prop->Id))
 			{
 				continue;

@@ -140,7 +140,7 @@ public:
 	void OnPreWorldFinishDestroy(UWorld* World);
 
 	//Called when the node is executed from mediaZ
-	void OnUpdatedNodeExecuted();
+	void OnUpdatedNodeExecuted(float deltaTime);
 	
 	//Grpc client to communicate
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;

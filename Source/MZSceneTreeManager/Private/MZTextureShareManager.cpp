@@ -268,6 +268,8 @@ void MZTextureShareManager::ExecCommands()
 
 void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
+	
+	std::unique_lock lock4(ResourcesToDeleteMutex);
 	{
 		std::unique_lock lock(CopyOnTickMutex);
 		if(CopyOnTick.Contains(textureProp))
@@ -275,7 +277,7 @@ void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 			auto CopyInfo = CopyOnTick.FindRef(textureProp);
 			if(CopyInfo.DstResource)
 			{
-				CopyInfo.DstResource->Release();
+				ResourcesToDelete.Add(CopyInfo.DstResource);
 			}
 			CopyOnTick.Remove(textureProp);
 		}
@@ -308,8 +310,9 @@ void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 		}
 		if(TextureResource)
 		{
-			TextureResource->Release();
+			ResourcesToDelete.Add(TextureResource);
 		}
+		
 	}
 }
 
@@ -352,12 +355,18 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 			//std::shared_lock lock(CopyOnTickMutex);
 			WaitCommands();
 			{
+				bool removeHappened = false;
 				std::unique_lock lock(ResourcesToDeleteMutex);
 				for(auto Resource : ResourcesToDelete)
 				{
 					Resource->Release();
+					removeHappened = true;
 				}
 				ResourcesToDelete.Empty();
+				if(removeHappened)
+				{
+					return;
+				}
 			}
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			flatbuffers::FlatBufferBuilder fbb;
