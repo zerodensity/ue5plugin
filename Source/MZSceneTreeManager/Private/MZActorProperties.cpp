@@ -224,7 +224,7 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOCUS))
 	{
-		TrackData->focus_distance = track->focus();
+		TrackData->focus_distance = track->focus_distance();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_CENTER_SHIFT))
 	{
@@ -238,7 +238,6 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	{
 		TrackData->k1 = track->k1k2()->x();
 		TrackData->k2 = track->k1k2()->y();
-		
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_RENDER_RATIO))
 	{
