@@ -64,6 +64,8 @@ public:
 		FApp::SetDeltaTime(CustomDeltaTime);	
 		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
+			flatbuffers::FlatBufferBuilder fbb;
+			PluginClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
 			std::unique_lock lock(Mutex);
 			CV.wait(lock, [this] { return IsReadyForNextStep; });
 			IsReadyForNextStep = false;

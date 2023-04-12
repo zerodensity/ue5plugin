@@ -23,6 +23,8 @@
 #include "MediaZ/MediaZ.h"
 #include <Builtins_generated.h>
 
+// #include "MZSceneTreeManager.h"
+
 
 MZTextureShareManager* MZTextureShareManager::singleton;
 
@@ -473,6 +475,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 
 			if (!events.empty() && Client && Client->IsConnected())
 			{
+				// Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
 				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
 		});
