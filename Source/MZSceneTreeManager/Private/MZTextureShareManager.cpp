@@ -467,7 +467,8 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 				if (!pin.ReadOnly)
 				{
 					auto id = pin.SrcMzp->Id;
-					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
+					// do not sent pin dirtied for now
+					// events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
 				}
 			}
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
