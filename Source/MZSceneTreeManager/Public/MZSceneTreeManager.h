@@ -27,7 +27,7 @@ class FMZPropertyManager
 public:
 	FMZPropertyManager();
 
-	TSharedPtr<MZProperty> CreateProperty(UObject* container,
+	TSharedPtr<MZProperty> CreateProperty(MZObjectReference* ActorReference,
 		FProperty* uproperty,
 		FString parentCategory = FString(""));
 

@@ -9,7 +9,25 @@
 
 class MZStructProperty;
 
-class MZSCENETREEMANAGER_API MZActorReference
+
+class MZSCENETREEMANAGER_API MZObjectReference
+{
+public:
+	MZObjectReference(TObjectPtr<UObject> Object);
+	MZObjectReference(){};
+	virtual ~MZObjectReference()
+	{
+		
+	}
+
+	UObject *GetAsObject() const;
+	virtual bool UpdateObjectPointer(UObject *Object);
+
+protected:
+	UPROPERTY()
+	TWeakObjectPtr<UObject> ObjectRef = nullptr;
+};
+class MZSCENETREEMANAGER_API MZActorReference : public MZObjectReference
 {
 public:
 	MZActorReference(TObjectPtr<AActor> actor);
@@ -29,19 +47,17 @@ public:
 	bool UpdateActorPointer(UWorld* World);
 	bool UpdateActualActorPointer();
 
-	bool UpdateActorPointer(AActor *NewActor);
-
 	bool InvalidReference = false;
 private:
 	
 	UPROPERTY()
-	TWeakObjectPtr<AActor> Actor;
+	//TWeakObjectPtr<AActor> Actor;
 	
 	FGuid ActorGuid;
 	
 };
 
-class MZSCENETREEMANAGER_API MZComponentReference
+class MZSCENETREEMANAGER_API MZComponentReference : public MZObjectReference
 {
 
 public:
@@ -61,14 +77,12 @@ public:
 	}
 
 	bool UpdateActualComponentPointer();
-	MZActorReference Actor;
 	bool InvalidReference = false;
 
 private:
 	UPROPERTY()
-	TWeakObjectPtr<UActorComponent> Component;
+	//TWeakObjectPtr<UActorComponent> Component;
 	
-
 	FName ComponentProperty;
 	FString PathToComponent;
 
@@ -77,7 +91,7 @@ private:
 class MZSCENETREEMANAGER_API MZProperty : public TSharedFromThis<MZProperty>
 {
 public:
-	MZProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	MZProperty(MZObjectReference* ObjectReference, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 	UObject* GetRawObjectContainer();
@@ -92,8 +106,8 @@ public:
 	
 	FProperty* Property;
 
-	MZActorReference ActorContainer;
-	MZComponentReference ComponentContainer;
+	MZActorReference* ActorContainer = nullptr;
+	MZComponentReference* ComponentContainer = nullptr;
 	UObject* ObjectPtr = nullptr;
 	uint8* StructPtr = nullptr;
 
@@ -126,8 +140,8 @@ template<typename T, mz::tmp::StrLiteral LitType, typename CppType = T::TCppType
 requires std::is_base_of_v<FProperty, T>
 class MZNumericProperty : public MZProperty {
 public:
-	MZNumericProperty(UObject* container, T* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr) :
-		MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
+	MZNumericProperty(MZObjectReference *ObjectReference, T* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr) :
+		MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(CppType), 0);
 		TypeName = LitType.val;
@@ -137,8 +151,8 @@ public:
 	{
 		void* container = nullptr;
 		if (customContainer) container = customContainer;
-		else if (ComponentContainer) container = ComponentContainer.Get();
-		else if (ActorContainer) container = ActorContainer.Get();
+		else if (ComponentContainer) container = ComponentContainer->Get();
+		else if (ActorContainer) container = ActorContainer->Get();
 		else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 		else if (StructPtr) container = StructPtr;
 
@@ -173,9 +187,15 @@ using MZUInt64Property = MZNumericProperty<FUInt64Property, "ulong">;
 class MZEnumProperty : public MZProperty
 {
 public:
-	MZEnumProperty(UObject* container, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
+	MZEnumProperty(MZObjectReference* ObjectReference, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
 	{
+		UObject *container = nullptr;
+
+		if(ObjectReference && ObjectReference->GetAsObject())
+		{
+			container = ObjectReference->GetAsObject();
+		}
 		data = std::vector<uint8_t>(1, 0); 
 		TypeName = "string";
 
@@ -223,8 +243,8 @@ public:
 class MZTextProperty : public MZProperty
 {
 public:
-	MZTextProperty(UObject* container, FTextProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), textprop(uproperty) 
+	MZTextProperty(MZObjectReference* ObjectReference, FTextProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), textprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
@@ -239,8 +259,8 @@ public:
 class MZNameProperty : public MZProperty
 {
 public:
-	MZNameProperty(UObject* container, FNameProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), nameprop(uproperty) 
+	MZNameProperty(MZObjectReference* ObjectReference, FNameProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), nameprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
@@ -255,8 +275,8 @@ public:
 class MZStringProperty : public MZProperty
 {
 public:
-	MZStringProperty(UObject* container, FStrProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), stringprop(uproperty)
+	MZStringProperty(MZObjectReference* ObjectReference, FStrProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), stringprop(uproperty)
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
@@ -271,7 +291,7 @@ public:
 class MZObjectProperty : public MZProperty
 {
 public:
-	MZObjectProperty(UObject* container, FObjectProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	MZObjectProperty(MZObjectReference* ObjectReference, FObjectProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 	
 
 	FObjectProperty* objectprop;
@@ -283,7 +303,7 @@ public:
 class MZStructProperty : public MZProperty
 {
 public:
-	MZStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	MZStructProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 
 	FStructProperty* structprop;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
@@ -294,8 +314,8 @@ template<typename T, mz::tmp::StrLiteral LitType>
 class MZCustomStructProperty : public MZProperty 
 {
 public:
-	MZCustomStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	MZCustomStructProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(T), 0);
 		TypeName = LitType.val;
@@ -316,8 +336,8 @@ using MZVec4Property = MZCustomStructProperty < FVector4, "mz.fb.vec4d">;
 class MZRotatorProperty : public MZProperty
 {
 public:
-	MZRotatorProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	MZRotatorProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(FVector), 0);
 		TypeName = "mz.fb.vec3d";
@@ -334,8 +354,8 @@ protected:
 class MZTrackProperty : public MZProperty
 {
 public:
-	MZTrackProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	MZTrackProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		
 		data = std::vector<uint8_t>(1, 0);
@@ -354,7 +374,7 @@ protected:
 class  MZSCENETREEMANAGER_API  MZPropertyFactory
 {
 public:
-	static TSharedPtr<MZProperty> CreateProperty(UObject* Container, 
+	static TSharedPtr<MZProperty> CreateProperty(MZObjectReference* ObjectReference, 
 		FProperty* UProperty, 
 		TMap<FGuid, TSharedPtr<MZProperty>>* RegisteredProperties = nullptr,
 		TMap<FProperty*, TSharedPtr<MZProperty>>* PropertiesMap = nullptr,

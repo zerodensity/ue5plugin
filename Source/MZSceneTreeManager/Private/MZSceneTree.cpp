@@ -141,13 +141,13 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, MZActor
 	return newChild;
 }
 
-TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, MZComponentReference* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
 	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
-	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
+	newComponentNode->sceneComponent = sceneComponent;
 	newComponentNode->Id = FGuid::NewGuid();
-	newComponentNode->Name = sceneComponent->GetFName().ToString();
+	newComponentNode->Name = sceneComponent->Get()->GetFName().ToString();
 	newComponentNode->Parent = parent;
 	newComponentNode->NeedsReload = true;
 	parent->Children.push_back(newComponentNode);
@@ -162,13 +162,13 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNo
 	return newComponentNode;
 }
 
-TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, MZComponentReference* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
 	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
-	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
+	newComponentNode->sceneComponent = sceneComponent;
 	newComponentNode->Id = FGuid::NewGuid();
-	newComponentNode->Name = sceneComponent->GetFName().ToString();
+	newComponentNode->Name = sceneComponent->Get()->GetFName().ToString();
 	newComponentNode->Parent = parent;
 	newComponentNode->NeedsReload = true;
 	parent->Children.push_back(newComponentNode);

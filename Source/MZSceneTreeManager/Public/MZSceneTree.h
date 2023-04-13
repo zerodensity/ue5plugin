@@ -37,7 +37,7 @@ struct MZSCENETREEMANAGER_API  TreeNode {
 
 struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 {
-	MZActorReference * actor;
+	MZActorReference * actor = nullptr;
 	std::vector<TSharedPtr<MZProperty>> Properties;
 	std::vector<TSharedPtr<MZFunction>> Functions;
 	virtual FString GetClassDisplayName() override { return actor ? actor->Get()->GetClass()->GetFName().ToString() : "Actor"; };
@@ -50,9 +50,9 @@ struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 
 struct MZSCENETREEMANAGER_API  SceneComponentNode : TreeNode
 {
-	MZComponentReference sceneComponent;
+	MZComponentReference *sceneComponent = nullptr;
 	std::vector<TSharedPtr<MZProperty>> Properties;
-	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
+	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->Get()->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
 	virtual SceneComponentNode* GetAsSceneComponentNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
@@ -82,8 +82,8 @@ public:
 	TSharedPtr<ActorNode> AddActor(FString folderPath, MZActorReference *ActorReference);
 	TSharedPtr<ActorNode> AddActor(FString folderPath, MZActorReference *ActorReference, TSharedPtr<TreeNode>& mostRecentParent);
 	TSharedPtr<ActorNode> AddActor(TSharedPtr<TreeNode> parent, MZActorReference *ActorReference);
-	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent);
-	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent);
+	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<ActorNode> parent, MZComponentReference* sceneComponent);
+	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<SceneComponentNode> parent, MZComponentReference* sceneComponent);
 	//FolderNode* AddFolder(FString fullFolderPath);
 
 	void Clear();
