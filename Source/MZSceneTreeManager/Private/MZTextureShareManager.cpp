@@ -350,12 +350,11 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 			CopyOnTickFiltered.Add(URT, info);
 		}
 	}
-
+	
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this, Client, CopyOnTickFiltered](FRHICommandListImmediate& RHICmdList)
 		{
 			//std::shared_lock lock(CopyOnTickMutex);
-			WaitCommands();
 			{
 				bool removeHappened = false;
 				std::unique_lock lock(ResourcesToDeleteMutex);
@@ -371,7 +370,6 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 				}
 			}
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
-			flatbuffers::FlatBufferBuilder fbb;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
 			for (auto& [URT, pin] : CopyOnTickFiltered)
 			{
@@ -474,10 +472,11 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands();
 
-			if (!events.empty() && Client && Client->IsConnected())
+			WaitCommands();
+			if (Client && Client->IsConnected())
 			{
-				// Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
-				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+				flatbuffers::FlatBufferBuilder fbb;
+				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
 			}
 		});
 

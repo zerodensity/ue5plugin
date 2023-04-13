@@ -549,7 +549,6 @@ void FMZClient::ShutdownModule()
 bool FMZClient::Tick(float dt)
 {
     TryConnect();
-
 	while (!TaskQueue.IsEmpty()) {
 		Task task;
 		TaskQueue.Dequeue(task);

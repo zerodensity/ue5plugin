@@ -14,18 +14,15 @@
 #include "MZClient.h"
 #include "MZCustomTimeStep.generated.h"
 
-
 UCLASS()
 class MZCLIENT_API UMZCustomTimeStep : public UEngineCustomTimeStep
 {
 	GENERATED_BODY()
 public:
-
 	//std::atomic<bool> wait = false;
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
 	bool Initialize(class UEngine* InEngine) override
 	{
-		timetime = FPlatformTime::Seconds();
 		return true;
 	}
 
@@ -60,16 +57,12 @@ public:
 		}
 		FApp::SetCurrentTime(FApp::GetLastTime() + CustomDeltaTime);
 		FApp::UpdateLastTime();
-		//timetime += CustomDeltaTime;
 		FApp::SetDeltaTime(CustomDeltaTime);	
 		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
-			flatbuffers::FlatBufferBuilder fbb;
-			PluginClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
 			std::unique_lock lock(Mutex);
 			CV.wait(lock, [this] { return IsReadyForNextStep; });
 			IsReadyForNextStep = false;
-			//FApp::SetCurrentTime(FPlatformTime::Seconds());
 			return false;
 		}
 		else
@@ -105,6 +98,5 @@ private:
 	std::condition_variable CV;
 	bool IsReadyForNextStep = false;
 	double CustomDeltaTime = 1. / 50.;
-	double timetime;
 };
 
