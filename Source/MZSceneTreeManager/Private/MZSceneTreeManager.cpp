@@ -746,9 +746,9 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 	{
 		return;
 	}
-	if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.Property, ObjectBeingModified}))
+	if(MZPropertyManager.PropertiesByPointer.Contains(PropertyChangedEvent.Property))
 	{
-		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.Property, ObjectBeingModified});
+		auto mzprop = MZPropertyManager.PropertiesByPointer.FindRef(PropertyChangedEvent.Property);
 		if(mzprop->TypeName != "mz.fb.Void")
 		{
 			mzprop->UpdatePinValue();
@@ -756,7 +756,7 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 		}
 		return;
 	}
-	if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.MemberProperty, ObjectBeingModified}))
+	if(MZPropertyManager.PropertiesByPointer.Contains(PropertyChangedEvent.MemberProperty))
 	{
 		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.MemberProperty, ObjectBeingModified});
 		if(mzprop->TypeName != "mz.fb.Void")
@@ -1101,9 +1101,9 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			{
 				continue;
 			}
-			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyToUpdate, UnknownContainer}))
+			if(MZPropertyManager.PropertiesByPointer.Contains(PropertyToUpdate))
 			{
-				auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
+				auto MzProperty = MZPropertyManager.PropertiesByPointer.FindRef(PropertyToUpdate);
 				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::Action::RESET));
 				
 				MZPortal NewPortal{update.pinId ,MzProperty->Id};
@@ -1123,7 +1123,6 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 				MZPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
 				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
 			}
-			
 		}
 
 	}
@@ -2047,9 +2046,9 @@ void FMZSceneTreeManager::HandleWorldChange()
 		UObject* ObjectContainer = FindContainer(containerInfo.ActorId, containerInfo.ComponentName);
 		void* UnknownContainer = FindContainerFromContainerPath(ObjectContainer, containerInfo.ContainerPath);
 		UnknownContainer = UnknownContainer ? UnknownContainer : ObjectContainer;
-		if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({containerInfo.Property,UnknownContainer}))
+		if(MZPropertyManager.PropertiesByPointer.Contains(containerInfo.Property))
 		{
-			auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({containerInfo.Property,UnknownContainer});
+			auto MzProperty = MZPropertyManager.PropertiesByPointer.FindRef(containerInfo.Property);
 			bool notOrphan = false;
 			if (MZPropertyManager.PortalPinsById.Contains(portal.Id))
 			{
@@ -2484,11 +2483,20 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 
 void FMZPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container, mz::fb::ShowAs ShowAs)
 {
+	if(PropertiesByPointer.Contains(uproperty))
+	{
+		auto MzProperty = PropertiesByPointer.FindRef(uproperty);
+		if(MzProperty)
+		{
+			CreatePortal(MzProperty->Id, ShowAs);
+		}
+	}
+	/*
 	if (PropertiesByPropertyAndContainer.Contains({uproperty, Container}))
 	{
 		auto MzProperty =PropertiesByPropertyAndContainer.FindRef({uproperty, Container});
 		CreatePortal(MzProperty->Id, ShowAs);
-	}
+	}*/
 }
 
 TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(MZObjectReference *ObjectReference, FProperty* uproperty, FString parentCategory)
@@ -2500,6 +2508,7 @@ TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(MZObjectReference *Obj
 	}
 
 	PropertiesById.Add(MzProperty->Id, MzProperty);
+	PropertiesByPointer.Add(uproperty, MzProperty);
 	PropertiesByPropertyAndContainer.Add({MzProperty->Property, ObjectReference}, MzProperty);
 
 	if (MzProperty->ActorContainer)
@@ -2514,6 +2523,7 @@ TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(MZObjectReference *Obj
 	for (auto Child : MzProperty->childProperties)
 	{
 		PropertiesById.Add(Child->Id, Child);
+		PropertiesByPointer.Add(Child->Property, Child);
 		PropertiesByPropertyAndContainer.Add({Child->Property, Child->GetRawContainer()}, Child);
 		
 		if (Child->ActorContainer)
@@ -2763,6 +2773,7 @@ void FMZSceneTreeManager::OnBlueprintCompiled(UBlueprint *BP)
 							MZPropertyManager.PropertyToPortalPin.Remove(MZProperty->Id);
 
 							MZPropertyManager.PropertiesById.Remove(MZProperty->Id);
+							MZPropertyManager.PropertiesByPointer.Remove(MZProperty->Property);
 							MZPropertyManager.PropertiesByPropertyAndContainer.Remove({MZProperty->Property, MZProperty->GetRawObjectContainer()});
 
 							auto PropertyContainer = (MZProperty->ActorContainer)?(MZProperty->ActorContainer->Get()):(MZProperty->ComponentContainer->GetOwnerActor());
