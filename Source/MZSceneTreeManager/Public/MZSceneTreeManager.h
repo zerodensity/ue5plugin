@@ -80,7 +80,7 @@ public:
 	class FMZClient* MZClient;
 	
 	TSet<FGuid> ActorIds;
-	TArray< TPair<MZActorReference,TMap<FString,FString>> > Actors;
+	TArray< TPair<MZActorReference *,TMap<FString,FString>> > Actors;
 };
 
 

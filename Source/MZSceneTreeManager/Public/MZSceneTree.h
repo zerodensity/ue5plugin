@@ -37,10 +37,10 @@ struct MZSCENETREEMANAGER_API  TreeNode {
 
 struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 {
-	MZActorReference actor;
+	MZActorReference * actor;
 	std::vector<TSharedPtr<MZProperty>> Properties;
 	std::vector<TSharedPtr<MZFunction>> Functions;
-	virtual FString GetClassDisplayName() override { return actor ? actor->GetClass()->GetFName().ToString() : "Actor"; };
+	virtual FString GetClassDisplayName() override { return actor ? actor->Get()->GetClass()->GetFName().ToString() : "Actor"; };
 	virtual ActorNode* GetAsActorNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
@@ -79,9 +79,9 @@ public:
 	TMap<FGuid, TSet<AActor*>> ChildMap;
 
 	TSharedPtr<FolderNode> FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name, TSharedPtr<TreeNode>& mostRecentParent);
-	TSharedPtr<ActorNode> AddActor(FString folderPath, AActor* actor);
-	TSharedPtr<ActorNode> AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent);
-	TSharedPtr<ActorNode> AddActor(TSharedPtr<TreeNode> parent, AActor* actor);
+	TSharedPtr<ActorNode> AddActor(FString folderPath, MZActorReference *ActorReference);
+	TSharedPtr<ActorNode> AddActor(FString folderPath, MZActorReference *ActorReference, TSharedPtr<TreeNode>& mostRecentParent);
+	TSharedPtr<ActorNode> AddActor(TSharedPtr<TreeNode> parent, MZActorReference *ActorReference);
 	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent);
 	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent);
 	//FolderNode* AddFolder(FString fullFolderPath);

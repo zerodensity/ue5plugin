@@ -56,19 +56,21 @@ void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 	}
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, MZActorReference *ActorReference)
 {
 	TSharedPtr<TreeNode> mostRecentParent;
-	return AddActor(folderPath, actor, mostRecentParent);
+	return AddActor(folderPath, ActorReference, mostRecentParent);
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, MZActorReference *ActorReference, TSharedPtr<TreeNode>& mostRecentParent)
 {
-	if (!actor)
+	if (!ActorReference)
 	{
 		return nullptr;
 	}
 
+	AActor *actor = ActorReference->Get();
+	
 	folderPath.RemoveFromStart(FString("None"));
 	folderPath.RemoveFromStart(FString("/"));
 	TArray<FString> folders;
@@ -85,7 +87,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	//todo fix display names newChild->Name = actor->GetActorLabel();
 	newChild->Name = actor->GetFName().ToString();
 	newChild->Id = actor->GetActorGuid();
-	newChild->actor = MZActorReference(actor);
+	newChild->actor = ActorReference;
 	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
@@ -105,9 +107,9 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	return newChild;
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor* actor)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, MZActorReference *ActorReference)
 {
-	if (!actor)
+	if (!ActorReference)
 	{
 		return nullptr;
 	}
@@ -116,11 +118,13 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, AActor*
 		parent = Root;
 	}
 
+	AActor* actor = ActorReference->Get();
+
 	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = parent;
 	newChild->Name = actor->GetActorLabel();
 	newChild->Id = actor->GetActorGuid();
-	newChild->actor = MZActorReference(actor);
+	newChild->actor = ActorReference;
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);

@@ -29,6 +29,8 @@ public:
 	bool UpdateActorPointer(UWorld* World);
 	bool UpdateActualActorPointer();
 
+	bool UpdateActorPointer(AActor *NewActor);
+
 	bool InvalidReference = false;
 private:
 	

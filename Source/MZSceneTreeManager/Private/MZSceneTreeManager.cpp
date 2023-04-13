@@ -604,7 +604,7 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 	{
 		if (auto actorNode = SceneTree.NodeMap.FindRef(itemId)->GetAsActorNode())
 		{
-			auto actor = actorNode->actor.Get();
+			auto actor = actorNode->actor->Get();
 			if (!actor)
 			{
 				return;
@@ -792,6 +792,28 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 			if(MZActorManager->ActorIds.Contains(OldActor->GetActorGuid()))
 			{
 				ReInstanceCache.Add(Replacement);
+				
+				/*******************************/
+				/* Update all Actor references */
+				/*******************************/
+				AActor *NewActor = Cast<AActor>(Replacement.Value);
+				FGuid OldActorGuid = OldActor->GetActorGuid();
+				/* MZActorManager.Actors*/
+
+				for (auto& [ActorReference, spawnTag] : MZActorManager->Actors)
+				{
+					if (ActorReference->Get()->GetActorGuid() == OldActorGuid)
+					{
+						ActorReference->UpdateActorPointer(NewActor);
+					}
+				}
+				/* Update all FProperty references */
+
+
+
+
+
+				
 			}
 		}
 	}
@@ -1203,11 +1225,9 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 			}
 
 			ActorsInScene.Add(*ActorItr);
-			auto newNode = SceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
-			if (newNode)
-			{
-				newNode->actor = MZActorReference(*ActorItr);
-			}
+			MZActorReference *OnlyReference = new MZActorReference(*ActorItr);
+			auto newNode = SceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), OnlyReference);
+			
 		}
 #ifdef VIEWPORT_TEXTURE
 		ConnectViewportTexture();
@@ -1240,7 +1260,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	if (treeNode->GetAsActorNode())
 	{
 		auto actorNode = StaticCastSharedPtr<ActorNode>(treeNode);
-		if (!IsValid(actorNode->actor.Get()))
+		if (!IsValid(actorNode->actor->Get()))
 		{
 			return false;
 		}
@@ -1249,7 +1269,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		{
 			ColoredChilds = true;
 		}
-		auto ActorClass = actorNode->actor->GetClass();
+		auto ActorClass = actorNode->actor->Get()->GetClass();
 
 		//ITERATE PROPERTIES BEGIN
 		class FProperty* AProperty = ActorClass->PropertyLink;
@@ -1265,7 +1285,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty);
+			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor->Get(), AProperty);
 			if (!mzprop)
 			{
 				AProperty = AProperty->PropertyLinkNext;
@@ -1283,11 +1303,11 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			AProperty = AProperty->PropertyLinkNext;
 		}
 
-		auto Components = actorNode->actor->GetComponents();
+		auto Components = actorNode->actor->Get()->GetComponents();
 		//ITERATE PROPERTIES END
 
 		//ITERATE FUNCTIONS BEGIN
-		auto ActorComponent = actorNode->actor->GetRootComponent();
+		auto ActorComponent = actorNode->actor->Get()->GetRootComponent();
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
 			UFunction* UEFunction = *FuncIt;
@@ -1307,7 +1327,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				//	//continue; // export only BP functions //? what we will show in mediaz
 				//}
 
-				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor.Get(), UEFunction));
+				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor->Get(), UEFunction));
 
 				// Parse all function parameters.
 
@@ -1337,10 +1357,10 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		TSet<AActor*> unattachedChilds = unattachedChildsPtr ? *unattachedChildsPtr : TSet<AActor*>();
 		for (auto child : unattachedChilds)
 		{
-			SceneTree.AddActor(actorNode, child);
+			SceneTree.AddActor(actorNode, new MZActorReference(child));
 		}
 
-		AActor* ActorContext = actorNode->actor.Get();
+		AActor* ActorContext = actorNode->actor->Get();
 		TSet<UActorComponent*> ComponentsToAdd(ActorContext->GetComponents());
 
 		const bool bHideConstructionScriptComponentsInDetailsView = false; //GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView;
@@ -1680,7 +1700,7 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 		if (SceneTree.NodeMap.Contains(sceneParent->GetActorGuid()))
 		{
 			auto parentNode = SceneTree.NodeMap.FindRef(sceneParent->GetActorGuid());
-			newNode = SceneTree.AddActor(parentNode, actor);
+			newNode = SceneTree.AddActor(parentNode, new MZActorReference(actor));
 			if (!newNode)
 			{
 				return;
@@ -1707,7 +1727,7 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 	else
 	{
 		TSharedPtr<TreeNode> mostRecentParent;
-		newNode = SceneTree.AddActor(actor->GetFolder().GetPath().ToString(), actor, mostRecentParent);
+		newNode = SceneTree.AddActor(actor->GetFolder().GetPath().ToString(), new MZActorReference(actor), mostRecentParent);
 		if (!newNode)
 		{
 			return;
@@ -1893,7 +1913,7 @@ void FMZSceneTreeManager::PopulateAllChilds(FGuid ActorId)
 		{
 			if (ChildNode->GetAsActorNode())
 			{
-				PopulateAllChilds(ChildNode->GetAsActorNode()->actor.Get());
+				PopulateAllChilds(ChildNode->GetAsActorNode()->actor->Get());
 			}
 			else if (ChildNode->GetAsSceneComponentNode())
 			{
@@ -1920,7 +1940,7 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 	{
 		if (ChildNode->GetAsActorNode())
 		{
-			PopulateAllChilds(ChildNode->GetAsActorNode()->actor.Get());
+			PopulateAllChilds(ChildNode->GetAsActorNode()->actor->Get());
 		}
 		else if (ChildNode->GetAsSceneComponentNode())
 		{
@@ -2177,9 +2197,13 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, TFunction<void(AActor *act
 		savedMetadata.Add({"spawnTag", SpawnTag});
 	}
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
-	Actors.Add({ MZActorReference(SpawnedActor),savedMetadata });
+
+	MZActorReference *OnlyReference = new MZActorReference(SpawnedActor);
+	
+	Actors.Add({ OnlyReference,savedMetadata });
+	
 	TSharedPtr<TreeNode> mostRecentParent;
-	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), OnlyReference, mostRecentParent);
 	if(!bIsSpawningParentTransform)
 	{
 		ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
@@ -2233,9 +2257,11 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	TMap<FString, FString> savedMetadata;
 	savedMetadata.Add({"umgTag", umgTag});
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
-	Actors.Add({ MZActorReference(UMGManager), savedMetadata});
+	
+	MZActorReference *OnlyReference = new MZActorReference(UMGManager);
+	Actors.Add({ OnlyReference, savedMetadata});
 	TSharedPtr<TreeNode> mostRecentParent;
-	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), UMGManager, mostRecentParent);
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), OnlyReference, mostRecentParent);
 	ActorNode->mzMetaData.Add("umgTag", umgTag);
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
 
@@ -2277,9 +2303,11 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
 	savedMetadata.Add({"spawnPath", ClassToSpawn->GetClassPathName().ToString()});
-	Actors.Add({MZActorReference(SpawnedActor), savedMetadata});
+	
+	MZActorReference *OnlyReference = new MZActorReference(SpawnedActor);
+	Actors.Add({OnlyReference, savedMetadata});
 	TSharedPtr<TreeNode> mostRecentParent;
-	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), OnlyReference, mostRecentParent);
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
 	
 	if (!MZClient->IsConnected())
@@ -2311,7 +2339,7 @@ void FMZActorManager::ClearActors()
 	}
 	for (auto& [Actor, spawnTag] : Actors)
 	{
-		AActor* actor = Actor.Get();
+		AActor* actor = Actor->Get();
 		if (actor)
 			actor->Destroy(false, false);
 	}
@@ -2330,8 +2358,8 @@ void FMZActorManager::ClearActors()
 			}
 			for (auto& [Actor, spawnTag] : Actors)
 			{
-				Actor.UpdateActorPointer(EditorWorld);
-				AActor* actor = Actor.Get();
+				Actor->UpdateActorPointer(EditorWorld);
+				AActor* actor = Actor->Get();
 				if (actor)
 					actor->Destroy(false, false);
 			}
@@ -2346,17 +2374,17 @@ void FMZActorManager::ClearActors()
 
 void FMZActorManager::ReAddActorsToSceneTree()
 {
-	for (auto& [Actor, SavedMetaData] : Actors)
+	for (auto& [ActorReference, SavedMetaData] : Actors)
 	{
-		if (Actor.UpdateActualActorPointer())
+		if (ActorReference->UpdateActualActorPointer())
 		{
-			AActor* actor = Actor.Get();
+			AActor* actor = ActorReference->Get();
 			if (!actor)
 			{
 				continue;
 			}
 
-			auto ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), actor);
+			auto ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), ActorReference);
 			for(auto [key, value] : SavedMetaData)
 			{
 				ActorNode->mzMetaData.Add(key, value);
@@ -2364,10 +2392,10 @@ void FMZActorManager::ReAddActorsToSceneTree()
 		}
 		else
 		{
-			Actor = MZActorReference();
+			ActorReference = nullptr;
 		}
 	}
-	Actors = Actors.FilterByPredicate([](const TPair<MZActorReference, TMap<FString, FString>>& Actor)
+	Actors = Actors.FilterByPredicate([](const TPair<MZActorReference *, TMap<FString, FString>>& Actor)
 		{
 			return Actor.Key;
 		});
@@ -2383,7 +2411,7 @@ void FMZActorManager::PreSave(uint32 SaveFlags, UWorld* World)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{
-		AActor* actor = Actor.Get();
+		AActor* actor = Actor->Get();
 		if (!actor)
 		{
 			continue;
@@ -2397,7 +2425,7 @@ void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{
-		AActor* actor = Actor.Get();
+		AActor* actor = Actor->Get();
 		if (!actor)
 		{
 			continue;
@@ -2599,7 +2627,7 @@ UClass* FMZSceneTreeManager::GetRootActorOfNode(TSharedPtr<TreeNode> Node)
 	
 	if(ActorNode)
 	{
-		Root = ActorNode->actor.Get()->GetClass();
+		Root = ActorNode->actor->Get()->GetClass();
 	}else if(SceneComponentNode)
 	{
 			Root = SceneComponentNode->sceneComponent.GetOwnerActor()->GetClass();
@@ -2672,7 +2700,7 @@ std::vector<TSharedPtr<MZProperty>>* FMZSceneTreeManager::GetNodeProperties(TSha
 
 bool FMZSceneTreeManager::CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty)
 {
-	const UClass *PropertyOwner = (TargetNode->GetAsActorNode())?(TargetNode->GetAsActorNode()->actor.Get()->GetClass()):(TargetNode->GetAsSceneComponentNode()->sceneComponent.Get()->GetClass());
+	const UClass *PropertyOwner = (TargetNode->GetAsActorNode())?(TargetNode->GetAsActorNode()->actor->Get()->GetClass()):(TargetNode->GetAsSceneComponentNode()->sceneComponent.Get()->GetClass());
 	const FProperty* UEProperty = PropertyOwner->FindPropertyByName(MZProperty->Property->GetFName());
 
 	if(!UEProperty)

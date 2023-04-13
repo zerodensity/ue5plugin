@@ -1102,6 +1102,12 @@ bool MZActorReference::UpdateActualActorPointer()
 	return UpdateActorPointer(World);
 }
 
+bool MZActorReference::UpdateActorPointer(AActor* NewActor)
+{
+	Actor = TWeakObjectPtr<AActor>(NewActor);
+	return true;
+}
+
 MZComponentReference::MZComponentReference(TObjectPtr<UActorComponent> actorComponent)
 	: Actor(actorComponent->GetOwner())
 {
