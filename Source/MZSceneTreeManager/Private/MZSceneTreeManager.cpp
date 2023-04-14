@@ -1022,7 +1022,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 	PinUpdates.clear();
 	flatbuffers::FlatBufferBuilder fb2;
-
+	std::vector<MZPortal> NewPortals;
 	for (auto update : updates)
 	{
 		FGuid ActorId = update.actorId;
@@ -1066,7 +1066,6 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			{
 				auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
 				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::Action::RESET));
-				
 				MZPortal NewPortal{update.pinId ,MzProperty->Id};
 				NewPortal.DisplayName = FString("");
 				UObject* parent = MzProperty->GetRawObjectContainer();
@@ -1083,6 +1082,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 				MZPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
 				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
+				NewPortals.push_back(NewPortal);
 			}
 			
 		}
@@ -1096,6 +1096,20 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		auto root3 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf3.data());
 		MZClient->AppServiceClient->SendPartialNodeUpdate(*root3);
 		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb2, mz::CreatePartialNodeUpdateDirect(fb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+	}
+	for (auto Portal : NewPortals)
+	{
+		if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+		{
+			flatbuffers::FlatBufferBuilder fb4;
+			auto SourceProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+			auto UpdatedMetadata = SourceProperty->SerializeMetaData(fb4);
+			auto offset4 = mz::CreateAppEventOffset(fb4, mz::app::CreatePinMetadataUpdateDirect(fb4, (mz::fb::UUID*)&Portal.Id, &UpdatedMetadata  ,true));
+			fb4.Finish(offset4);
+			auto buf4 = fb4.Release();
+			auto root4 = flatbuffers::GetRoot<mz::app::AppEvent>(buf4.data());
+			MZClient->AppServiceClient->Send(*root4);
+		}
 	}
 	LOG("Node from MediaZ successfully imported");
 }
