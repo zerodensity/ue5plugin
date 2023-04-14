@@ -904,6 +904,23 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
+	FGuid OldParentTransformId = {};
+	for (auto [oldGuid, spawnTag] : spawnedByMediaz)
+	{
+		if(spawnTag == "RealityParentTransform")
+		{
+			AActor* spawnedActor = MZActorManager->SpawnActor(spawnTag);
+			sceneActorMap.Add(oldGuid, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
+			MZActorManager->ParentTransformActor = MZActorReference(spawnedActor);
+			MZActorManager->ParentTransformActor->GetRootComponent()->SetMobility(EComponentMobility::Static);
+			OldParentTransformId = oldGuid;
+		}
+	}
+	if(OldParentTransformId.IsValid())
+	{
+		spawnedByMediaz.Remove(OldParentTransformId);
+	}
+		
 	for (auto [oldGuid, spawnTag] : spawnedByMediaz)
 	{
 		if (!sceneActorMap.Contains(oldGuid))
@@ -2154,20 +2171,14 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
-	if(!bIsSpawningParentTransform)
-	{
-		savedMetadata.Add({"spawnTag", SpawnTag});
-	}
+	savedMetadata.Add({"spawnTag", SpawnTag});
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 	Actors.Add({ MZActorReference(SpawnedActor),savedMetadata });
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
-	if(!bIsSpawningParentTransform)
-	{
-		ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
-	}
+	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
-	 
+	
 	if (!MZClient->IsConnected())
 	{
 		return SpawnedActor;
