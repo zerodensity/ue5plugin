@@ -9,7 +9,7 @@
 
 #define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMZSceneTreeManager, Error, TEXT("Property size mismatch with mediaZ"));return;}}
 
-bool PropertyVisibleExp(FProperty* ueproperty)
+bool PropertyVisibleExp(const FProperty* ueproperty)
 {
 	return !ueproperty->HasAllPropertyFlags(CPF_DisableEditOnInstance) &&
 		!ueproperty->HasAllPropertyFlags(CPF_Deprecated) &&
@@ -19,7 +19,7 @@ bool PropertyVisibleExp(FProperty* ueproperty)
 		ueproperty->HasAllFlags(RF_Public);
 }
 
-MZProperty::MZProperty(MZObjectReference* ObjectReference, FProperty* uproperty, FString parentCategory, uint8* structPtr, MZStructProperty* parentProperty)
+MZProperty::MZProperty(MZObjectReference* ObjectReference, FProperty* uproperty, FString parentCategory, uint8* structPtr, const MZStructProperty* parentProperty)
 {
 	UObject *container = nullptr;
 	Property = uproperty;
@@ -51,6 +51,7 @@ MZProperty::MZProperty(MZObjectReference* ObjectReference, FProperty* uproperty,
 	
 	Id = FGuid::NewGuid();
 	PropertyName = uproperty->GetFName().ToString();
+	PropertyNameAsReference = uproperty->GetFName();
 	if (container && container->IsA<UActorComponent>())
 	{
 		PropertyName = *FString(container->GetFName().ToString() + "" + PropertyName);
@@ -136,7 +137,10 @@ void MZProperty::MarkState()
 	}
 
 }
-
+void MZProperty::UpdatePropertyReference(FProperty *NewProperty)
+{
+	this->Property = NewProperty;
+}
 void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
@@ -1089,6 +1093,7 @@ MZActorReference::MZActorReference(TObjectPtr<AActor> actor) : MZObjectReference
 	if (actor)
 	{
 		ActorGuid = actor->GetActorGuid();
+		ActorClass = actor->GetClass();		// This is a snapshot, should be taken when Actor is assigned
 	}
 }
 
@@ -1110,7 +1115,18 @@ AActor* MZActorReference::Get()
 	return nullptr;
 }
 
-bool MZActorReference::UpdateActorPointer(UWorld* World)
+UClass* MZActorReference::GetActorClass() const
+{
+	return ActorClass;
+}
+bool MZActorReference::UpdateClass(UClass *NewActorClass)
+{
+	this->ActorClass = NewActorClass;
+	// ToDo more checks before assignment
+
+	return true;
+}
+bool MZActorReference::UpdateActorPointer(const UWorld* World)
 {
 	if (!ActorGuid.IsValid())
 	{

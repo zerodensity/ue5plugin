@@ -159,9 +159,14 @@ public:
 	// Called when object are replaced (like reinstancing)
 	void OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap);
 
+	void OnObjectsReinstanced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
+
 	//delegate called when a property is changed from unreal engine editor
 	//it updates thecorresponding property in mediaz
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
+
+	
+	void OnPreObjectPropertyChanged(UObject* Object, const class FEditPropertyChain& PropChain);
 
 	//Called when an actor is spawned into the world
 	void OnActorSpawned(AActor* InActor);
@@ -284,14 +289,22 @@ public:
 	static UClass* GetRootActorOfNode(TSharedPtr<TreeNode> Node);
 	static bool CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty);
 	TArray<TPair<FGuid, TSharedPtr<TreeNode>>> GetRootActorNodesRelatedWithBP(UBlueprint *BP);
-	
+
+	typedef TMap<FProperty*, FProperty*> FPropertyMapping;
+	typedef TMap<UFunction*, UFunction*> FFunctionMapping;
+	typedef TMap<FName, FProperty *>	FPropertiesMap;
+	typedef TMap<FName, UFunction *>	FunctionsMap;
+	void UpdateMZReferences(FPropertyMapping& PropertyMapping, FFunctionMapping& FunctionMapping);
 private:
 	void OnBlueprintCompiled(UBlueprint *BP);
 
 	static std::vector<TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
 	
 	
-
+	void UpdateSavedPropertyReferences(FProperty *OldProperties, FProperty *NewProp);
+	static void GenerateFieldMappings(UObject* OldObject, UObject* NewObject, const FPropertiesMap& ObjProperties, const FunctionsMap& Functions, FPropertyMapping &FieldMapping, FFunctionMapping &FunctionMapping);
+	static void GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FunctionsMap& Functions);
+	static bool ShouldCompareProperty (const FProperty* Property);
 	TMap<UObject*, UObject*> ReInstanceCache;
 };
 

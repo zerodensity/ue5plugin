@@ -336,12 +336,20 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 		{
 			UObject* obj = mzprop->GetRawObjectContainer();
 			if (!obj) return;
-			auto prop = CastField<FObjectProperty>(mzprop->Property);
-			if (!prop) return;
-			auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
-			if (!URT) return;
+			if(!mzprop->Property || !mzprop->Property->IsValidLowLevel())
+			{
+				int a = 1;
+				a++;
+			}else
+			{
+				auto prop = CastField<FObjectProperty>(mzprop->Property);
+				if (!prop) return;
+				auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+				if (!URT) return;
 
-			CopyOnTickFiltered.Add(URT, info);
+				CopyOnTickFiltered.Add(URT, info);
+			}
+			
 		}
 	}
 

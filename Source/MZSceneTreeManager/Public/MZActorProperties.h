@@ -34,6 +34,8 @@ public:
 	MZActorReference();
 	
 	AActor* Get();
+	UClass* GetActorClass() const;
+	
 	
 	explicit operator bool() {
 		return !!(Get());
@@ -44,7 +46,8 @@ public:
 		return Get();
 	}
 
-	bool UpdateActorPointer(UWorld* World);
+	bool UpdateClass(UClass *NewActorClass);
+	bool UpdateActorPointer(const UWorld* World);
 	bool UpdateActualActorPointer();
 
 	bool InvalidReference = false;
@@ -54,7 +57,8 @@ private:
 	//TWeakObjectPtr<AActor> Actor;
 	
 	FGuid ActorGuid;
-	
+	UClass *ActorClass; // This hold UClass reference when Actor is assigned. All properties are collected
+						// relative to this class and UE internals doesn't inform when this class is reinstanced!
 };
 
 class MZSCENETREEMANAGER_API MZComponentReference : public MZObjectReference
@@ -91,11 +95,12 @@ private:
 class MZSCENETREEMANAGER_API MZProperty : public TSharedFromThis<MZProperty>
 {
 public:
-	MZProperty(MZObjectReference* ObjectReference, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	MZProperty(MZObjectReference* ObjectReference, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, const MZStructProperty* parentProperty = nullptr);
 
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 	UObject* GetRawObjectContainer();
 	void* GetRawContainer();
+	void UpdatePropertyReference(FProperty *NewProperty);
 
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr);
 	//std::vector<uint8> GetValue(uint8* customContainer = nullptr);
@@ -111,6 +116,7 @@ public:
 	UObject* ObjectPtr = nullptr;
 	uint8* StructPtr = nullptr;
 
+	FName PropertyNameAsReference;
 	FString PropertyName;
 	FString DisplayName;
 	FString CategoryName;
