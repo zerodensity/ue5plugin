@@ -820,6 +820,8 @@ std::vector<uint8> MZEnumProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
+TFunction<void(MZObjectReference* ObjectReference, TSharedPtr<MZProperty> MzProperty)> MZPropertyFactory::OnPropertyCreatedCallback ;
+
 TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(MZObjectReference* ObjectReference,
                                                          FProperty* uproperty, 
                                                          TMap<FGuid, TSharedPtr<MZProperty>>* registeredProperties, 
@@ -1071,6 +1073,12 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(MZObjectReference* Obje
 	
 	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
 	UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
+
+	if(MZPropertyFactory::OnPropertyCreatedCallback)
+	{
+		MZPropertyFactory::OnPropertyCreatedCallback(ObjectReference, prop);
+	}
+
 	return prop;
 }
 
@@ -1125,6 +1133,12 @@ bool MZActorReference::UpdateClass(UClass *NewActorClass)
 	// ToDo more checks before assignment
 
 	return true;
+}
+
+void MZActorReference::UpdateActorReference(AActor *NewActor)
+{
+	UpdateObjectPointer(NewActor);
+	UpdateClass(NewActor->GetClass());
 }
 bool MZActorReference::UpdateActorPointer(const UWorld* World)
 {

@@ -36,6 +36,8 @@ public:
 	void CreatePortal(FProperty* uproperty, UObject* Container, mz::fb::ShowAs ShowAs);
 	void ActorDeleted(FGuid DeletedActorId);
 	flatbuffers::Offset<mz::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty);
+
+	
 	
 	FMZClient* MZClient;
 
@@ -81,6 +83,7 @@ public:
 	
 	TSet<FGuid> ActorIds;
 	TArray< TPair<MZActorReference *,TMap<FString,FString>> > Actors;
+	TMap<MZObjectReference *, TMap<FName, FProperty *>> ActorPropertyRelationMap;
 };
 
 
@@ -300,10 +303,25 @@ private:
 
 	static std::vector<TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
 	
-	
 	void UpdateSavedPropertyReferences(FProperty *OldProperties, FProperty *NewProp);
-	static void GenerateFieldMappings(UObject* OldObject, UObject* NewObject, const FPropertiesMap& ObjProperties, const FunctionsMap& Functions, FPropertyMapping &FieldMapping, FFunctionMapping &FunctionMapping);
+	void UpdateMZPropertyReferences(const FName &PropertyName, FProperty*& Property, FPropertiesMap &NewObjProperties);
+	
+	static void GenerateFieldMappings(UObject* OldObject,
+									  UObject* NewObject,
+									  const FPropertiesMap& ObjProperties,
+	                                  const FunctionsMap& Functions,
+	                                  FPropertyMapping& FieldMapping,
+	                                  FFunctionMapping& FunctionMapping);
+	
+	static void GenerateFieldMappings(FPropertiesMap &OldPropertyMap,
+									  FPropertiesMap &NewPropertyMap,
+									  FunctionsMap &OldFunctionsMap,
+									  FunctionsMap &NewFunctionsMap,
+									  FPropertyMapping& FieldMapping,
+									  FFunctionMapping& FunctionMapping);
+	
 	static void GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FunctionsMap& Functions);
+	static void GetClassProperties (UClass* ActorReferencedClass, FPropertiesMap& ObjProperties, FunctionsMap& Functions);
 	static bool ShouldCompareProperty (const FProperty* Property);
 	TMap<UObject*, UObject*> ReInstanceCache;
 };

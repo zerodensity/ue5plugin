@@ -332,7 +332,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 	TMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTickFiltered;
 	{
 		std::unique_lock lock(CopyOnTickMutex);
-		for (auto [mzprop, info] : CopyOnTick)
+		for (auto &[mzprop, info] : CopyOnTick)
 		{
 			UObject* obj = mzprop->GetRawObjectContainer();
 			if (!obj) return;

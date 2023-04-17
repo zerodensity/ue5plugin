@@ -47,6 +47,7 @@ public:
 	}
 
 	bool UpdateClass(UClass *NewActorClass);
+	void UpdateActorReference(AActor *NewActor);
 	bool UpdateActorPointer(const UWorld* World);
 	bool UpdateActualActorPointer();
 
@@ -387,4 +388,6 @@ public:
 		FString ParentCategory = FString(), 
 		uint8* StructPtr = nullptr, 
 		MZStructProperty* ParentProperty = nullptr);
+
+	static TFunction<void(MZObjectReference* ObjectReference, TSharedPtr<MZProperty> MzProperty)> OnPropertyCreatedCallback;
 };
