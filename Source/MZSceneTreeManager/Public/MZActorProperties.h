@@ -148,12 +148,16 @@ requires std::is_base_of_v<FProperty, T>
 class MZNumericProperty : public MZProperty {
 public:
 	MZNumericProperty(MZObjectReference *ObjectReference, T* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr) :
-		MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
+		MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 	{
 		data = std::vector<uint8_t>(sizeof(CppType), 0);
 		TypeName = LitType.val;
 	}
-	T* Property;
+	T* GetProperty()
+	{
+		return static_cast<T*>(Property);
+	}
+	
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override 
 	{
 		void* container = nullptr;
@@ -165,7 +169,7 @@ public:
 
 		if (container)
 		{
-			CppType val = static_cast<CppType>(Property->GetPropertyValue_InContainer(container));
+			CppType val = static_cast<CppType>(GetProperty()->GetPropertyValue_InContainer(container));
 			memcpy(data.data(), &val, data.size());
 		}
 
@@ -175,7 +179,7 @@ public:
 protected:
 	virtual void SetProperty_InCont(void* container, void* val) override 
 	{
-		Property->SetPropertyValue_InContainer(container, (*(CppType*)val));
+		GetProperty()->SetPropertyValue_InContainer(container, (*(CppType*)val));
 	}
 };
 
@@ -194,8 +198,8 @@ using MZUInt64Property = MZNumericProperty<FUInt64Property, "ulong">;
 class MZEnumProperty : public MZProperty
 {
 public:
-	MZEnumProperty(MZObjectReference* ObjectReference, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
+	MZEnumProperty(MZObjectReference* ObjectReference, FProperty* OrgProperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(ObjectReference, OrgProperty, parentCategory, StructPtr, parentProperty)
 	{
 		UObject *container = nullptr;
 
@@ -203,6 +207,9 @@ public:
 		{
 			container = ObjectReference->GetAsObject();
 		}
+
+		const UEnum* Enum = GetEnum();
+		
 		data = std::vector<uint8_t>(1, 0); 
 		TypeName = "string";
 
@@ -233,13 +240,51 @@ public:
 		MZClient->AppServiceClient->UpdateStringList(*root);
 	}
 
+	UEnum* GetEnum() const
+	{
+		UEnum* Enum = nullptr;
+		if(const FEnumProperty* EnumProp = GetEnumProperty())
+		{
+			if(const FNumericProperty* NumericProp = EnumProp->GetUnderlyingProperty())
+			{
+				Enum = EnumProp->GetEnum();
+			}
+		}else if(const FNumericProperty* NumericProperty = GetNumericProperty())
+		{
+			Enum = NumericProperty->GetIntPropertyEnum();
+		}
+
+		return Enum;
+	}
+
+	FEnumProperty* GetEnumProperty() const
+	{
+		return CastField<FEnumProperty>(Property);
+	}
+
+	/**
+	 * @brief This NumericProperty depends on the type of originating FProperty, so instead of holding a reference, we get
+	 * it from originating property
+	 * @return 
+	 */
+	FNumericProperty* GetNumericProperty() const
+	{
+		FNumericProperty *Ret = nullptr;
+		if(FEnumProperty* EnumProperty = CastField<FEnumProperty>(Property))
+		{
+			Ret =  EnumProperty->GetUnderlyingProperty();
+		}else if(CastField<FNumericProperty>(Property) && CastField<FNumericProperty>(Property)->IsEnum())
+		{
+			Ret = CastField<FNumericProperty>(Property);
+		}
+		return Ret;
+	}
+
 	FString MediaZListName;
 	TMap<FString, int64> NameMap;
 	FString CurrentName;
 	int64 CurrentValue;
-	UEnum* Enum;
-	FNumericProperty* IndexProp;
-	FEnumProperty* EnumProperty;
+	
 	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual flatbuffers::Offset<mz::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
@@ -283,13 +328,13 @@ class MZStringProperty : public MZProperty
 {
 public:
 	MZStringProperty(MZObjectReference* ObjectReference, FStrProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), stringprop(uproperty)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
 	}
 
-	FStrProperty* stringprop;
+	FStrProperty* GetStringProperty() const;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
@@ -312,9 +357,10 @@ class MZStructProperty : public MZProperty
 public:
 	MZStructProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 
-	FStructProperty* structprop;
+	FStructProperty* GetStructProperty() const;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
+
 };
 
 template<typename T, mz::tmp::StrLiteral LitType>
@@ -322,17 +368,21 @@ class MZCustomStructProperty : public MZProperty
 {
 public:
 	MZCustomStructProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 	{
 		data = std::vector<uint8_t>(sizeof(T), 0);
 		TypeName = LitType.val;
 	}
 
-	FStructProperty* structprop;
+	FStructProperty* GetStructProperty() const
+	{
+		return static_cast<FStructProperty*>(Property);
+	}
 protected:
+	
 	virtual void SetProperty_InCont(void* container, void* val) override 
 	{
-		structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), (T*)val);
+		GetStructProperty()->CopyCompleteValue(GetStructProperty()->ContainerPtrToValuePtr<void>(container), (T*)val);
 	}
 };
 
@@ -344,15 +394,15 @@ class MZRotatorProperty : public MZProperty
 {
 public:
 	MZRotatorProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 	{
 		data = std::vector<uint8_t>(sizeof(FVector), 0);
 		TypeName = "mz.fb.vec3d";
 	}
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
-	FStructProperty* structprop;
 protected:
+	FStructProperty* GetStructProperty() const;
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };
 
@@ -362,7 +412,7 @@ class MZTrackProperty : public MZProperty
 {
 public:
 	MZTrackProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 	{
 		
 		data = std::vector<uint8_t>(1, 0);
@@ -373,8 +423,8 @@ public:
 	//virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 
-	FStructProperty* structprop;
 protected:
+	FStructProperty* GetStructProperty() const;
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };
 

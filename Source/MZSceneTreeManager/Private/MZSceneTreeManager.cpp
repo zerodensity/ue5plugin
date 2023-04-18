@@ -129,14 +129,27 @@ void FMZSceneTreeManager::StartupModule()
 	MZPropertyFactory::OnPropertyCreatedCallback = [this](MZObjectReference* ObjectReference, TSharedPtr<MZProperty> MzProperty) {
 		if(ObjectReference && MzProperty)
 		{
-		  if(!MZActorManager->ActorPropertyRelationMap[ObjectReference].Contains(MzProperty->Property->GetFName()))
-		  {
-			  MZActorManager->ActorPropertyRelationMap[ObjectReference].Add(MzProperty->Property->GetFName(), MzProperty->Property);
-		  }else
-		  {
-			  volatile int a = 1;
-		  	  a++;
-		  }
+			if(MZActorManager->ActorPropertyRelationMap.Contains(ObjectReference)){
+				if(!MZActorManager->ActorPropertyRelationMap[ObjectReference].Contains(MzProperty->Property->GetFName()))
+				{
+				  MZActorManager->ActorPropertyRelationMap[ObjectReference].Add(MzProperty->Property->GetFName(), MzProperty->Property);
+				}else
+				{
+				  volatile int a = 1;
+				  a++;
+				}
+			}else
+			{
+				// Could be scene component, then find owner actor and add as its child
+				// ToDo simplfy finding ActorNode from ObjectReference...
+				MZComponentReference *ComponentReference = static_cast<MZComponentReference *>(ObjectReference);
+				auto Actor = ComponentReference->Get()->GetOwner();
+				FGuid ActorGuid = Actor->GetActorGuid();
+				TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(ActorGuid);
+				ActorNode *ActorNode = TreeNode->GetAsActorNode();
+
+				MZActorManager->ActorPropertyRelationMap[ActorNode->actor].Add(MzProperty->Property->GetFName(), MzProperty->Property);
+			}
 		}
 	};
 	
@@ -779,7 +792,8 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 	}
 	if(MZPropertyManager.PropertiesByPointer.Contains(PropertyChangedEvent.MemberProperty))
 	{
-		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.MemberProperty, ObjectBeingModified});
+		
+		auto mzprop = MZPropertyManager.PropertiesByPointer.FindRef(PropertyChangedEvent.MemberProperty);
 		if(mzprop->TypeName != "mz.fb.Void")
 		{
 			mzprop->UpdatePinValue();
@@ -815,15 +829,24 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 	for(auto Replacement : ReplacementMap)
 	{
 		AActor *OldActor = Cast<AActor>(Replacement.Key);
+		USceneComponent* Component = Cast<USceneComponent>(Replacement.Key);
+		if(Component)
+		{
+			OldActor = Component->GetOwner();
+		}
+		/* We are holding an Actor->RelatedProperties map, so all properties are related with Actors(Containers)
+		 * This is why for USceneComponents, we're getting Owner actor. After getting the Actor, rest is same
+		 * 
+		 */
 		if(OldActor)
 		{
 			if(MZActorManager->ActorIds.Contains(OldActor->GetActorGuid()))
 			{
 				ReInstanceCache.Add(Replacement);
 				
-				/*******************************/
-				/* Update all Actor references */
-				/*******************************/
+				/*****************************************/
+				/*  Update all Actor related references  */
+				/*****************************************/
 				AActor *NewActor = Cast<AActor>(Replacement.Value);
 				FGuid OldActorGuid = OldActor->GetActorGuid();
 				/* MZActorManager.Actors*/
@@ -852,144 +875,39 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 							TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(OldActorGuid);
 							ActorNode *ActorNode = TreeNode->GetAsActorNode();
 							
-							FProperty* prop = OldActor->GetClass()->FindPropertyByName("Test_texture_render_target");
-							FProperty* prop2 = ActorReference->GetActorClass()->FindPropertyByName("Test_texture_render_target");
-							FProperty* prop3 = NewActor->GetClass()->FindPropertyByName("Test_texture_render_target");
+							for(auto &SceneComponent : ActorNode->Children)
+							{
+								SceneComponentNode *SceneComponentNode = SceneComponent->GetAsSceneComponentNode();
+								UObject* SceneComponentAsObject = SceneComponentNode->sceneComponent->GetAsObject();
+								
+								if(SceneComponentNode && (SceneComponentAsObject->GetClass() == Replacement.Key->GetClass()))
+								{
+									SceneComponentNode->sceneComponent->UpdateObjectPointer(Replacement.Value);
+								}
+							}
 
-							/* Gather New Objects property mapping */
-							GetClassProperties(ActorReference->GetActorClass(), OldProperties,OldFunctionsMap);
-							GetClassProperties(OldActor->GetClass(), OnReplacementOldProperties,OnReplacementOldFunctionsMap);
+							
 							
 							GetObjProperties (Replacement.Value, NewObjProperties,NewFunctionsMap);
-
 							TMap<FName, FProperty *>& ActorProps = MZActorManager->ActorPropertyRelationMap[ActorNode->actor];
 							for(auto &[PropertName, Property] : ActorProps)
 							{
 								UpdateMZPropertyReferences(PropertName, Property, NewObjProperties);
 							}
 
-							//GenerateFieldMappings(OldActor, NewActor, OnReplacementOldProperties, OnReplacementOldFunctionsMap, PropertyMapping, FunctionMapping);
-							//GenerateFieldMappings(OldActor, NewActor, OldProperties, OldFunctionsMap, PropertyMapping, FunctionMapping);
-
-							//GenerateFieldMappings(OldProperties, NewObjProperties, OldFunctionsMap, NewFunctionsMap, PropertyMapping, FunctionMapping);
 							
-							//UpdateMZReferences(PropertyMapping, FunctionMapping);
-#if 0
-							PropertyCounter = 0;
-							
-							for(auto &MzProperty : ActorNode->Properties)
-							{
-								PropertyCounter++;
-								if(NewObjProperties.Contains(MzProperty->Property->GetFName()))
-								{
-									MzProperty->Property = NewObjProperties.FindRef(MzProperty->PropertyNameAsReference);
-									ReplaceCounter++;
-									UE_LOG(LogTemp, Warning, TEXT("Property updated: %s"), *MzProperty->Property->GetFName().ToString());
-
-									/* Child properties */
-									if(MzProperty->childProperties.size() > 0)
-									{
-										for(auto &MzChildProperty : MzProperty->childProperties)
-										{
-											if(NewObjProperties.Contains(MzChildProperty->Property->GetFName()))
-											{
-												MzChildProperty->Property = NewObjProperties.FindRef(MzChildProperty->Property->GetFName());
-												UE_LOG(LogTemp, Warning, TEXT("CHILD property matched: %s"), *MzChildProperty->Property->GetFName().ToString());
-											}else
-											{
-												UE_LOG(LogTemp, Warning, TEXT("CHILD property NOT matched: %s"), *MzChildProperty->Property->GetFName().ToString());
-											}
-										}
-									}
-									
-								}else
-								{
-									UE_LOG(LogTemp, Warning, TEXT("Property NOT matched: %s"), *MzProperty->Property->GetFName().ToString());
-								}
-							}
-#endif
 						}
-						ActorReference->UpdateActorReference(NewActor);
+						if(NewActor) // Suitable for Actors, not Components
+						{
+							ActorReference->UpdateActorReference(NewActor);
+						}else if(Component)
+						{
+							
+						}
+						
 					}
 				}
-				//DestroyPropertyLinkedList(PropertiesPendingDestruction);
-				//inline void DestroyPropertyLinkedList(FField*& PropertiesToDestroy)
-			//	if(PropertyCounter <= ReplaceCounter)
-			//	{
-			//		volatile int a = 1; a++;
-			//	}
-			//	volatile int a = 1; a++;
-				/* Update all FProperty references */
-/*
-				bool isValidKey = IsValid(Replacement.Key);
-
-				UObject* OldActorDefaultObject = OldActor->GetClass()->GetDefaultObject();
-				FProperty* prop = OldActor->GetClass()->FindPropertyByName("Test_texture_render_target");
-				FProperty* prop2 = Replacement.Key->GetClass()->FindPropertyByName("Test_texture_render_target"); // prop ile ayni olmali
-				FProperty* prop3 = Replacement.Key->GetClass()->GetDefaultObject()->GetClass()->FindPropertyByName("Test_texture_render_target");
-
-				const FObjectProperty* objectProp = CastField<FObjectProperty>(prop);
-				const FObjectProperty* objectProp2 = CastField<FObjectProperty>(prop2);
-				const FObjectProperty* objectProp3 = CastField<FObjectProperty>(prop3);
-
-				UObject* propValue = objectProp->GetObjectPropertyValue_InContainer(OldActor);
-				UObject* prop2Value = objectProp2->GetObjectPropertyValue_InContainer(OldActor);
-				UObject* prop3Value = objectProp3->GetObjectPropertyValue_InContainer(OldActor);
-
-				propValue = objectProp->GetObjectPropertyValue_InContainer(Replacement.Key);
-				prop2Value = objectProp2->GetObjectPropertyValue_InContainer(Replacement.Key);
-				prop3Value = objectProp3->GetObjectPropertyValue_InContainer(Replacement.Key);
-
-				propValue = objectProp->GetObjectPropertyValue_InContainer(Replacement.Key->GetClass()->GetDefaultObject());
-				prop2Value = objectProp2->GetObjectPropertyValue_InContainer(Replacement.Key->GetClass()->GetDefaultObject());
-				prop3Value = objectProp3->GetObjectPropertyValue_InContainer(Replacement.Key->GetClass()->GetDefaultObject());
-				
-				
-				const FObjectProperty* ObjectProperty = CastField<FObjectProperty>(prop);
-				UObject* NewActorDefaultObject = NewActor->GetClass()->GetDefaultObject();
-				FProperty* Newprop = NewActor->GetClass()->FindPropertyByName("Test_texture_render_target");
-				const FObjectProperty* NewObjectProperty = CastField<FObjectProperty>(Newprop);
-				
-				UObject* OldObjectPropertyValue = ObjectProperty->GetObjectPropertyValue_InContainer(OldActor);
-				UObject* newObjectPropertyValue = ObjectProperty->GetObjectPropertyValue_InContainer(NewActor);
-				UObject* newObjectPropertyValue2 = NewObjectProperty->GetObjectPropertyValue_InContainer(NewActor);
-				UObject* xObjectPropertyValue2 = NewObjectProperty->GetObjectPropertyValue_InContainer(OldActor);
-				
-				UClass *OldUOBjectsClass = Replacement.Key->GetClass();
-				UClass *NewUOBjectsClass = Replacement.Value->GetClass();
-				UClass *OldUClass = OldActor->GetClass()->GetClass();
-				UClass *NewUClass = NewActor->GetClass()->GetClass();
-				UClass *X1 = Cast<UClass>(OldUClass);
-				UClass *X2 = Cast<UClass>(Replacement.Key);
-				UClass *X3 = Cast<UClass>(Replacement.Key->GetClass());
-
-				UClass *GettedClass = AActor::StaticClass();
-
-				
-				FPropertyMapping FieldMapping;
-				FPropertyMapping FieldMapping2;
-				FFunctionMapping FunctionMapping;
-				FFunctionMapping FunctionMapping2;
-				FPropertiesMap OldObjProperties, NewObjProperties;
-				FPropertiesMap OldObjProperties2, NewObjProperties2;
-				FPropertiesMap OldObjProperties3, NewObjProperties3;
-				FunctionsMap OldFunctionsMap;
-				FunctionsMap OldFunctionsMap2;
-				FunctionsMap OldFunctionsMap3;
-				GetObjProperties (Replacement.Key, OldObjProperties,OldFunctionsMap);
-				GetObjProperties (OldActor, OldObjProperties2,OldFunctionsMap2);
-				GetObjProperties (OldActor->GetClass(), OldObjProperties3,OldFunctionsMap3);
-				GenerateFieldMappings(Replacement.Key, Replacement.Value, OldObjProperties, OldFunctionsMap, FieldMapping, FunctionMapping);
-				GenerateFieldMappings(OldActor, NewActor, OldObjProperties2, OldFunctionsMap2, FieldMapping2, FunctionMapping2);
-
-				UpdateMZReferences(FieldMapping, FunctionMapping);
-				UpdateMZReferences(FieldMapping2, FunctionMapping2);
-
-*/
-
-				
 			}
-			//MZTextureShareManager::GetInstance()->Reset();
 		}
 	}
 }
@@ -1671,8 +1589,10 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	{
 		auto Component = treeNode->GetAsSceneComponentNode()->sceneComponent;
 		auto Actor = Component->Get()->GetOwner();
-
 		auto ComponentClass = Component->Get()->GetClass();
+		
+		TSharedPtr<TreeNode>* ParentActorNode = SceneTree.NodeMap.Find(Actor->GetActorGuid());
+		
 
 		for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
 		{
@@ -3041,18 +2961,9 @@ void FMZSceneTreeManager::UpdateSavedPropertyReferences(FProperty *OldProperty, 
 {
 	if(MZPropertyManager.PropertiesByPointer.Contains(OldProperty))
 	{
-		TSharedPtr<MZProperty> MZProperty = MZPropertyManager.PropertiesByPointer[OldProperty];
+		const TSharedPtr<MZProperty> MZProperty = MZPropertyManager.PropertiesByPointer[OldProperty];
 		MZProperty->UpdatePropertyReference(NewProperty); // Update old reference
 		
-
-		TPair<FProperty*, void*> MapKey = {OldProperty, MZProperty->GetRawObjectContainer()};
-		if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains(MapKey))
-		{
-			auto Value = MZPropertyManager.PropertiesByPropertyAndContainer[MapKey];
-			MZPropertyManager.PropertiesByPropertyAndContainer.Remove(MapKey);
-			MZPropertyManager.PropertiesByPropertyAndContainer.Add({OldProperty, MZProperty->GetRawObjectContainer()}, Value);
-		}
-
 		if(MZPropertyManager.PropertiesByPointer.Contains(OldProperty))
 		{
 			MZPropertyManager.PropertiesByPointer.Remove(OldProperty);
@@ -3062,7 +2973,7 @@ void FMZSceneTreeManager::UpdateSavedPropertyReferences(FProperty *OldProperty, 
 	}
 	if(PropertiesMap.Contains(OldProperty))
 	{
-		auto TempMZProperty = PropertiesMap[OldProperty];
+		const auto TempMZProperty = PropertiesMap[OldProperty];
 		PropertiesMap.Add(NewProperty, TempMZProperty);
 		PropertiesMap.Remove(OldProperty);
 	}
