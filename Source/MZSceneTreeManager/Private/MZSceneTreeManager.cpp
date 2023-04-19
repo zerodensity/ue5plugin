@@ -279,9 +279,9 @@ void FMZSceneTreeManager::StartupModule()
 			}
 			auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
 			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-			auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-			RenderTarget2D->InitAutoFormat(1920, 1080);
-			InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+			//auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+			//RenderTarget2D->InitAutoFormat(1920, 1080);
+			//InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
 
 			PopulateNode(projectionNode->Id);
 			SendNodeUpdate(projectionNode->Id);
