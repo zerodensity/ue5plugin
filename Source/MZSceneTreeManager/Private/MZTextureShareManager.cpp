@@ -23,6 +23,8 @@
 #include "MediaZ/MediaZ.h"
 #include <Builtins_generated.h>
 
+// #include "MZSceneTreeManager.h"
+
 
 MZTextureShareManager* MZTextureShareManager::singleton;
 
@@ -177,10 +179,12 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 {
 	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
-	if(tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset() && !PendingCopyQueue.Contains(mzprop->Id))
+	auto pid = tex->pid();
+	if(pid != (uint64_t)FPlatformProcess::GetCurrentProcessId() || (tex->handle() == curtex->handle() && tex->memory() == curtex->memory() && tex->offset() == curtex->offset() && !PendingCopyQueue.Contains(mzprop->Id)))
 	{
 		return;
 	}
+	
 
 	mzprop->data.resize(size);
 	memcpy(mzprop->data.data(), data, size);
@@ -198,7 +202,6 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 		.usage = (MzImageUsage)tex->usage(),
 	},
 	};
-
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
 		.ReadOnly = RealShowAs == mz::fb::ShowAs::INPUT_PIN,
@@ -267,6 +270,8 @@ void MZTextureShareManager::ExecCommands()
 
 void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
+	
+	std::unique_lock lock4(ResourcesToDeleteMutex);
 	{
 		std::unique_lock lock(CopyOnTickMutex);
 		if(CopyOnTick.Contains(textureProp))
@@ -274,7 +279,7 @@ void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 			auto CopyInfo = CopyOnTick.FindRef(textureProp);
 			if(CopyInfo.DstResource)
 			{
-				CopyInfo.DstResource->Release();
+				ResourcesToDelete.Add(CopyInfo.DstResource);
 			}
 			CopyOnTick.Remove(textureProp);
 		}
@@ -307,8 +312,9 @@ void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 		}
 		if(TextureResource)
 		{
-			TextureResource->Release();
+			ResourcesToDelete.Add(TextureResource);
 		}
+		
 	}
 }
 
@@ -352,22 +358,26 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 			
 		}
 	}
-
+	
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this, Client, CopyOnTickFiltered](FRHICommandListImmediate& RHICmdList)
 		{
 			//std::shared_lock lock(CopyOnTickMutex);
-			WaitCommands();
 			{
+				bool removeHappened = false;
 				std::unique_lock lock(ResourcesToDeleteMutex);
 				for(auto Resource : ResourcesToDelete)
 				{
 					Resource->Release();
+					removeHappened = true;
 				}
 				ResourcesToDelete.Empty();
+				if(removeHappened)
+				{
+					return;
+				}
 			}
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
-			flatbuffers::FlatBufferBuilder fbb;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
 			for (auto& [URT, pin] : CopyOnTickFiltered)
 			{
@@ -463,15 +473,18 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 				if (!pin.ReadOnly)
 				{
 					auto id = pin.SrcMzp->Id;
-					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
+					// do not sent pin dirtied for now
+					// events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
 				}
 			}
 			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands();
 
-			if (!events.empty() && Client && Client->IsConnected())
+			WaitCommands();
+			if (Client && Client->IsConnected())
 			{
-				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+				flatbuffers::FlatBufferBuilder fbb;
+				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
 			}
 		});
 

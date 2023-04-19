@@ -24,6 +24,7 @@ DEFINE_LOG_CATEGORY(LogMZClient);
 #define LOGF(x, y) UE_LOG(LogMZClient, Display, TEXT(x), y)
 
 FGuid FMZClient::NodeId = {};
+FString FMZClient::AppKey = "";
 
 void* FMediaZ::LibHandle = nullptr;
 PFN_MakeAppServiceClient FMediaZ::MakeAppServiceClient = nullptr;
@@ -213,7 +214,7 @@ void MZEventDelegates::OnNodeRemoved()
 
 	if (PluginClient->MZTimeStep.IsValid())
 	{
-		PluginClient->MZTimeStep->Step();
+		PluginClient->MZTimeStep->Step(1.f / 50.f);
 	}
 
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
@@ -285,8 +286,8 @@ void MZEventDelegates::OnExecuteApp(mz::app::AppExecute const& appExecute)
 	{
 		return;
 	}
-
-	PluginClient->OnUpdatedNodeExecuted();
+	
+	PluginClient->OnUpdatedNodeExecuted(appExecute.delta_seconds());
 
 	mz::app::TAppExecute appExecuteCopy;
 	appExecute.UnPackTo(&appExecuteCopy);
@@ -413,7 +414,7 @@ void FMZClient::Disconnected()
 {
 	if (MZTimeStep.IsValid())
 	{
-		MZTimeStep->Step();
+		MZTimeStep->Step(1.f / 50.f);
 	}
 }
 
@@ -426,11 +427,20 @@ void FMZClient::TryConnect()
 
 	if (!AppServiceClient)
 	{
-		
+		FString CmdAppKey;
+		if (FParse::Value(FCommandLine::Get(), TEXT("mzname"), CmdAppKey))
+		{
+			LOGF("MediaZ app key is provided: %s", *CmdAppKey);
+			FMZClient::AppKey = CmdAppKey;
+		}
+		else
+		{
+			FMZClient::AppKey = "UE5";
+		}
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
-		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", "UE5", "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
+		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", TCHAR_TO_ANSI(*FMZClient::AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
@@ -539,7 +549,6 @@ void FMZClient::ShutdownModule()
 bool FMZClient::Tick(float dt)
 {
     TryConnect();
-
 	while (!TaskQueue.IsEmpty()) {
 		Task task;
 		TaskQueue.Dequeue(task);
@@ -549,11 +558,11 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
-void FMZClient::OnUpdatedNodeExecuted()
+void FMZClient::OnUpdatedNodeExecuted(float deltaTime)
 {
 	if (MZTimeStep.IsValid())
 	{
-		MZTimeStep->Step();
+		MZTimeStep->Step(deltaTime);
 	}
 }
 

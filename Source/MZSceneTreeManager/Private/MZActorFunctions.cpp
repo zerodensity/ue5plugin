@@ -22,7 +22,7 @@ flatbuffers::Offset<mz::fb::Node> MZFunction::Serialize(flatbuffers::FlatBufferB
 	{
 		pins.push_back(property->Serialize(fbb));
 	}
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_UTF8(*Function->GetClass()->GetFName().ToString()), false, true, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, TCHAR_TO_UTF8(*CategoryName));
+	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_UTF8(*Function->GetClass()->GetFName().ToString()), false, true, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, TCHAR_TO_UTF8(*CategoryName));
 }
 
 void MZFunction::Invoke() // runs in game thread

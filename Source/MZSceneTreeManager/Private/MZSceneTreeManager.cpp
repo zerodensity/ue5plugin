@@ -179,7 +179,7 @@ void FMZSceneTreeManager::StartupModule()
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
 				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
 			};
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "Control");
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
 		};
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
@@ -208,7 +208,7 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Id = FGuid::NewGuid();
 		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "Control");
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
 		};
 		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 		{
@@ -265,7 +265,7 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Id = FGuid::NewGuid();
 		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "Control");
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
 		};
 		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 		{
@@ -312,7 +312,7 @@ void FMZSceneTreeManager::StartupModule()
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
 				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
 			};
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), "UE5", 0, "Control");
+			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
 		};
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
@@ -1047,6 +1047,23 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
+	FGuid OldParentTransformId = {};
+	for (auto [oldGuid, spawnTag] : spawnedByMediaz)
+	{
+		if(spawnTag == "RealityParentTransform")
+		{
+			AActor* spawnedActor = MZActorManager->SpawnActor(spawnTag);
+			sceneActorMap.Add(oldGuid, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
+			MZActorManager->ParentTransformActor = MZActorReference(spawnedActor);
+			MZActorManager->ParentTransformActor->GetRootComponent()->SetMobility(EComponentMobility::Static);
+			OldParentTransformId = oldGuid;
+		}
+	}
+	if(OldParentTransformId.IsValid())
+	{
+		spawnedByMediaz.Remove(OldParentTransformId);
+	}
+		
 	for (auto [oldGuid, spawnTag] : spawnedByMediaz)
 	{
 		if (!sceneActorMap.Contains(oldGuid))
@@ -1150,7 +1167,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 	PinUpdates.clear();
 	flatbuffers::FlatBufferBuilder fb2;
-
+	std::vector<MZPortal> NewPortals;
 	for (auto update : updates)
 	{
 		FGuid ActorId = update.actorId;
@@ -1211,7 +1228,9 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 				MZPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
 				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
+				NewPortals.push_back(NewPortal);
 			}
+			
 		}
 
 	}
@@ -1223,6 +1242,20 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		auto root3 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf3.data());
 		MZClient->AppServiceClient->SendPartialNodeUpdate(*root3);
 		// MZClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(fb2, mz::CreatePartialNodeUpdateDirect(fb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates)));
+	}
+	for (auto Portal : NewPortals)
+	{
+		if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+		{
+			flatbuffers::FlatBufferBuilder fb4;
+			auto SourceProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+			auto UpdatedMetadata = SourceProperty->SerializeMetaData(fb4);
+			auto offset4 = mz::CreateAppEventOffset(fb4, mz::app::CreatePinMetadataUpdateDirect(fb4, (mz::fb::UUID*)&Portal.Id, &UpdatedMetadata  ,true));
+			fb4.Finish(offset4);
+			auto buf4 = fb4.Release();
+			auto root4 = flatbuffers::GetRoot<mz::app::AppEvent>(buf4.data());
+			MZClient->AppServiceClient->Send(*root4);
+		}
 	}
 	LOG("Node from MediaZ successfully imported");
 }
@@ -1419,8 +1452,9 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
 			UFunction* UEFunction = *FuncIt;
-			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable | FUNC_Public) &&
-				!UEFunction->HasAllFunctionFlags(FUNC_Event))
+			// LOGF("function with name %s is a function, indeed!", *UEFunction->GetFName().ToString());
+			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable /*| FUNC_Public*/) /*&&
+				!UEFunction->HasAllFunctionFlags(FUNC_Event)*/) //commented out because custom events are seems to public? and not has FUNC_Event flags?
 			{
 				auto UEFunctionName = UEFunction->GetFName().ToString();
 
@@ -1438,7 +1472,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor->Get(), UEFunction));
 
 				// Parse all function parameters.
-
+				bool bNotSupported = false;
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
 					if (auto mzprop = MZPropertyManager.CreateProperty(nullptr, *PropIt))
@@ -1450,6 +1484,15 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 							mzfunc->OutProperties.push_back(mzprop);
 						}
 					}
+					else
+					{
+						bNotSupported = true;
+						break;
+					}
+				}
+				if(bNotSupported)
+				{
+					continue;
 				}
 
 				actorNode->Functions.push_back(mzfunc);
@@ -1932,8 +1975,13 @@ void FMZSceneTreeManager::SendActorDeleted(FGuid Id, TSet<UObject*>& RemovedObje
 		RemoveProperties(node, propertiesToRemove);
 		TSet<FGuid> PropertiesWithPortals;
 		TSet<FGuid> PortalsToRemove;
+		auto texman = MZTextureShareManager::GetInstance();
 		for (auto prop : propertiesToRemove)
 		{
+			if(prop->TypeName == "mz.fb.Texture")
+			{
+				texman->TextureDestroyed(prop.Get());
+			}
 			if (!MZPropertyManager.PropertyToPortalPin.Contains(prop->Id))
 			{
 				continue;
@@ -2303,12 +2351,8 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, TFunction<void(AActor *act
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
-	
 	TMap<FString, FString> savedMetadata;
-	if(!bIsSpawningParentTransform)
-	{
-		savedMetadata.Add({"spawnTag", SpawnTag});
-	}
+	savedMetadata.Add({"spawnTag", SpawnTag});
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 
 	MZActorReference *OnlyReference = new MZActorReference(SpawnedActor);
@@ -2318,12 +2362,9 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, TFunction<void(AActor *act
 	
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), OnlyReference, mostRecentParent);
-	if(!bIsSpawningParentTransform)
-	{
-		ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
-	}
+	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
-	 
+	
 	if (!MZClient->IsConnected())
 	{
 		return SpawnedActor;

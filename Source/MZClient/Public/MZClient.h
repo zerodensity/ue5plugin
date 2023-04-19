@@ -140,7 +140,7 @@ public:
 	void OnPreWorldFinishDestroy(UWorld* World);
 
 	//Called when the node is executed from mediaZ
-	void OnUpdatedNodeExecuted();
+	void OnUpdatedNodeExecuted(float deltaTime);
 	
 	//Grpc client to communicate
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;
@@ -156,8 +156,10 @@ public:
 	TWeakObjectPtr<UMZCustomTimeStep> MZTimeStep = nullptr;
 	bool CustomTimeStepBound = false;
 
-	//MediaZ root node id
+	// MediaZ root node id
 	static FGuid NodeId;
+	// The app key we are using for MediaZ
+	static FString AppKey;
 
 	TMap<FGuid, FName> PathUpdates;
 
