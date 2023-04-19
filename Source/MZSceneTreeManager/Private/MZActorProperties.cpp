@@ -681,7 +681,10 @@ std::vector<uint8> MZStringProperty::UpdatePinValue(uint8* customContainer)
 
 	return data;
 }
-
+FNameProperty* MZNameProperty::GetNameProperty() const
+{
+	return static_cast<FNameProperty*>(Property);
+}
 void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
@@ -696,7 +699,7 @@ void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 	if (container)
 	{
 		FString newval((char*)val);
-		nameprop->SetPropertyValue_InContainer(container, FName(newval));
+		GetNameProperty()->SetPropertyValue_InContainer(container, FName(newval));
 	}
 	if (!customContainer && container)
 	{
@@ -717,7 +720,7 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 	FString val(" ");
 	if (container)
 	{
-		val = nameprop->GetPropertyValue_InContainer(container).ToString();
+		val = GetNameProperty()->GetPropertyValue_InContainer(container).ToString();
 	}
 	auto s = StringCast<ANSICHAR>(*val);
 	data = std::vector<uint8_t>(s.Length() + 1, 0);
@@ -725,7 +728,10 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 	
 	return data;
 }
-
+FTextProperty* MZTextProperty::GetTextProperty() const
+{
+	return static_cast<FTextProperty*>(Property);
+}
 void MZTextProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
@@ -740,7 +746,7 @@ void MZTextProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 	if (container)
 	{
 		FString newval((char*)val);
-		textprop->SetPropertyValue_InContainer(container, FText::FromString(newval));
+		GetTextProperty()->SetPropertyValue_InContainer(container, FText::FromString(newval));
 	}
 
 	if (!customContainer && container)
@@ -763,7 +769,7 @@ std::vector<uint8> MZTextProperty::UpdatePinValue(uint8* customContainer)
 	FString val(" ");
 	if (container)
 	{
-		val = textprop->GetPropertyValue_InContainer(container).ToString();
+		val = GetTextProperty()->GetPropertyValue_InContainer(container).ToString();
 	}
 
 	auto s = StringCast<ANSICHAR>(*val);

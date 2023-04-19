@@ -72,9 +72,9 @@ public:
 	void ReAddActorsToSceneTree();
 
 	void RegisterDelegates();
-	void PreSave(uint32 SaveFlags, UWorld* World);
-	void PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess);
-
+	void PreSaveWorld(UWorld* World, FObjectPreSaveContext Context);
+	void PostSaveWorld(UWorld* World, FObjectPostSaveContext Context);
+	
 	MZActorReference ParentTransformActor;
 
 	MZSceneTree& SceneTree;

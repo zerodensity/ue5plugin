@@ -279,9 +279,6 @@ void FMZSceneTreeManager::StartupModule()
 			}
 			auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
 			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-			//auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-			//RenderTarget2D->InitAutoFormat(1920, 1080);
-			//InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
 
 			PopulateNode(projectionNode->Id);
 			SendNodeUpdate(projectionNode->Id);
@@ -820,10 +817,9 @@ void FMZSceneTreeManager::OnObjectsReinstanced(const TMap<UObject*, UObject*>& O
 {
 	for (const TPair<UObject*, UObject*>& ObjectPair : OldToNewInstanceMap)
 	{
-		
+		// Stub for future cases
 	}
 }
-
 void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap)
 {
 	for(auto Replacement : ReplacementMap)
@@ -2521,12 +2517,14 @@ void FMZActorManager::ReAddActorsToSceneTree()
 
 void FMZActorManager::RegisterDelegates()
 {
-	FEditorDelegates::PreSaveWorld.AddRaw(this, &FMZActorManager::PreSave);
-	FEditorDelegates::PostSaveWorld.AddRaw(this, &FMZActorManager::PostSave);
+	
+	FEditorDelegates::PreSaveWorldWithContext.AddRaw(this, &FMZActorManager::PreSaveWorld);
+	FEditorDelegates::PostSaveWorldWithContext.AddRaw(this, &FMZActorManager::PostSaveWorld);
 }
 
-void FMZActorManager::PreSave(uint32 SaveFlags, UWorld* World)
+void FMZActorManager::PreSaveWorld(UWorld* World, FObjectPreSaveContext Context)
 {
+	uint32 SaveFlags = Context.GetSaveFlags();
 	for (auto [Actor, spawnTag] : Actors)
 	{
 		AActor* actor = Actor->Get();
@@ -2534,12 +2532,10 @@ void FMZActorManager::PreSave(uint32 SaveFlags, UWorld* World)
 		{
 			continue;
 		}
-
 		actor->SetFlags(actor->GetFlags() | RF_Transient);
 	}
 }
-
-void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
+void FMZActorManager::PostSaveWorld(UWorld* World, FObjectPostSaveContext Context)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{
@@ -2548,7 +2544,6 @@ void FMZActorManager::PostSave(uint32 SaveFlags, UWorld* World, bool bSuccess)
 		{
 			continue;
 		}
-
 		actor->SetFlags(actor->GetFlags() & ~RF_Transient);
 	}
 }

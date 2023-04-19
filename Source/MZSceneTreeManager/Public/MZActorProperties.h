@@ -296,13 +296,13 @@ class MZTextProperty : public MZProperty
 {
 public:
 	MZTextProperty(MZObjectReference* ObjectReference, FTextProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), textprop(uproperty) 
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
 	}
 
-	FTextProperty* textprop;
+	FTextProperty* GetTextProperty() const;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
@@ -312,13 +312,13 @@ class MZNameProperty : public MZProperty
 {
 public:
 	MZNameProperty(MZObjectReference* ObjectReference, FNameProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), nameprop(uproperty) 
+		: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
 	}
 
-	FNameProperty* nameprop;
+	FNameProperty* GetNameProperty() const;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
