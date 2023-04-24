@@ -43,7 +43,7 @@ public:
 
 	TMap<FGuid, TSharedPtr<MZProperty>> customProperties;
 	TMap<FGuid, FGuid> PropertyToPortalPin;
-	TMap<FGuid, MZPortal> PortalPinsById;
+	TMap<FGuid, TSharedPtr<MZPortal>> PortalPinsById;
 	TMap<FGuid, TSharedPtr<MZProperty>> PropertiesById;
 	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
 	TMap<FGuid, TSet<FGuid>> ActorsPropertyIds; //actor guid x actor mzproperties guid
@@ -183,6 +183,8 @@ public:
 	//Set a properties value
 	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 
+	void RemoveEverythingRelatedWithProperty(const FName& PropertyName, const AActor* OldActor, const FProperty* OldProperty);
+
 #ifdef VIEWPORT_TEXTURE
 	//Set viewport texture pin's container to current viewport client's texture on play
 	void ConnectViewportTexture();
@@ -207,6 +209,10 @@ public:
 	void SendPinUpdate();
 	
 	void RemovePortal(FGuid PortalId);
+	void RemovePortalOfProperty(const TSharedPtr<MZProperty>& MzProperty);
+	void RemovePropertyEntries(const TSharedPtr<MZProperty>& MZProperty);
+	void RemoveProperty(TSharedPtr<MZProperty>& prop);
+	TSharedPtr<MZPortal> GetPortalOfProperty(const TSharedPtr<MZProperty>& MzProperty) const;
 	
 	//Sends pin to add to a node
 	void SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop);
@@ -296,7 +302,7 @@ public:
 	typedef TMap<FProperty*, FProperty*> FPropertyMapping;
 	typedef TMap<UFunction*, UFunction*> FFunctionMapping;
 	typedef TMap<FName, FProperty *>	FPropertiesMap;
-	typedef TMap<FName, UFunction *>	FunctionsMap;
+	typedef TMap<FName, UFunction *>	FFunctionsMap;
 	void UpdateMZReferences(FPropertyMapping& PropertyMapping, FFunctionMapping& FunctionMapping);
 private:
 	void OnBlueprintCompiled(UBlueprint *BP);
@@ -304,24 +310,25 @@ private:
 	static std::vector<TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
 	
 	void UpdateSavedPropertyReferences(FProperty *OldProperties, FProperty *NewProp);
-	void UpdateMZPropertyReferences(const FName &PropertyName, FProperty*& Property, FPropertiesMap &NewObjProperties);
+	void UpdateMZPropertyReferences(const FName &PropertyName, FProperty*& Property, FPropertiesMap &NewObjProperties, TArray<FName> &RemovedProperties);
+	void SendPinsToDelete(std::vector<mz::fb::UUID> &pinsToDelete);
 	
 	static void GenerateFieldMappings(UObject* OldObject,
 									  UObject* NewObject,
 									  const FPropertiesMap& ObjProperties,
-	                                  const FunctionsMap& Functions,
+	                                  const FFunctionsMap& Functions,
 	                                  FPropertyMapping& FieldMapping,
 	                                  FFunctionMapping& FunctionMapping);
 	
 	static void GenerateFieldMappings(FPropertiesMap &OldPropertyMap,
 									  FPropertiesMap &NewPropertyMap,
-									  FunctionsMap &OldFunctionsMap,
-									  FunctionsMap &NewFunctionsMap,
+									  FFunctionsMap &OldFunctionsMap,
+									  FFunctionsMap &NewFunctionsMap,
 									  FPropertyMapping& FieldMapping,
 									  FFunctionMapping& FunctionMapping);
 	
-	static void GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FunctionsMap& Functions);
-	static void GetClassProperties (UClass* ActorReferencedClass, FPropertiesMap& ObjProperties, FunctionsMap& Functions);
+	static void GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FFunctionsMap& Functions);
+	static void GetClassProperties (UClass* ActorReferencedClass, FPropertiesMap& ObjProperties, FFunctionsMap& Functions);
 	static bool ShouldCompareProperty (const FProperty* Property);
 	TMap<UObject*, UObject*> ReInstanceCache;
 };
