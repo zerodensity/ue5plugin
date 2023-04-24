@@ -1119,6 +1119,10 @@ MZObjectReference::MZObjectReference(TObjectPtr<UObject> Object)
 {
 	ObjectRef = Object;
 }
+void MZObjectReference::AddProperty(FName PropertyName, TSharedPtr<class MZProperty>MzProperty)
+{
+	PropertiesMap.Add(PropertyName, MzProperty);
+}
 UObject *MZObjectReference::GetAsObject() const
 {
 	return ObjectRef.Get(true);

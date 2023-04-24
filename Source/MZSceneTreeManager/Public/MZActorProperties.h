@@ -20,6 +20,10 @@ public:
 		
 	}
 
+	void AddProperty(FName PropertyName, TSharedPtr<class MZProperty>MzProperty);
+	
+	TMap<FName, TSharedPtr<class MZProperty>> PropertiesMap;
+
 	UObject *GetAsObject() const;
 	virtual bool UpdateObjectPointer(UObject *Object);
 

@@ -310,6 +310,8 @@ private:
 	static std::vector<TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
 	
 	void UpdateSavedPropertyReferences(FProperty *OldProperties, FProperty *NewProp);
+	void UpdateSavedPropertyReferences(TSharedPtr<MZProperty> MzProperty, FProperty *NewProperty);
+	void UpdateMZPropertyReferences(const FName &PropertyName, TSharedPtr<MZProperty> MzProperty, FPropertiesMap &NewObjProperties, TArray<FName> &RemovedProperties);
 	void UpdateMZPropertyReferences(const FName &PropertyName, FProperty*& Property, FPropertiesMap &NewObjProperties, TArray<FName> &RemovedProperties);
 	void SendPinsToDelete(std::vector<mz::fb::UUID> &pinsToDelete);
 	
@@ -328,6 +330,7 @@ private:
 									  FFunctionMapping& FunctionMapping);
 	
 	static void GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FFunctionsMap& Functions);
+	static TArray<TPair<FName, FProperty*>> GetNewlyAddedProperties(FPropertiesMap& OldProperties, FPropertiesMap& NewObjProperties);
 	static void GetClassProperties (UClass* ActorReferencedClass, FPropertiesMap& ObjProperties, FFunctionsMap& Functions);
 	static bool ShouldCompareProperty (const FProperty* Property);
 	TMap<UObject*, UObject*> ReInstanceCache;
