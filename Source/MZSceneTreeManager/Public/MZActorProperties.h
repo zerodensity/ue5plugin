@@ -352,7 +352,7 @@ public:
 	MZObjectProperty(MZObjectReference* ObjectReference, FObjectProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 	
 
-	FObjectProperty* objectprop;
+	FObjectProperty* GetObjectProperty() const;
 	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
 

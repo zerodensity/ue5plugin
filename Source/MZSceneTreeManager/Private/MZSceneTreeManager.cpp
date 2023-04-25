@@ -879,8 +879,7 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 						if(!OldProperties.Contains(PropName))
 						{
 							// Odd behaviour
-							volatile int a = 1;
-							a++;
+							UE_LOG(LogTemp, Warning, TEXT("OldProperties does not contain %s, which is stored in actor->PropertiesMap"), *PropName.ToString());
 						}
 						UpdateMZPropertyReferences(PropName, MzProperty, NewObjProperties, RemovedProperties);
 						NewObjProperties.Remove(PropName);

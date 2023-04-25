@@ -500,7 +500,7 @@ void MZStructProperty::SetPropValue(void* val, size_t size, uint8* customContain
 bool PropertyVisible(FProperty* ueproperty);
 
 MZObjectProperty::MZObjectProperty(MZObjectReference* ObjectReference, FObjectProperty* uproperty, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
-	: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty), objectprop(uproperty)
+	: MZProperty(ObjectReference, uproperty, parentCategory, StructPtr, parentProperty)
 {
 	UObject *container = nullptr;
 
@@ -509,20 +509,20 @@ MZObjectProperty::MZObjectProperty(MZObjectReference* ObjectReference, FObjectPr
 		container = ObjectReference->GetAsObject();
 	}
 	
-	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
+	if (GetObjectProperty()->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 	{
 		TypeName = "mz.fb.Texture"; 
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(this);
 		data = mz::Buffer::From(tex);
 	}
-	else if (objectprop->PropertyClass->IsChildOf<UUserWidget>())
+	else if (GetObjectProperty()->PropertyClass->IsChildOf<UUserWidget>())
 	{
 		UObject* Container = ActorContainer->Get();
 		if (!Container)
 		{
 			Container = ComponentContainer->Get();
 		}
-		auto Widget = Cast<UObject>(objectprop->GetObjectPropertyValue(objectprop->ContainerPtrToValuePtr<UUserWidget>(Container)));
+		auto Widget = Cast<UObject>(GetObjectProperty()->GetObjectPropertyValue(GetObjectProperty()->ContainerPtrToValuePtr<UUserWidget>(Container)));
 		if(!Widget)
 		{
 			data = std::vector<uint8_t>(1, 0);
@@ -558,11 +558,11 @@ MZObjectProperty::MZObjectProperty(MZObjectReference* ObjectReference, FObjectPr
 			if(mzprop->mzMetaDataMap.Contains("ContainerPath"))
 			{
 				auto propPath = mzprop->mzMetaDataMap.Find("ContainerPath");
-				propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
+				propPath->InsertAt(0, GetObjectProperty()->GetFName().ToString() + FString("/") );
 			}
 			else
 			{
-				mzprop->mzMetaDataMap.Add("ContainerPath", objectprop->GetFName().ToString());
+				mzprop->mzMetaDataMap.Add("ContainerPath", GetObjectProperty()->GetFName().ToString());
 			}
 			
 			
@@ -596,11 +596,11 @@ MZObjectProperty::MZObjectProperty(MZObjectReference* ObjectReference, FObjectPr
 				if(It->mzMetaDataMap.Contains("ContainerPath"))
 				{
 					auto propPath = It->mzMetaDataMap.Find("ContainerPath");
-					propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
+					propPath->InsertAt(0, GetObjectProperty()->GetFName().ToString() + FString("/") );
 				}
 				else
 				{
-					It->mzMetaDataMap.Add("ContainerPath", objectprop->GetFName().ToString());
+					It->mzMetaDataMap.Add("ContainerPath", GetObjectProperty()->GetFName().ToString());
 				}
 				//RegisteredProperties.Add(it->Id, it);
 				It->mzMetaDataMap.Remove("component");
@@ -633,6 +633,10 @@ MZObjectProperty::MZObjectProperty(MZObjectReference* ObjectReference, FObjectPr
 	}
 }
 
+FObjectProperty* MZObjectProperty::GetObjectProperty() const
+{
+	return static_cast<FObjectProperty*>(Property);
+}
 void MZObjectProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 }
