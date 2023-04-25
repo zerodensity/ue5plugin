@@ -27,7 +27,7 @@ class FMZPropertyManager
 public:
 	FMZPropertyManager();
 
-	TSharedPtr<MZProperty> CreateProperty(MZObjectReference* ActorReference,
+	TSharedPtr<MZProperty> CreateProperty(MZObjectReference* ObjectReference,
 		FProperty* uproperty,
 		FString parentCategory = FString(""));
 
@@ -83,7 +83,7 @@ public:
 	
 	TSet<FGuid> ActorIds;
 	TArray< TPair<MZActorReference *,TMap<FString,FString>> > Actors;
-	TMap<MZObjectReference *, TMap<FName, FProperty *>> ActorPropertyRelationMap;
+	TMap<MZObjectReference *, TMap<FName, FProperty *>> ObjectPropertyRelationMap;
 };
 
 
@@ -162,14 +162,9 @@ public:
 	// Called when object are replaced (like reinstancing)
 	void OnObjectsReplaced(const TMap<UObject*, UObject*>& ReplacementMap);
 
-	void OnObjectsReinstanced(const TMap<UObject*, UObject*>& OldToNewInstanceMap);
-
 	//delegate called when a property is changed from unreal engine editor
 	//it updates thecorresponding property in mediaz
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
-
-	
-	void OnPreObjectPropertyChanged(UObject* Object, const class FEditPropertyChain& PropChain);
 
 	//Called when an actor is spawned into the world
 	void OnActorSpawned(AActor* InActor);
@@ -183,7 +178,7 @@ public:
 	//Set a properties value
 	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
 
-	void RemoveEverythingRelatedWithProperty(const FName& PropertyName, const AActor* OldActor, const FProperty* OldProperty);
+	void RemovePropertyOfActor(const FName& PropertyName, const AActor* OldActor);
 
 #ifdef VIEWPORT_TEXTURE
 	//Set viewport texture pin's container to current viewport client's texture on play
@@ -209,9 +204,8 @@ public:
 	void SendPinUpdate();
 	
 	void RemovePortal(FGuid PortalId);
-	void RemovePortalOfProperty(const TSharedPtr<MZProperty>& MzProperty);
-	void RemovePropertyEntries(const TSharedPtr<MZProperty>& MZProperty);
-	void RemoveProperty(TSharedPtr<MZProperty>& prop);
+	void RemovePortal(TSharedPtr<MZPortal> MzPortal);
+	void RemovePropertyEntries(const TSharedPtr<MZProperty>& MzProperty);
 	TSharedPtr<MZPortal> GetPortalOfProperty(const TSharedPtr<MZProperty>& MzProperty) const;
 	
 	//Sends pin to add to a node
@@ -307,7 +301,7 @@ public:
 private:
 	void OnBlueprintCompiled(UBlueprint *BP);
 
-	static std::vector<TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
+	static TMap<FName, TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
 	
 	void UpdateSavedPropertyReferences(FProperty *OldProperties, FProperty *NewProp);
 	void UpdateSavedPropertyReferences(TSharedPtr<MZProperty> MzProperty, FProperty *NewProperty);

@@ -141,6 +141,10 @@ void MZProperty::UpdatePropertyReference(FProperty *NewProperty)
 {
 	this->Property = NewProperty;
 }
+void MZProperty::RemovePortal()
+{
+	
+}
 void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;

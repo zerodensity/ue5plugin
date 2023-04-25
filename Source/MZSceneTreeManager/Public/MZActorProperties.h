@@ -8,7 +8,7 @@
 #include "MZClient.h"
 
 class MZStructProperty;
-
+class MZProperty;
 
 class MZSCENETREEMANAGER_API MZObjectReference
 {
@@ -20,9 +20,9 @@ public:
 		
 	}
 
-	void AddProperty(FName PropertyName, TSharedPtr<class MZProperty>MzProperty);
+	void AddProperty(FName PropertyName, TSharedPtr<MZProperty>MzProperty);
 	
-	TMap<FName, TSharedPtr<class MZProperty>> PropertiesMap;
+	TMap<FName, TSharedPtr<MZProperty>> PropertiesMap;
 
 	UObject *GetAsObject() const;
 	virtual bool UpdateObjectPointer(UObject *Object);
@@ -106,6 +106,7 @@ public:
 	UObject* GetRawObjectContainer();
 	void* GetRawContainer();
 	void UpdatePropertyReference(FProperty *NewProperty);
+	void RemovePortal();
 
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr);
 	//std::vector<uint8> GetValue(uint8* customContainer = nullptr);
@@ -118,6 +119,7 @@ public:
 
 	MZActorReference* ActorContainer = nullptr;
 	MZComponentReference* ComponentContainer = nullptr;
+	TSharedPtr<struct MZPortal> Portal = nullptr;
 	UObject* ObjectPtr = nullptr;
 	uint8* StructPtr = nullptr;
 

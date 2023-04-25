@@ -202,9 +202,12 @@ flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBu
 std::vector<flatbuffers::Offset<mz::fb::Pin>> ActorNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-	for (auto mzprop : Properties)
+	if(actor)
 	{
-		pins.push_back(mzprop->Serialize(fbb));
+		for (auto &[PropName, MzProperty] : actor->PropertiesMap)
+		{
+			pins.push_back(MzProperty->Serialize(fbb));
+		}
 	}
 	return pins;
 }
@@ -224,9 +227,12 @@ flatbuffers::Offset<mz::fb::Node> SceneComponentNode::Serialize(flatbuffers::Fla
 std::vector<flatbuffers::Offset<mz::fb::Pin>> SceneComponentNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-	for (auto mzprop : Properties)
+	if(sceneComponent)
 	{
-		pins.push_back(mzprop->Serialize(fbb));
+		for (auto &[PropName, MzProperty] : sceneComponent->PropertiesMap)
+		{
+			pins.push_back(MzProperty->Serialize(fbb));
+		}
 	}
 	return pins;
 }
