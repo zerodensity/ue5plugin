@@ -243,9 +243,9 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	{
 		TrackData->render_ratio = track->render_ratio();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LOCATION))
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_DISTORTION_SCALE))
 	{
-		TrackData->distortion_scale = track->render_ratio();
+		TrackData->distortion_scale = track->distortion_scale();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_SENSOR_SIZE))
 	{
