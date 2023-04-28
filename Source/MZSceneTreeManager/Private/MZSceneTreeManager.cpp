@@ -549,7 +549,7 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 {
 	FVector2D pos(request.pos()->x(), request.pos()->y());
 	FGuid itemId = *(FGuid*)request.item_id();
-	uint32 instigator = request.instigator();
+	auto* instigator = request.instigator();
 
 	if (SceneTree.NodeMap.Contains(itemId))
 	{
