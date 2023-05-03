@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 //mediaz plugin includes
 #include "MZSceneTreeManager.h"
 #include "MZClient.h"

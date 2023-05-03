@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZTextureShareManager.h"
 
 #include "HardwareInfo.h"

@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZViewportManager.h"
 
 FMZViewportManager::FMZViewportManager()

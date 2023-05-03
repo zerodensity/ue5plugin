@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZUMGRenderer.h"
 #include "Slate/WidgetRenderer.h"
 #include "Blueprint/UserWidget.h"

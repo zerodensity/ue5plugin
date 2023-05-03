@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZSceneTree.h"
 
 MZSceneTree::MZSceneTree()

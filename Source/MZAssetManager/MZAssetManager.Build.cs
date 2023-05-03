@@ -1,4 +1,4 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Copyright MediaZ AS. All Rights Reserved.
 
 
 using System;

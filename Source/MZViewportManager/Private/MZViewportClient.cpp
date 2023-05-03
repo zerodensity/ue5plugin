@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZViewportClient.h"
 #include "CanvasTypes.h"
 #include "UObject/ObjectPtr.h"

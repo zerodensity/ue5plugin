@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZActorProperties.h"
 #include "MZTextureShareManager.h"
 #include "EditorCategoryUtils.h"

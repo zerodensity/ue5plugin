@@ -1,3 +1,7 @@
+/*
+ * Copyright MediaZ AS. All Rights Reserved.
+ */
+
 #pragma once
 #include "Engine/GameViewportClient.h"
 #include "Engine/TextureRenderTarget2D.h"
