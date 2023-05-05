@@ -39,6 +39,10 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 
 	for (auto pin : *archive.pins())
 	{
+		if(!pin->data() || pin->data()->size() <= 0 )
+		{
+			continue;
+		}
 		std::vector<uint8> data(pin->data()->size(), 0);
 		memcpy(data.data(), pin->data()->data(), data.size());
 		re.Add(*(FGuid*)pin->id()->bytes()->Data(), data);
@@ -1125,6 +1129,10 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 	}
 
 	auto mzprop = MZPropertyManager.PropertiesById.FindRef(pinId);
+	if(!mzprop->GetRawContainer())
+	{
+		return;
+	}
 	std::vector<uint8_t> copy(size, 0);
 	memcpy(copy.data(), newval, size);
 
@@ -1595,7 +1603,7 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 
 void FMZSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
 {
-	if (!MZClient->IsConnected())
+	if (!MZClient->IsConnected() || data.empty())
 	{
 		return;
 	}
