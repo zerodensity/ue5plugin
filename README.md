@@ -1,4 +1,4 @@
-## READ ME (and be a nice child) IF YOU WANT TO SEE TEXTURE ON MEDIAZ
+## MediaZ UE PLUGIN
 
 
 
