@@ -49,6 +49,5 @@
 
 10. Create new unreal-5 C++  project 
 11. Run mediaz with the command  ```./regen.py -r"mzLauncher mzEditor mzLogger"```
-12. Create new Texture Render Target2D and new Remote Control Preset
 
-will be continue..
+
