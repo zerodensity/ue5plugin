@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 //mediaz plugin includes
 #include "MZSceneTreeManager.h"
 #include "MZClient.h"
@@ -34,6 +36,10 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 
 	for (auto pin : *archive.pins())
 	{
+		if(!pin->data() || pin->data()->size() <= 0 )
+		{
+			continue;
+		}
 		std::vector<uint8> data(pin->data()->size(), 0);
 		memcpy(data.data(), pin->data()->data(), data.size());
 		re.Add(*(FGuid*)pin->id()->bytes()->Data(), data);
@@ -578,7 +584,7 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 {
 	FVector2D pos(request.pos()->x(), request.pos()->y());
 	FGuid itemId = *(FGuid*)request.item_id();
-	uint32 instigator = request.instigator();
+	auto instigator = request.instigator();
 
 	if (SceneTree.NodeMap.Contains(itemId))
 	{
@@ -1323,6 +1329,10 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 	}
 
 	auto mzprop = MZPropertyManager.PropertiesById.FindRef(pinId);
+	if(!mzprop->GetRawContainer())
+	{
+		return;
+	}
 	std::vector<uint8_t> copy(size, 0);
 	memcpy(copy.data(), newval, size);
 
@@ -1792,7 +1802,7 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 
 void FMZSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
 {
-	if (!MZClient->IsConnected())
+	if (!MZClient->IsConnected() || data.empty())
 	{
 		return;
 	}
@@ -2617,14 +2627,12 @@ void FMZActorManager::ReAddActorsToSceneTree()
 
 void FMZActorManager::RegisterDelegates()
 {
-	
-	FEditorDelegates::PreSaveWorldWithContext.AddRaw(this, &FMZActorManager::PreSaveWorld);
-	FEditorDelegates::PostSaveWorldWithContext.AddRaw(this, &FMZActorManager::PostSaveWorld);
+	FEditorDelegates::PreSaveWorldWithContext.AddRaw(this, &FMZActorManager::PreSave);
+	FEditorDelegates::PostSaveWorldWithContext.AddRaw(this, &FMZActorManager::PostSave);
 }
 
-void FMZActorManager::PreSaveWorld(UWorld* World, FObjectPreSaveContext Context)
+void FMZActorManager::PreSave(UWorld* World, FObjectPreSaveContext Context)
 {
-	uint32 SaveFlags = Context.GetSaveFlags();
 	for (auto [Actor, spawnTag] : Actors)
 	{
 		AActor* actor = Actor->Get();
@@ -2635,7 +2643,8 @@ void FMZActorManager::PreSaveWorld(UWorld* World, FObjectPreSaveContext Context)
 		actor->SetFlags(actor->GetFlags() | RF_Transient);
 	}
 }
-void FMZActorManager::PostSaveWorld(UWorld* World, FObjectPostSaveContext Context)
+
+void FMZActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{

@@ -1,3 +1,7 @@
+/*
+ * Copyright MediaZ AS. All Rights Reserved.
+ */
+
 #pragma once
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
@@ -72,9 +76,9 @@ public:
 	void ReAddActorsToSceneTree();
 
 	void RegisterDelegates();
-	void PreSaveWorld(UWorld* World, FObjectPreSaveContext Context);
-	void PostSaveWorld(UWorld* World, FObjectPostSaveContext Context);
-	
+	void PreSave(UWorld* World, FObjectPreSaveContext Context);
+	void PostSave(UWorld* World, FObjectPostSaveContext Context);
+
 	MZActorReference ParentTransformActor;
 
 	MZSceneTree& SceneTree;

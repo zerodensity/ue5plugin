@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZUMGRenderManager.h"
 #include "EngineModule.h"
 #include "Engine/TextureRenderTarget2D.h"

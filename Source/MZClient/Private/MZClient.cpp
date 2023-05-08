@@ -1,3 +1,5 @@
+// Copyright MediaZ AS. All Rights Reserved.
+
 #include "MZClient.h"
 #include "MZCustomTimeStep.h"
 // std
