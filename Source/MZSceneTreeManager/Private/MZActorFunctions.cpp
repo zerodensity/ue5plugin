@@ -29,12 +29,6 @@ flatbuffers::Offset<mz::fb::Node> MZFunction::Serialize(flatbuffers::FlatBufferB
 
 void MZFunction::Invoke() // runs in game thread
 {
-	//Function->SetMetaData()
-	/*if (!Parameters)
-	{
-		
-		return;
-	}*/
 	Container->Modify();
 	Container->ProcessEvent(Function, Parameters);
 }

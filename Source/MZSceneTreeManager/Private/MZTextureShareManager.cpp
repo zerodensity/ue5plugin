@@ -25,7 +25,6 @@
 #include "MediaZ/MediaZ.h"
 #include <Builtins_generated.h>
 
-// #include "MZSceneTreeManager.h"
 
 
 MZTextureShareManager* MZTextureShareManager::singleton;
@@ -383,16 +382,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 				{
 					continue;
 				}
-				//auto* tex = flatbuffers::GetRoot<mz::fb::Texture>(pin.SrcMzp->data.data());
-				//std::cout << tex << std::endl;
- 				//FD3D12Texture* Base = GetD3D12TextureFromRHITexture(RHIResource);
-				
 				FRHITexture* RHITexture = RHIResource;
-				//if (RHITexture && EnumHasAnyFlags(RHITexture->GetFlags(), TexCreate_Presentable))
-				//{
-				//	FD3D12BackBufferReferenceTexture2D* BufferBufferReferenceTexture = (FD3D12BackBufferReferenceTexture2D*)RHITexture;
-				//	RHITexture = BufferBufferReferenceTexture->GetBackBufferTexture();
-				//}
 				FD3D12Texture* Result((FD3D12Texture*)RHITexture->GetTextureBaseRHI());
 				FD3D12Texture* Base = Result;
 
@@ -403,6 +393,8 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 
 				if (pin.ReadOnly && SrcDesc != DstDesc)
 				{
+					// codes for insterting mediaZ texture to property
+					// commented out for not being properly tested
 					// EPixelFormat format = PF_Unknown;
 					// ETextureSourceFormat sourceFormat = TSF_Invalid;
 					// ETextureRenderTargetFormat rtFormat = RTF_RGBA16f;
@@ -492,15 +484,11 @@ void MZTextureShareManager::Initiate()
 		return;
 	}
 
-	//Dev = (ID3D12Device*)GDynamicRHI->RHIGetNativeDevice();
 	Dev = (ID3D12Device*)GetID3D12DynamicRHI()->RHIGetNativeDevice();
 	HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAlloc));
 
 	CmdQueue = GetID3D12DynamicRHI()->RHIGetCommandQueue();
 
-
-	//FD3D12DynamicRHI* D3D12RHI = static_cast<FD3D12DynamicRHI*>(GDynamicRHI);
-	//CmdQueue = D3D12RHI->RHIGetCommandQueue();
 	CmdQueue->AddRef();
 	Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&CmdFence));

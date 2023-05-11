@@ -77,34 +77,6 @@ void FMediaZ::Shutdown()
 	}
 }
 
-//class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
-//{
-//public:
-//	FMediaZPluginEditorCommands()
-//		: TCommands<FMediaZPluginEditorCommands>
-//		(
-//			TEXT("MediaZPluginEditor"),
-//			NSLOCTEXT("Contexts", "MediaZPluginEditor", "MediaZPluginEditor Plugin"),
-//			NAME_None,
-//			FAppStyle::GetAppStyleSetName()
-//			) {}
-//
-//	virtual void RegisterCommands() override
-//	{
-//		UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
-//		UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
-//		UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
-//		UI_COMMAND(SendAssetList, "SendAssetList", "Call SendAssetList", EUserInterfaceActionType::Button, FInputGesture());
-//	}
-//
-//public:
-//	TSharedPtr<FUICommandInfo> TestCommand;
-//	TSharedPtr<FUICommandInfo> PopulateRootGraph;
-//	TSharedPtr<FUICommandInfo> SendRootUpdate;
-//	TSharedPtr<FUICommandInfo> SendAssetList;
-//};
-
-
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
 	TMap<FGuid, std::vector<uint8>> re;
@@ -144,7 +116,6 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 	}
 
 	LOG("Connected to mzEngine");
-	//PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
 	PluginClient->Connected();
 
 	mz::fb::TNode copy;
@@ -173,7 +144,6 @@ void MZEventDelegates::OnNodeUpdated(mz::fb::Node const& appNode)
 	if (!FMZClient::NodeId.IsValid())
 	{
 		FMZClient::NodeId = *(FGuid*)appNode.id();
-		//PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
 		PluginClient->Connected();
 	}
 
@@ -613,7 +583,6 @@ void UENodeStatusHandler::SendStatus()
 	auto buf = Builder.Release();
 	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
 	PluginClient->AppServiceClient->SendPartialNodeUpdate(*root);
-	// PluginClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
 	Dirty = false;
 }
 

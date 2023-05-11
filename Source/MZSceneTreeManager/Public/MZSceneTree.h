@@ -88,7 +88,6 @@ public:
 	TSharedPtr<ActorNode> AddActor(TSharedPtr<TreeNode> parent, AActor* actor);
 	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<ActorNode> parent, USceneComponent* sceneComponent);
 	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent);
-	//FolderNode* AddFolder(FString fullFolderPath);
 
 	void Clear();
 

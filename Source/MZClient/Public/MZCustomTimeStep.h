@@ -23,7 +23,6 @@ class MZCLIENT_API UMZCustomTimeStep : public UEngineCustomTimeStep
 {
 	GENERATED_BODY()
 public:
-	//std::atomic<bool> wait = false;
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
 	bool Initialize(class UEngine* InEngine) override
 	{
