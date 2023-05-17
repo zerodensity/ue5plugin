@@ -40,15 +40,25 @@ struct ResourceInfo
 {
 	MZProperty* SrcMzp = 0;
 	ID3D12Resource* DstResource = 0;
-	bool ReadOnly = true;
-	MzTextureShareInfo Info = {};
-	void Release()
-	{
-		
-		if (DstResource) DstResource->Release();
-		memset(this, 0, sizeof(*this));
-	}
 };
+
+enum CmdState
+{
+	Pending,
+	Recording,
+	Running,
+};
+
+struct CmdStruct
+{
+	struct ID3D12CommandAllocator* CmdAlloc;
+	struct ID3D12GraphicsCommandList* CmdList;
+	struct ID3D12Fence* CmdFence;
+	uint64_t CmdFenceValue;
+	CmdState State;
+};
+
+
 
 //This class manages copy operations between textures of MediaZ and unreal 2d texture target
 class MZSCENETREEMANAGER_API MZTextureShareManager
@@ -67,27 +77,41 @@ public:
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();
-	void ExecCommands();
-	void EnqueueCommands(mz::app::IAppServiceClient* client);
+	void ExecCommands(CmdStruct* cmdData);
 	void TextureDestroyed(MZProperty* texture);
-
-
+	void InitSyncSemaphores(SyncSemaphores const& Semaphores);
+	void AllocateCommandLists();
+	CmdStruct* GetNewCommandList();
+	void ProcessCopies(bool bIsInput, TMap<MZProperty*, ResourceInfo>& CopyMap);
+	void OnBeginFrame();
+	void OnEndFrame();
+	
+	class FMZClient* MZClient;
+	
 	struct ID3D12Device* Dev;
-	struct ID3D12CommandAllocator* CmdAlloc;
 	struct ID3D12CommandQueue* CmdQueue;
-	struct ID3D12GraphicsCommandList* CmdList;
-	struct ID3D12Fence* CmdFence;
-	HANDLE CmdEvent;
-	uint64_t CmdFenceValue = 0;
+	size_t CommandListCount = 10;
+	std::vector<CmdStruct*> Cmds;
+	// HANDLE CmdEvent;
 
-	std::mutex PendingCopyQueueMutex;
+	
+	struct ID3D12Fence* InputRelFence;
+	struct ID3D12Fence* InputAcqFence;
+	struct ID3D12Fence* OutputRelFence;
+	struct ID3D12Fence* OutputAcqFence;
+	bool bIsExternallySynced = false;
+
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
-	std::mutex ResourcesToDeleteMutex;
 	TSet<ID3D12Resource*> ResourcesToDelete;
 	
-	std::shared_mutex CopyOnTickMutex;
 	TMap<MZProperty*, ResourceInfo> CopyOnTick;
+
+	TMap<MZProperty*, ResourceInfo> InputCopies;
+
+	TMap<MZProperty*, ResourceInfo> OutputCopies;
+	
+	TMap<MZProperty*, ResourceInfo> Copies;
 
 private:
 	void Initiate();

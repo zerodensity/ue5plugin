@@ -107,7 +107,7 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
+void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode, mz::app::AppSync const& appSync)
 {
 	FMZClient::NodeId = *(FGuid*)appNode.id();
 	if (!PluginClient)
@@ -119,14 +119,20 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 	PluginClient->Connected();
 
 	mz::fb::TNode copy;
-	appNode.UnPackTo(&copy);	
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	appNode.UnPackTo(&copy);
+	SyncSemaphores Semaphores;
+	Semaphores.InputAcq = appSync.input().acquire();
+	Semaphores.InputRel = appSync.input().release();
+	Semaphores.OutputAcq = appSync.output().acquire();
+	Semaphores.OutputRel = appSync.output().release();
+	Semaphores.MediaZPID = appSync.pid();
+	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, Semaphores]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
 			auto offset = mz::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZConnected.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			MZClient->OnMZConnected.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()), Semaphores);
 		});
 
     

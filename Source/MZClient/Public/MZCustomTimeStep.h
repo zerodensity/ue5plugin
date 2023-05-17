@@ -63,8 +63,8 @@ public:
 		FApp::SetDeltaTime(CustomDeltaTime);	
 		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
-			std::unique_lock lock(Mutex);
-			CV.wait(lock, [this] { return IsReadyForNextStep; });
+			// std::unique_lock lock(Mutex);
+			// CV.wait(lock, [this] { return IsReadyForNextStep; });
 			IsReadyForNextStep = false;
 			return false;
 		}

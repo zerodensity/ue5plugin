@@ -116,7 +116,7 @@ public:
 
 	bool Tick(float dt);
 
-	void OnMZConnected(mz::fb::Node const& appNode);
+	void OnMZConnected(mz::fb::Node const& appNode, SyncSemaphores const& Semaphores);
 
 	void OnMZNodeUpdated(mz::fb::Node const& appNode);
 

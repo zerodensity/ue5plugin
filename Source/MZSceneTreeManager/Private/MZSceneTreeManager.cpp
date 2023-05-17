@@ -313,17 +313,14 @@ void FMZSceneTreeManager::ShutdownModule()
 
 bool FMZSceneTreeManager::Tick(float dt)
 {
-	if (MZClient)
-	{
-		MZTextureShareManager::GetInstance()->EnqueueCommands(MZClient->AppServiceClient.Get());
-	}
-
 	return true;
 }
 
-void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
+void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode, SyncSemaphores const& Semaphores)
 {
 	SceneTree.Root->Id = *(FGuid*)appNode.id();
+	auto texman = MZTextureShareManager::GetInstance();
+	texman->InitSyncSemaphores(Semaphores);
 	//add executable path
 	if(appNode.pins() && appNode.pins()->size() > 0)
 	{
@@ -357,7 +354,6 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 		SendNodeUpdate(FMZClient::NodeId);
 	}
 	auto texman = MZTextureShareManager::GetInstance();
-	std::unique_lock lock1(texman->PendingCopyQueueMutex);
 	for (auto& [id, pin] : ParsePins(&appNode))
 	{
 		if (texman->PendingCopyQueue.Contains(id))

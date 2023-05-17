@@ -22,10 +22,19 @@
 class UMZCustomTimeStep;
 typedef std::function<void()> Task;
 
+struct SyncSemaphores
+{
+	uint64 InputAcq;
+	uint64 InputRel;
+	uint64 OutputAcq;
+	uint64 OutputRel;
+	uint64 MediaZPID;
+};
+
 DECLARE_LOG_CATEGORY_EXTERN(LogMZClient, Log, All);
 
 //events coming from mediaz
-DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const&);
+DECLARE_EVENT_TwoParams(FMZClient, FMZNodeConnected, mz::fb::Node const&, SyncSemaphores const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeUpdated, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuRequested, mz::ContextMenuRequest const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAction const&);
@@ -39,7 +48,6 @@ DECLARE_EVENT_OneParam(FMZClient, FMZNodeImported, mz::fb::Node const&);
 DECLARE_EVENT(FMZClient, FMZConnectionClosed);
 
 
-
 /**
  * Implements communication with the MediaZ Engine
  */
@@ -48,7 +56,7 @@ class FMZClient;
 class MZCLIENT_API MZEventDelegates : public mz::app::IEventDelegates
 {
 public:
-	virtual void OnAppConnected(mz::fb::Node const& appNode) override;
+	virtual void OnAppConnected(mz::fb::Node const& appNode, mz::app::AppSync const& appSync) override;
 	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;

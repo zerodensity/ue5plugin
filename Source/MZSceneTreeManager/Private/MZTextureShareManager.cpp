@@ -126,18 +126,7 @@ MZTextureShareManager::~MZTextureShareManager()
 mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 {
 	MzTextureInfo info = GetResourceInfo(mzprop);
-	{
-		std::unique_lock lock(PendingCopyQueueMutex);
-		PendingCopyQueue.Add(mzprop->Id, mzprop);
-	}
-	mz::fb::TTexture tex;
-	tex.size = mz::fb::SizePreset::CUSTOM;
-	tex.width = info.width;
-	tex.height = info.height;
-	tex.format = mz::fb::Format(info.format);
-	tex.usage = mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED;
-	tex.type = 0x00000040;
-	// return tex;
+	
 	UObject* obj = mzprop->GetRawObjectContainer();
 	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
 	UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
@@ -157,22 +146,34 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 
 	ID3D12Resource* res;
 	HANDLE handle;
-	
 	D3D12_HEAP_PROPERTIES props = {.Type = D3D12_HEAP_TYPE_DEFAULT};
-
 	auto state = D3D12_RESOURCE_STATE_COMMON;
-
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateCommittedResource(&props, D3D12_HEAP_FLAG_SHARED, &desc, state, 0, IID_PPV_ARGS(&res)));
-	
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
-	
-	res->Release();
+	//res->Release();
 
+	mz::fb::TTexture tex;
+	tex.size = mz::fb::SizePreset::CUSTOM;
+	tex.width = info.width;
+	tex.height = info.height;
+	tex.format = mz::fb::Format(info.format);
+	tex.usage = mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED;
+	tex.type = 0x00000040;
 	tex.memory = (u64)handle;
 	tex.pid = FPlatformProcess::GetCurrentProcessId();
 	tex.unmanaged = true;
 	tex.offset = 0;
 	tex.handle = 0;
+	
+	ResourceInfo copyInfo = {
+		.SrcMzp = mzprop,
+		.DstResource = res,
+	};
+	
+	{
+		//start property pins as output pins
+		OutputCopies.Add(mzprop, copyInfo);
+	}
 	return tex;
 }
 
@@ -205,8 +206,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	};
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
-		.ReadOnly = RealShowAs == mz::fb::ShowAs::INPUT_PIN,
-		.Info = info,
+		// .Info = info,
 	};
 
 	if (MzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &copyInfo.DstResource))
@@ -221,7 +221,6 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 	if (!URT) return;
 	{
-		std::unique_lock lock(CopyOnTickMutex);
 		if(PendingCopyQueue.Contains(mzprop->Id))
 		{
 			PendingCopyQueue.Remove(mzprop->Id);
@@ -232,7 +231,6 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 			auto resource = CopyOnTick.FindRef(mzprop).DstResource;
 			if(resource && copyInfo.DstResource != resource)
 			{
-				std::unique_lock reslock(ResourcesToDeleteMutex);
 				ResourcesToDelete.Add(resource);
 			}
 			CopyOnTick.Add(mzprop, copyInfo);
@@ -242,238 +240,273 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 
 void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
 {
-	std::unique_lock lock(CopyOnTickMutex);
-	if(CopyOnTick.Contains(MzProperty))
+	if(NewShowAs == mz::fb::ShowAs::INPUT_PIN)
 	{
-		auto info = CopyOnTick.Find(MzProperty);
-		info->ReadOnly = NewShowAs == mz::fb::ShowAs::INPUT_PIN;
+		if(OutputCopies.Contains(MzProperty))
+		{
+			auto Info = OutputCopies.FindRef(MzProperty);
+			OutputCopies.Remove(MzProperty);
+			InputCopies.Add(MzProperty, Info);
+		}
 	}
+	else if(NewShowAs == mz::fb::ShowAs::OUTPUT_PIN)
+	{
+		if(InputCopies.Contains(MzProperty))
+		{
+			auto Info = InputCopies.FindRef(MzProperty);
+			InputCopies.Remove(MzProperty);
+			OutputCopies.Add(MzProperty, Info);
+		}
+	}
+	
 }
 
 void MZTextureShareManager::WaitCommands()
 {
-	if (CmdFence->GetCompletedValue() < CmdFenceValue)
-	{
-		CmdFence->SetEventOnCompletion(CmdFenceValue, CmdEvent);
-		WaitForSingleObject(CmdEvent, INFINITE);
-	}
-
-	CmdAlloc->Reset();
-	CmdList->Reset(CmdAlloc, 0);
+	// if (CmdFence->GetCompletedValue() < CmdFenceValue)
+	// {
+	// 	CmdFence->SetEventOnCompletion(CmdFenceValue, CmdEvent);
+	// 	WaitForSingleObject(CmdEvent, INFINITE);
+	// }
+	//
+	// CmdAlloc->Reset();
+	// CmdList->Reset(CmdAlloc, 0);
 }
 
-void MZTextureShareManager::ExecCommands()
+
+void MZTextureShareManager::ExecCommands(CmdStruct* cmdData)
 {
-	CmdList->Close();
-	CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&CmdList);
-	CmdQueue->Signal(CmdFence, ++CmdFenceValue);
+	cmdData->CmdList->Close();
+	if(bIsExternallySynced)
+	{
+		CmdQueue->Wait(OutputRelFence, 1);
+		CmdQueue->Signal(OutputRelFence, 0);
+	}
+	CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&cmdData->CmdList);
+	CmdQueue->Signal(cmdData->CmdFence, ++cmdData->CmdFenceValue);
+	if(bIsExternallySynced)
+	{
+		CmdQueue->Signal(OutputAcqFence, 1);
+	}
+	// cmdData->CmdList->Reset(CmdAlloc, 0);
+	cmdData->State = CmdState::Running;
 }
 
 void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
+	OutputCopies.Remove(textureProp);
+	InputCopies.Remove(textureProp);
 	
-	std::unique_lock lock4(ResourcesToDeleteMutex);
+	//TODO delete real resource	
+}
+
+static HANDLE DupeHandle(uint64_t pid, HANDLE handle)
+{
+    HANDLE re = 0;
+    HANDLE src = OpenProcess(GENERIC_ALL, false, pid);
+    HANDLE cur = GetCurrentProcess();
+    if (!DuplicateHandle(src, handle, cur, &re, GENERIC_ALL, 0, DUPLICATE_SAME_ACCESS))
+    {
+        return 0;
+    }
+    CloseHandle(src);
+    return re;
+}
+
+static bool ImportSharedFence(uint64_t pid, HANDLE handle, ID3D12Device* pDevice, ID3D12Fence** pFence)
+{
+       HANDLE xmemory = DupeHandle(pid, handle);
+       if (FAILED(pDevice->OpenSharedHandle(xmemory, IID_PPV_ARGS(pFence))))
+       {
+               return false;
+       }
+       CloseHandle(xmemory);
+       return true;
+}
+
+void MZTextureShareManager::InitSyncSemaphores(SyncSemaphores const& Semaphores)
+{
+	if(!Semaphores.MediaZPID || !Semaphores.InputAcq || !Semaphores.InputRel || !Semaphores.OutputAcq || !Semaphores.OutputRel)
 	{
-		std::unique_lock lock(CopyOnTickMutex);
-		if(CopyOnTick.Contains(textureProp))
-		{
-			auto CopyInfo = CopyOnTick.FindRef(textureProp);
-			if(CopyInfo.DstResource)
-			{
-				ResourcesToDelete.Add(CopyInfo.DstResource);
-			}
-			CopyOnTick.Remove(textureProp);
-		}
+		bIsExternallySynced = false;
+		return;
 	}
+
+	bool ina = ImportSharedFence(Semaphores.MediaZPID, (HANDLE)Semaphores.InputAcq, Dev, &InputAcqFence);
+	bool inr = ImportSharedFence(Semaphores.MediaZPID, (HANDLE)Semaphores.InputRel, Dev, &InputRelFence);
+	bool outa = ImportSharedFence(Semaphores.MediaZPID, (HANDLE)Semaphores.OutputAcq, Dev, &OutputAcqFence);
+	bool outr = ImportSharedFence(Semaphores.MediaZPID, (HANDLE)Semaphores.OutputRel, Dev, &OutputRelFence);
+
+	if(ina && inr && outa && outr)
 	{
-		std::unique_lock lock(PendingCopyQueueMutex);
-		PendingCopyQueue.Remove(textureProp->Id);
-		auto tex = flatbuffers::GetRoot<mz::fb::Texture>(textureProp->data.data());
-		MzTextureShareInfo info = {
-		.type = tex->type(),
-		.handle = tex->handle(),
-		.pid = tex->pid(),
-		.memory = tex->memory(),
-		.offset = tex->offset(),
-		.textureInfo = {
-			.width = tex->width(),
-			.height = tex->height(),
-			.format = (MzFormat)tex->format(),
-			.usage = (MzImageUsage)tex->usage(),
-		},
-		};
-		if(!info.handle)
+		bIsExternallySynced = true;
+	}
+	
+}
+
+void MZTextureShareManager::AllocateCommandLists()
+{
+	for(size_t i = 0; i < CommandListCount; i ++)
+	{
+		ID3D12GraphicsCommandList* cmdList;
+		ID3D12Fence* cmdFence;
+		ID3D12CommandAllocator* cmdAlloc;
+		HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&cmdAlloc));
+		Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, cmdAlloc, 0, IID_PPV_ARGS(&cmdList));
+		Dev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&cmdFence));
+		cmdList->Close();
+		// cmdList->Reset(CmdAlloc, 0);
+		auto cmdData = new CmdStruct;
+		cmdData->CmdAlloc = cmdAlloc;
+		cmdData->CmdList = cmdList;
+		cmdData->CmdFence = cmdFence;
+		cmdData->State = CmdState::Pending;
+		cmdData->CmdFenceValue = 0;
+		Cmds.push_back(cmdData);
+	}
+}
+
+CmdStruct* MZTextureShareManager::GetNewCommandList()
+{
+	static int i = 0;
+	i = (i + 1) % CommandListCount;
+	
+	if(Cmds[i]->State == CmdState::Pending)
+	{
+		Cmds[i]->CmdList->Reset(Cmds[i]->CmdAlloc, 0);
+		Cmds[i]->State = Recording;
+		return Cmds[i];
+	}
+	else if(Cmds[i]->State == CmdState::Running)
+	{
+		if (Cmds[i]->CmdFence->GetCompletedValue() < Cmds[i]->CmdFenceValue)
+		{
+			HANDLE CmdEvent = CreateEventA(0, 0, 0, 0);
+			Cmds[i]->CmdFence->SetEventOnCompletion(Cmds[i]->CmdFenceValue, CmdEvent);
+			WaitForSingleObject(CmdEvent, INFINITE);
+		}
+		// CmdAlloc->Reset();
+		Cmds[i]->CmdList->Reset(Cmds[i]->CmdAlloc, 0);
+		Cmds[i]->State = CmdState::Recording;
+		return Cmds[i];
+	}
+	else
+	{
+		abort();
+		return NULL;
+	}
+}
+
+bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* RenderTarget, ID3D12Resource* PinTexture, ID3D12GraphicsCommandList* CmdList, TArray<D3D12_RESOURCE_BARRIER>& Barriers)
+{
+	auto rt = RenderTarget->GetRenderTargetResource();
+	if (!rt) return false;
+	auto RHIResource = rt->GetTexture2DRHI();
+
+	if (!RHIResource || !RHIResource->IsValid())
+	{
+		return false;
+	}
+	FRHITexture* RHITexture = RHIResource;
+	FD3D12Texture* Result((FD3D12Texture*)RHITexture->GetTextureBaseRHI());
+	FD3D12Texture* Base = Result;
+
+	ID3D12Resource* SrcResource = Base->GetResource()->GetResource();
+	ID3D12Resource* DstResource = PinTexture;
+	D3D12_RESOURCE_DESC SrcDesc = SrcResource->GetDesc();
+	D3D12_RESOURCE_DESC DstDesc = DstResource->GetDesc();
+
+	if (SrcResource == DstResource)
+	{
+		return false;
+	}
+
+	D3D12_RESOURCE_BARRIER barrier = {
+		.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
+		.Transition = {
+			.pResource = SrcResource,
+			.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
+			.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
+			.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
+		}
+	};
+
+	if (bIsInputPin)
+	{
+		barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
+		Swap(SrcResource, DstResource);
+	}
+	CmdList->ResourceBarrier(1, &barrier);
+	CmdList->CopyResource(DstResource, SrcResource);
+	Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
+	Barriers.Add(barrier);
+
+	return true;
+}
+
+void FilterCopies(TMap<MZProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTarget2D*, ResourceInfo>& FilteredCopies)
+{
+	for (auto [mzprop, info] : Copies)
+	{
+		UObject* obj = mzprop->GetRawObjectContainer();
+		if (!obj) return;
+		auto prop = CastField<FObjectProperty>(mzprop->Property);
+		if (!prop) return;
+		auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+		if (!URT) return;
+
+		FilteredCopies.Add(URT, info);
+	}
+}
+
+void MZTextureShareManager::ProcessCopies(bool bIsInputs,  TMap<MZProperty*, ResourceInfo>& CopyMap)
+{
+	{
+		if (CopyMap.IsEmpty())
 		{
 			return;
 		}
-		ID3D12Resource* TextureResource = 0;
-		if (MzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &TextureResource))
-		{
-			abort();
-		}
-		if(TextureResource)
-		{
-			ResourcesToDelete.Add(TextureResource);
-		}
-		
 	}
+	TMap<UTextureRenderTarget2D*, ResourceInfo> CopiesFiltered;
+	FilterCopies(CopyMap, CopiesFiltered);
+	auto cmdData = GetNewCommandList();
+	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+		[this, bIsInputs, CopiesFiltered, cmdData](FRHICommandListImmediate& RHICmdList)
+		{
+			TArray<D3D12_RESOURCE_BARRIER> barriers;
+			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
+			flatbuffers::FlatBufferBuilder fbb;
+			for (auto& [URT, pin] : CopiesFiltered)
+			{
+				if(MZCopyTexture_RenderThread(bIsInputs, URT, pin.DstResource, cmdData->CmdList, barriers) && !bIsInputs)
+				{
+					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id)));
+				}
+			}
+			if (!events.empty() && MZClient && MZClient->IsConnected())
+			{
+				MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+			}
+			cmdData->CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
+			ExecCommands(cmdData);
+			//WaitCommands();
+		});
+}
+
+void MZTextureShareManager::OnBeginFrame()
+{
+	ProcessCopies(true, InputCopies);
+}
+
+void MZTextureShareManager::OnEndFrame()
+{
+	ProcessCopies(false, OutputCopies);
 }
 
 void MZTextureShareManager::Reset()
 {
-	std::unique_lock lock(CopyOnTickMutex);
 	CopyOnTick.Empty();
 	PendingCopyQueue.Empty();
-}
-
-void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
-{
-	{
-		std::shared_lock lock(CopyOnTickMutex);
-		if (CopyOnTick.IsEmpty())
-		{
-			return;
-		}
-	}
-
-	TMap<UTextureRenderTarget2D*, ResourceInfo> CopyOnTickFiltered;
-	{
-		std::unique_lock lock(CopyOnTickMutex);
-		for (auto [mzprop, info] : CopyOnTick)
-		{
-			UObject* obj = mzprop->GetRawObjectContainer();
-			if (!obj) return;
-			auto prop = CastField<FObjectProperty>(mzprop->Property);
-			if (!prop) return;
-			auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
-			if (!URT) return;
-
-			CopyOnTickFiltered.Add(URT, info);
-		}
-	}
-	
-	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
-		[this, Client, CopyOnTickFiltered](FRHICommandListImmediate& RHICmdList)
-		{
-			//std::shared_lock lock(CopyOnTickMutex);
-			{
-				bool removeHappened = false;
-				std::unique_lock lock(ResourcesToDeleteMutex);
-				for(auto Resource : ResourcesToDelete)
-				{
-					Resource->Release();
-					removeHappened = true;
-				}
-				ResourcesToDelete.Empty();
-				if(removeHappened)
-				{
-					return;
-				}
-			}
-			TArray<D3D12_RESOURCE_BARRIER> barriers;
-			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
-			for (auto& [URT, pin] : CopyOnTickFiltered)
-			{
-				auto rt = URT->GetRenderTargetResource();
-				if (!rt) return;
-				auto RHIResource = rt->GetTexture2DRHI();
-
-				if (!RHIResource || !RHIResource->IsValid())
-				{
-					continue;
-				}
-				FRHITexture* RHITexture = RHIResource;
-				FD3D12Texture* Result((FD3D12Texture*)RHITexture->GetTextureBaseRHI());
-				FD3D12Texture* Base = Result;
-
-				ID3D12Resource* SrcResource = Base->GetResource()->GetResource();
-				ID3D12Resource* DstResource = pin.DstResource;
-				D3D12_RESOURCE_DESC SrcDesc = SrcResource->GetDesc();
-				D3D12_RESOURCE_DESC DstDesc = DstResource->GetDesc();
-
-				if (pin.ReadOnly && SrcDesc != DstDesc)
-				{
-					// codes for insterting mediaZ texture to property
-					// commented out for not being properly tested
-					// EPixelFormat format = PF_Unknown;
-					// ETextureSourceFormat sourceFormat = TSF_Invalid;
-					// ETextureRenderTargetFormat rtFormat = RTF_RGBA16f;
-					// for (auto& fmt : GPixelFormats)
-					// {
-					// 	if (fmt.PlatformFormat == DstDesc.Format)
-					// 	{
-					// 		format = fmt.UnrealFormat;
-					// 		sourceFormat = (fmt.BlockBytes == 8) ? TSF_RGBA16F : TSF_BGRA8;
-					// 		rtFormat = (fmt.BlockBytes == 8) ? RTF_RGBA16f : RTF_RGBA8;
-					// 		break;
-					// 	}
-					// }
-					//
-					// ETextureCreateFlags Flags = ETextureCreateFlags::ShaderResource;
-					//
-					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_SIMULTANEOUS_ACCESS) Flags |= ETextureCreateFlags::Shared;
-					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_CROSS_ADAPTER)       Flags |= ETextureCreateFlags::Shared;
-					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_RENDER_TARGET)       Flags |= ETextureCreateFlags::RenderTargetable;
-					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_ALLOW_UNORDERED_ACCESS)    Flags |= ETextureCreateFlags::UAV;
-					// if (DstDesc.Flags & D3D12_RESOURCE_FLAG_DENY_SHADER_RESOURCE)      Flags ^= ETextureCreateFlags::ShaderResource;
-					//
-					//
-					// FTexture2DRHIRef Texture2DRHI = GetID3D12DynamicRHI()->RHICreateTexture2DFromResource(format, Flags, FClearValueBinding::Black, DstResource);
-					// URT->RenderTargetFormat = rtFormat;
-					// URT->SizeX = DstDesc.Width;
-					// URT->SizeY = DstDesc.Height;
-					// URT->ClearColor = FLinearColor::Black;
-					// URT->bGPUSharedFlag = 1;
-					// RHIUpdateTextureReference(URT->TextureReference.TextureReferenceRHI, Texture2DRHI);
-					// URT->GetResource()->TextureRHI = Texture2DRHI;
-					// URT->GetResource()->SetTextureReference(URT->TextureReference.TextureReferenceRHI);
-					// continue;
-				}
-
-				if (SrcResource == DstResource)
-				{
-					continue;
-				}
-
-				D3D12_RESOURCE_BARRIER barrier = {
-					.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-					.Transition = {
-						.pResource = SrcResource,
-						.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-						.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
-						.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
-					}
-				};
-
-				if (pin.ReadOnly)
-				{
-					barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-					Swap(SrcResource, DstResource);
-				}
-
-				CmdList->ResourceBarrier(1, &barrier);
-				CmdList->CopyResource(DstResource, SrcResource);
-				Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
-				barriers.Add(barrier);
-
-				if (!pin.ReadOnly)
-				{
-					auto id = pin.SrcMzp->Id;
-					// do not sent pin dirtied for now
-					// events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&id)));
-				}
-			}
-			CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
-			ExecCommands();
-
-			WaitCommands();
-			if (Client && Client->IsConnected())
-			{
-				flatbuffers::FlatBufferBuilder fbb;
-				Client->Send(mz::CreateAppEvent(fbb, mz::app::CreateExecutionCompleted(fbb, (mz::fb::UUID*)&FMZClient::NodeId)));
-			}
-		});
-
 }
 
 void MZTextureShareManager::Initiate()
@@ -484,14 +517,15 @@ void MZTextureShareManager::Initiate()
 		return;
 	}
 
+	FCoreDelegates::OnBeginFrame.AddRaw(this, &MZTextureShareManager::OnBeginFrame);
+	FCoreDelegates::OnEndFrame.AddRaw(this, &MZTextureShareManager::OnEndFrame);
+	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+	
+	// Create DX resources
 	Dev = (ID3D12Device*)GetID3D12DynamicRHI()->RHIGetNativeDevice();
-	HRESULT re = Dev->CreateCommandAllocator(D3D12_COMMAND_LIST_TYPE_DIRECT, IID_PPV_ARGS(&CmdAlloc));
 
 	CmdQueue = GetID3D12DynamicRHI()->RHIGetCommandQueue();
-
 	CmdQueue->AddRef();
-	Dev->CreateCommandList(0, D3D12_COMMAND_LIST_TYPE_DIRECT, CmdAlloc, 0, IID_PPV_ARGS(&CmdList));
-	Dev->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&CmdFence));
-	CmdEvent = CreateEventA(0, 0, 0, 0);
-	CmdList->Close();
+	
+	AllocateCommandLists();
 }
