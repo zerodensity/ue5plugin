@@ -49,7 +49,7 @@ void FMZAssetManager::ShutdownModule()
 
 bool FMZAssetManager::HideFromOutliner() const
 {
-	return false;
+	return true;
 }
 
 void FMZAssetManager::OnAssetCreated(const FAssetData& createdAsset)

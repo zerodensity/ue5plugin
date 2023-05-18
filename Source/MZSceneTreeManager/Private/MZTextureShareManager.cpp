@@ -385,7 +385,7 @@ CmdStruct* MZTextureShareManager::GetNewCommandList()
 			Cmds[i]->CmdFence->SetEventOnCompletion(Cmds[i]->CmdFenceValue, CmdEvent);
 			WaitForSingleObject(CmdEvent, INFINITE);
 		}
-		// CmdAlloc->Reset();
+		Cmds[i]->CmdAlloc->Reset();
 		Cmds[i]->CmdList->Reset(Cmds[i]->CmdAlloc, 0);
 		Cmds[i]->State = CmdState::Recording;
 		return Cmds[i];
