@@ -77,7 +77,7 @@ public:
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();
-	void ExecCommands(CmdStruct* cmdData);
+	void ExecCommands(CmdStruct* cmdData, bool bIsInput);
 	void TextureDestroyed(MZProperty* texture);
 	void InitSyncSemaphores(SyncSemaphores const& Semaphores);
 	void AllocateCommandLists();
@@ -95,10 +95,10 @@ public:
 	// HANDLE CmdEvent;
 
 	
-	struct ID3D12Fence* InputRelFence;
-	struct ID3D12Fence* InputAcqFence;
-	struct ID3D12Fence* OutputRelFence;
-	struct ID3D12Fence* OutputAcqFence;
+	struct ID3D12Fence* InputFence;
+	u64 InputFenceValue = 0;
+	struct ID3D12Fence* OutputFence;
+	u64 OutputFenceValue = 0;
 	bool bIsExternallySynced = false;
 
 	TMap<FGuid, MZProperty*> PendingCopyQueue;

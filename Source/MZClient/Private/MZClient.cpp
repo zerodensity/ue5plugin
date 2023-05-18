@@ -121,10 +121,8 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode, mz::app::AppS
 	mz::fb::TNode copy;
 	appNode.UnPackTo(&copy);
 	SyncSemaphores Semaphores;
-	Semaphores.InputAcq = appSync.input().acquire();
-	Semaphores.InputRel = appSync.input().release();
-	Semaphores.OutputAcq = appSync.output().acquire();
-	Semaphores.OutputRel = appSync.output().release();
+	Semaphores.Input = appSync.inputSemaphore();
+	Semaphores.Output = appSync.outputSemaphore();
 	Semaphores.MediaZPID = appSync.pid();
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, Semaphores]()
 		{
@@ -420,15 +418,15 @@ void FMZClient::TryConnect()
 	//	Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
 	//}
 
-	if (!CustomTimeStepBound && IsConnected())
-	{
-		MZTimeStep = NewObject<UMZCustomTimeStep>();
-		MZTimeStep->PluginClient = this;
-		if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
-		{
-			CustomTimeStepBound = true;
-		}
-	}
+	// if (!CustomTimeStepBound && IsConnected())
+	// {
+	// 	MZTimeStep = NewObject<UMZCustomTimeStep>();
+	// 	MZTimeStep->PluginClient = this;
+	// 	if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
+	// 	{
+	// 		CustomTimeStepBound = true;
+	// 	}
+	// }
 	return;
 }
 

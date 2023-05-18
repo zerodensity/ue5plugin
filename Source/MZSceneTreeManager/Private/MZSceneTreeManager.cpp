@@ -211,10 +211,10 @@ void FMZSceneTreeManager::StartupModule()
 			auto Track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
 
 			MZPropertyManager.CreatePortal(FrameTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			MZPropertyManager.CreatePortal(MaskTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			MZPropertyManager.CreatePortal(LightingTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			MZPropertyManager.CreatePortal(BloomTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
+			// MZPropertyManager.CreatePortal(MaskTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+			// MZPropertyManager.CreatePortal(LightingTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+			// MZPropertyManager.CreatePortal(BloomTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+			// MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
 
 			LOG("Reality camera is spawned.");
 		};
@@ -260,6 +260,12 @@ void FMZSceneTreeManager::StartupModule()
 			}
 
 			MZPropertyManager.CreatePortal(InputTexture, projectionCube, mz::fb::ShowAs::INPUT_PIN);
+			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({InputTexture, projectionCube}))
+			{
+				auto MzProperty =MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({InputTexture, projectionCube});
+				auto texman = MZTextureShareManager::GetInstance();
+				texman->UpdatePinShowAs(MzProperty.Get(), mz::fb::ShowAs::INPUT_PIN);
+			}
 
 			LOG("Projection cube is spawned.");
 		};

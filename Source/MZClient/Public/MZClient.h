@@ -24,10 +24,8 @@ typedef std::function<void()> Task;
 
 struct SyncSemaphores
 {
-	uint64 InputAcq;
-	uint64 InputRel;
-	uint64 OutputAcq;
-	uint64 OutputRel;
+	uint64 Input;
+	uint64 Output;
 	uint64 MediaZPID;
 };
 
