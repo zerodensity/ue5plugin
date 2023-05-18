@@ -201,24 +201,6 @@ void MZEventDelegates::OnNodeRemoved()
 		});
 }
 
-void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
-{
-	LOG("Pin value changed from mediaz editor");
-	if (!PluginClient)
-	{
-		return;
-	}
-	
-	std::vector<uint8_t> copy(size, 0);
-	memcpy(copy.data(), data, size);
-	FGuid id = *(FGuid*)&pinId;
-
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, size, id]()
-		{
-			MZClient->OnMZPinValueChanged.Broadcast(*(mz::fb::UUID*)&id, copy.data(), size);
-		});
-}
-
 void MZEventDelegates::OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs)
 {
 	LOG("Pin show as changed from mediaz");

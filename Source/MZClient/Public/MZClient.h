@@ -13,7 +13,7 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "MediaZ/AppInterface.h"
+#include "MediaZ/PinDataQueues.h"
 #include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
@@ -53,15 +53,16 @@ DECLARE_EVENT(FMZClient, FMZConnectionClosed);
  */
 class FMZClient;
 
-class MZCLIENT_API MZEventDelegates : public mz::app::IEventDelegates
+class MZCLIENT_API MZEventDelegates : public mz::app::PinDataQueues
 {
 public:
+	~MZEventDelegates() {}
+
 	virtual void OnAppConnected(mz::fb::Node const& appNode, mz::app::AppSync const& appSync) override;
 	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
-	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size) override;
 	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
 	virtual void OnExecuteApp(mz::app::AppExecute const& appExecute) override; 
 	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;
