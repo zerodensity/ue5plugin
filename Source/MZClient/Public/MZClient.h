@@ -144,6 +144,8 @@ public:
 	//Tick is called every frame once and handles the tasks queued from grpc threads
 	bool Tick(float dt);
 
+	void OnBeginFrame();
+
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
 	 

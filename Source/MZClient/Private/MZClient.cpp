@@ -430,6 +430,11 @@ void FMZClient::TryConnect()
 	return;
 }
 
+void FMZClient::OnBeginFrame()
+{
+
+}
+
 void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues initValues)
 {
 	TaskQueue.Enqueue([World, this]()

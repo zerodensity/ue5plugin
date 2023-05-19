@@ -52,7 +52,9 @@ public:
 
 	TMap<TPair<FProperty*, void*>, TSharedPtr<MZProperty>> PropertiesByPropertyAndContainer;
 	void Reset(bool ResetPortals = true);
-	 
+
+	void OnBeginFrame();
+	void OnEndFrame();
 };
 
 class FMZActorManager
@@ -115,6 +117,9 @@ public:
 	virtual void ShutdownModule() override;
 
 	bool Tick(float dt);
+
+	void OnBeginFrame();
+	void OnEndFrame();
 
 	void OnMZConnected(mz::fb::Node const& appNode, SyncSemaphores const& Semaphores);
 

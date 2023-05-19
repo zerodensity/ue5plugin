@@ -83,6 +83,18 @@ void FMZSceneTreeManager::OnNewCurrentLevel()
 	//todo we may need to fill these according to the level system
 }
 
+void FMZSceneTreeManager::OnBeginFrame()
+{
+	MZPropertyManager.OnBeginFrame();
+	MZTextureShareManager::GetInstance()->OnBeginFrame();
+}
+
+void FMZSceneTreeManager::OnEndFrame()
+{
+	 MZPropertyManager.OnEndFrame();
+	MZTextureShareManager::GetInstance()->OnEndFrame();
+}
+
 void FMZSceneTreeManager::StartupModule()
 {
 	if (!FApp::HasProjectName())
@@ -118,6 +130,10 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
 	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
 	MZClient->OnMZNodeRemoved.AddRaw(this, &FMZSceneTreeManager::OnMZNodeRemoved);
+
+	FCoreDelegates::OnBeginFrame.AddRaw(this, &FMZSceneTreeManager::OnBeginFrame);
+	FCoreDelegates::OnEndFrame.AddRaw(this, &FMZSceneTreeManager::OnEndFrame);
+
 	
 	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZSceneTreeManager::HandleBeginPIE);
 	FEditorDelegates::EndPIE.AddRaw(this, &FMZSceneTreeManager::HandleEndPIE);
@@ -214,7 +230,7 @@ void FMZSceneTreeManager::StartupModule()
 			// MZPropertyManager.CreatePortal(MaskTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
 			// MZPropertyManager.CreatePortal(LightingTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
 			// MZPropertyManager.CreatePortal(BloomTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
+			MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
 
 			LOG("Reality camera is spawned.");
 		};
@@ -2499,6 +2515,30 @@ void FMZPropertyManager::Reset(bool ResetPortals)
 	PropertiesByPointer.Empty();
 	ActorsPropertyIds.Empty();
 	PropertiesByPropertyAndContainer.Empty();
+}
+
+void FMZPropertyManager::OnBeginFrame()
+{
+	for (auto [id, portal] : PortalPinsById)
+	{
+		if (!PropertiesById.Contains(portal.SourceId))
+		{
+			continue;
+		}
+		
+		auto MzProperty = PropertiesById.FindRef(portal.SourceId);
+		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&id));
+
+		if (!buffer.IsEmpty())
+		{
+			MzProperty->SetPropValue(buffer.data(), buffer.size());
+		}
+	}
+}
+
+void FMZPropertyManager::OnEndFrame()
+{
+	// TODO: copy and dirty CPU out pins
 }
 
 std::vector<flatbuffers::Offset<mz::ContextMenuItem>> ContextMenuActions::SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb)

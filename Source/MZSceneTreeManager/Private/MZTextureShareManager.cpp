@@ -626,8 +626,6 @@ void MZTextureShareManager::Initiate()
 		return;
 	}
 
-	FCoreDelegates::OnBeginFrame.AddRaw(this, &MZTextureShareManager::OnBeginFrame);
-	FCoreDelegates::OnEndFrame.AddRaw(this, &MZTextureShareManager::OnEndFrame);
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	
 	// Create DX resources
