@@ -2521,12 +2521,14 @@ void FMZPropertyManager::OnBeginFrame()
 {
 	for (auto [id, portal] : PortalPinsById)
 	{
-		if (!PropertiesById.Contains(portal.SourceId))
+		if (portal.ShowAs != mz::fb::ShowAs::INPUT_PIN || 
+		    !PropertiesById.Contains(portal.SourceId))
 		{
 			continue;
 		}
 		
 		auto MzProperty = PropertiesById.FindRef(portal.SourceId);
+
 		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&id));
 
 		if (!buffer.IsEmpty())
