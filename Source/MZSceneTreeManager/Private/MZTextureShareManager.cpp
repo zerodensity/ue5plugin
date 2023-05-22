@@ -152,6 +152,12 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
 	//res->Release();
 
+
+	ID3D12Fence* fence;
+	HANDLE fenceHandle;
+	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence));
+	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(fence, 0, GENERIC_ALL, 0, &fenceHandle));
+	
 	mz::fb::TTexture tex;
 	tex.size = mz::fb::SizePreset::CUSTOM;
 	tex.width = info.width;
@@ -164,6 +170,7 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	tex.unmanaged = true;
 	tex.offset = 0;
 	tex.handle = 0;
+	tex.semaphore = (u64)fenceHandle;
 	
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
