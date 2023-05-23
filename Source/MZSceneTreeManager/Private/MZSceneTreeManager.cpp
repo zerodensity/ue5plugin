@@ -315,7 +315,7 @@ bool FMZSceneTreeManager::Tick(float dt)
 {
 	if (MZClient)
 	{
-		MZTextureShareManager::GetInstance()->EnqueueCommands(MZClient->AppServiceClient.Get());
+		MZTextureShareManager::GetInstance()->EnqueueCommands(MZClient->AppServiceClient);
 	}
 
 	return true;
