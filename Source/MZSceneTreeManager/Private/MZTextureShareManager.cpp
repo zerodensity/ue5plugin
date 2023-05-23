@@ -176,7 +176,7 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 		.SrcMzp = mzprop,
 		.DstResource = res,
 		.Fence = fence,
-		.FenceValue = 1,
+		.FenceValue = 0,
 	};
 	
 	{
@@ -545,11 +545,11 @@ void FilterCopies(TMap<MZProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTa
 	for (auto [mzprop, info] : Copies)
 	{
 		UObject* obj = mzprop->GetRawObjectContainer();
-		if (!obj) return;
+		if (!obj) continue;
 		auto prop = CastField<FObjectProperty>(mzprop->Property);
-		if (!prop) return;
+		if (!prop) continue;
 		auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
-		if (!URT) return;
+		if (!URT) continue;
 
 		FilteredCopies.Add(URT, info);
 	}
