@@ -120,17 +120,13 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode, mz::app::AppS
 
 	mz::fb::TNode copy;
 	appNode.UnPackTo(&copy);
-	SyncSemaphores Semaphores;
-	Semaphores.Input = appSync.inputSemaphore();
-	Semaphores.Output = appSync.outputSemaphore();
-	Semaphores.MediaZPID = appSync.pid();
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, Semaphores]()
+	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
 			auto offset = mz::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZConnected.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()), Semaphores);
+			MZClient->OnMZConnected.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
 		});
 
     

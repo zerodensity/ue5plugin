@@ -40,6 +40,8 @@ struct ResourceInfo
 {
 	MZProperty* SrcMzp = 0;
 	ID3D12Resource* DstResource = 0;
+	ID3D12Fence* Fence = 0;
+	u64 FenceValue = 0;
 };
 
 enum CmdState
@@ -77,9 +79,8 @@ public:
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();
-	void ExecCommands(CmdStruct* cmdData, bool bIsInput);
+	void ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void TextureDestroyed(MZProperty* texture);
-	void InitSyncSemaphores(SyncSemaphores const& Semaphores);
 	void AllocateCommandLists();
 	CmdStruct* GetNewCommandList();
 	void ProcessCopies(bool bIsInput, TMap<MZProperty*, ResourceInfo>& CopyMap);
@@ -92,14 +93,6 @@ public:
 	struct ID3D12CommandQueue* CmdQueue;
 	size_t CommandListCount = 10;
 	std::vector<CmdStruct*> Cmds;
-	// HANDLE CmdEvent;
-
-	
-	struct ID3D12Fence* InputFence;
-	u64 InputFenceValue = 0;
-	struct ID3D12Fence* OutputFence;
-	u64 OutputFenceValue = 0;
-	bool bIsExternallySynced = false;
 
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 

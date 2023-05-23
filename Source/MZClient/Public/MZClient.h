@@ -22,17 +22,10 @@
 class UMZCustomTimeStep;
 typedef std::function<void()> Task;
 
-struct SyncSemaphores
-{
-	uint64 Input;
-	uint64 Output;
-	uint64 MediaZPID;
-};
-
 DECLARE_LOG_CATEGORY_EXTERN(LogMZClient, Log, All);
 
 //events coming from mediaz
-DECLARE_EVENT_TwoParams(FMZClient, FMZNodeConnected, mz::fb::Node const&, SyncSemaphores const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeUpdated, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuRequested, mz::ContextMenuRequest const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAction const&);

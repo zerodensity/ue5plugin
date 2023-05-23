@@ -338,11 +338,9 @@ bool FMZSceneTreeManager::Tick(float dt)
 	return true;
 }
 
-void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode, SyncSemaphores const& Semaphores)
+void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 {
 	SceneTree.Root->Id = *(FGuid*)appNode.id();
-	auto texman = MZTextureShareManager::GetInstance();
-	texman->InitSyncSemaphores(Semaphores);
 	//add executable path
 	if(appNode.pins() && appNode.pins()->size() > 0)
 	{
@@ -2534,6 +2532,11 @@ void FMZPropertyManager::OnBeginFrame()
 		if (!buffer.IsEmpty())
 		{
 			MzProperty->SetPropValue(buffer.data(), buffer.size());
+		}
+
+		if(portal.TypeName == "mz.fb.Texture")
+		{
+			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs, buffer.data(), buffer.size());
 		}
 	}
 }

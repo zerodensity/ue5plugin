@@ -175,6 +175,8 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
 		.DstResource = res,
+		.Fence = fence,
+		.FenceValue = 1,
 	};
 	
 	{
@@ -187,7 +189,24 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, void* data, uint32_t size)
 {
 	UpdatePinShowAs(mzprop, RealShowAs);
+
+	if(OutputCopies.Contains(mzprop))
+	{
+		auto CopyInfo = OutputCopies.FindRef(mzprop);
+
+		//set real fence value
+		CopyInfo.FenceValue = 0;
+	}
+	else if(InputCopies.Contains(mzprop))
+	{
+		auto CopyInfo = InputCopies.FindRef(mzprop);
+
+		//set real fence value
+		CopyInfo.FenceValue = 0;
+	}
 	
+	return;
+	//TODO better update handling (texture size etc.)
 	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
 	auto pid = tex->pid();
@@ -283,35 +302,17 @@ void MZTextureShareManager::WaitCommands()
 }
 
 
-void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput)
+void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap<ID3D12Fence*, u64>& SignalGroup)
 {
 	cmdData->CmdList->Close();
-	if(bIsExternallySynced)
-	{
-		if(bIsInput)
-		{
-			CmdQueue->Wait(InputFence, InputFenceValue);
-		}
-		else
-		{
-			CmdQueue->Wait(OutputFence, OutputFenceValue);
-		}
-	}
 	CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&cmdData->CmdList);
 	CmdQueue->Signal(cmdData->CmdFence, ++cmdData->CmdFenceValue);
-	if(bIsExternallySynced)
+	
+	for(auto& [fence, val] : SignalGroup)
 	{
-		if(bIsInput)
-		{
-			CmdQueue->Signal(InputFence, InputFenceValue + 1);
-			InputFenceValue = InputFenceValue + 2;
-		}
-		else
-		{
-			CmdQueue->Signal(OutputFence, OutputFenceValue + 1);
-			OutputFenceValue = OutputFenceValue + 2;
-		}
+		CmdQueue->Signal(fence, val);
 	}
+	
 	// cmdData->CmdList->Reset(CmdAlloc, 0);
 	cmdData->State = CmdState::Running;
 	if(true)
@@ -357,24 +358,6 @@ static bool ImportSharedFence(uint64_t pid, HANDLE handle, ID3D12Device* pDevice
        }
        CloseHandle(xmemory);
        return true;
-}
-
-void MZTextureShareManager::InitSyncSemaphores(SyncSemaphores const& Semaphores)
-{
-	if(!Semaphores.MediaZPID || !Semaphores.Input || !Semaphores.Output)
-	{
-		bIsExternallySynced = false;
-		return;
-	}
-
-	bool in = ImportSharedFence(Semaphores.MediaZPID, (HANDLE)Semaphores.Input, Dev, &InputFence);
-	bool out = ImportSharedFence(Semaphores.MediaZPID, (HANDLE)Semaphores.Output, Dev, &OutputFence);
-
-	if(in && out)
-	{
-		bIsExternallySynced = true;
-	}
-	
 }
 
 void MZTextureShareManager::AllocateCommandLists()
@@ -430,7 +413,7 @@ CmdStruct* MZTextureShareManager::GetNewCommandList()
 	}
 }
 
-bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* RenderTarget, ID3D12Resource* PinTexture, ID3D12GraphicsCommandList* CmdList, TArray<D3D12_RESOURCE_BARRIER>& Barriers)
+bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* RenderTarget, ID3D12Resource* PinTexture, ID3D12Fence* Fence, ID3D12GraphicsCommandList* CmdList, TArray<D3D12_RESOURCE_BARRIER>& Barriers)
 {
 	auto rt = RenderTarget->GetRenderTargetResource();
 	if (!rt) return false;
@@ -588,12 +571,22 @@ void MZTextureShareManager::ProcessCopies(bool bIsInput,  TMap<MZProperty*, Reso
 		{
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
+			TMap<ID3D12Fence*, u64> SignalGroup;
 			flatbuffers::FlatBufferBuilder fbb;
 			for (auto& [URT, pin] : CopiesFiltered)
 			{
-				if(MZCopyTexture_RenderThread(bIsInput, URT, pin.DstResource, cmdData->CmdList, barriers) && !bIsInput)
+				if(bIsInput)
 				{
-					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id)));
+					CmdQueue->Wait(pin.Fence, pin.FenceValue);
+				}
+				else
+				{
+					CmdQueue->Wait(pin.Fence, (2 * pin.FenceValue));
+					SignalGroup.Add(pin.Fence, (2 * pin.FenceValue) + 1);
+				}
+				if(MZCopyTexture_RenderThread(bIsInput, URT, pin.DstResource, pin.Fence, cmdData->CmdList, barriers) && !bIsInput)
+				{
+					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, pin.FenceValue)));
 				}
 			}
 			if (!events.empty() && MZClient && MZClient->IsConnected())
@@ -601,11 +594,7 @@ void MZTextureShareManager::ProcessCopies(bool bIsInput,  TMap<MZProperty*, Reso
 				MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
 			cmdData->CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
-			ExecCommands(cmdData, bIsInput);
-			if(bIsInput)
-			{
-				// WaitCommands();
-			}
+			ExecCommands(cmdData, bIsInput, SignalGroup);
 		});
 }
 
@@ -617,6 +606,10 @@ void MZTextureShareManager::OnBeginFrame()
 void MZTextureShareManager::OnEndFrame()
 {
 	ProcessCopies(false, OutputCopies);
+	for(auto& [_, info] : OutputCopies)
+	{
+		info.FenceValue += 1;
+	}
 }
 
 void MZTextureShareManager::Reset()

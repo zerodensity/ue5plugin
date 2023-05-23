@@ -33,7 +33,7 @@ void FMZAssetManager::StartupModule()
 	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZAssetManager::OnAssetCreated);
 	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMZAssetManager::OnAssetDeleted);
 
-	MZClient->OnMZConnected.AddLambda([this](mz::fb::Node const& appNode, SyncSemaphores const& Semaphores)
+	MZClient->OnMZConnected.AddLambda([this](mz::fb::Node const& appNode)
 		{
 			RescanAndSendAll();
 		});
