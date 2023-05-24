@@ -414,15 +414,15 @@ void FMZClient::TryConnect()
 	//	Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
 	//}
 
-	// if (!CustomTimeStepBound && IsConnected())
-	// {
-	// 	MZTimeStep = NewObject<UMZCustomTimeStep>();
-	// 	MZTimeStep->PluginClient = this;
-	// 	if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
-	// 	{
-	// 		CustomTimeStepBound = true;
-	// 	}
-	// }
+	 if (!CustomTimeStepBound && IsConnected())
+	 {
+	 	MZTimeStep = NewObject<UMZCustomTimeStep>();
+	 	MZTimeStep->PluginClient = this;
+	 	if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
+	 	{
+	 		CustomTimeStepBound = true;
+	 	}
+	 }
 	return;
 }
 
