@@ -315,7 +315,7 @@ void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap
 	
 	// cmdData->CmdList->Reset(CmdAlloc, 0);
 	cmdData->State = CmdState::Running;
-	if(true)
+#if 0
 	{
 		if (cmdData->CmdFence->GetCompletedValue() < cmdData->CmdFenceValue)
 		{
@@ -326,6 +326,7 @@ void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap
 		// cmdData->CmdAlloc->Reset();
 		// cmdData->CmdList->Reset(cmdData->CmdAlloc, 0);
 	}
+#endif
 }
 
 void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
