@@ -589,12 +589,12 @@ void MZTextureShareManager::ProcessCopies(bool bIsInput,  TMap<MZProperty*, Reso
 					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, pin.FenceValue)));
 				}
 			}
+			cmdData->CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
+			ExecCommands(cmdData, bIsInput, SignalGroup);
 			if (!events.empty() && MZClient && MZClient->IsConnected())
 			{
 				MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
-			cmdData->CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
-			ExecCommands(cmdData, bIsInput, SignalGroup);
 		});
 }
 
