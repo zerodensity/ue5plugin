@@ -13,8 +13,8 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "MediaZ/AppInterface.h"
-#include "MediaZ/MediaZ.h"
+#include "MediaZ/AppAPI.h"
+//#include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include <functional> 

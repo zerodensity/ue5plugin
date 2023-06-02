@@ -16,10 +16,10 @@ void MemoryBarrier();
 #include "Windows/HideWindowsPlatformTypes.h"
 
 #include <shared_mutex>
-#include "MediaZ/MediaZ.h"
+// #include "MediaZ/MediaZ.h"
 
 #include "MZActorProperties.h"
-#include "MediaZ/AppInterface.h" 
+#include "MediaZ/AppAPI.h" 
 #include <mzFlatBuffersCommon.h>
 #include "MZClient.h"
 #include "RHI.h"
@@ -41,7 +41,7 @@ struct ResourceInfo
 	MZProperty* SrcMzp = 0;
 	ID3D12Resource* DstResource = 0;
 	bool ReadOnly = true;
-	MzTextureShareInfo Info = {};
+	mzTextureShareInfo Info = {};
 	void Release()
 	{
 		

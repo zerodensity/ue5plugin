@@ -22,7 +22,7 @@
 
 #include "MZClient.h"
 
-#include "MediaZ/MediaZ.h"
+// #include "MediaZ/MediaZ.h"
 #include <Builtins_generated.h>
 
 
@@ -30,18 +30,18 @@
 MZTextureShareManager* MZTextureShareManager::singleton;
 
 
-MzTextureInfo GetResourceInfo(MZProperty* mzprop)
+mzTextureInfo GetResourceInfo(MZProperty* mzprop)
 {
 	UObject* obj = mzprop->GetRawObjectContainer();
 	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
 
 	if (!obj)
 	{
-		return MzTextureInfo{
-			.width = 1600,
-			.height = 900,
-			.format = MzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
-			.usage = (MzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST) 
+		return mzTextureInfo{
+			.Width = 1600,
+			.Height = 900,
+			.Format = mzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
+			.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST) 
 		};
 	}
 
@@ -49,57 +49,57 @@ MzTextureInfo GetResourceInfo(MZProperty* mzprop)
 
 	if (!trt2d)
 	{
-		return MzTextureInfo{
-			.width = 1600,
-			.height = 900,
-			.format = MzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
-			.usage = (MzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST)
+		return mzTextureInfo{
+			.Width = 1600,
+			.Height = 900,
+			.Format = mzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
+			.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST)
 		};
 	}
 
-	MzTextureInfo info = {
-		.width = (uint32_t)trt2d->GetSurfaceWidth(),
-		.height = (uint32_t)trt2d->GetSurfaceHeight(),
-		.usage = (MzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST),
+	mzTextureInfo info = {
+		.Width = (uint32_t)trt2d->GetSurfaceWidth(),
+		.Height = (uint32_t)trt2d->GetSurfaceHeight(),
+		.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST),
 	};
 
 	switch (trt2d->RenderTargetFormat)
 	{
 	case ETextureRenderTargetFormat::RTF_R8:
-		info.format = MZ_FORMAT_R8_UNORM;
+		info.Format = MZ_FORMAT_R8_UNORM;
 		break;
 	case ETextureRenderTargetFormat::RTF_RG8:
-		info.format = MZ_FORMAT_R8G8_UNORM;
+		info.Format = MZ_FORMAT_R8G8_UNORM;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA8:
-		info.format = MZ_FORMAT_R8G8B8A8_UNORM;
+		info.Format = MZ_FORMAT_R8G8B8A8_UNORM;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA8_SRGB:
-		info.format = MZ_FORMAT_R8G8B8A8_SRGB;
+		info.Format = MZ_FORMAT_R8G8B8A8_SRGB;
 		break;
 
 	case ETextureRenderTargetFormat::RTF_R16f:
-		info.format = MZ_FORMAT_R16_SFLOAT;
+		info.Format = MZ_FORMAT_R16_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RG16f:
-		info.format = MZ_FORMAT_R16G16_SFLOAT;
+		info.Format = MZ_FORMAT_R16G16_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA16f:
-		info.format = MZ_FORMAT_R16G16B16A16_SFLOAT;
+		info.Format = MZ_FORMAT_R16G16B16A16_SFLOAT;
 		break;
 
 	case ETextureRenderTargetFormat::RTF_R32f:
-		info.format = MZ_FORMAT_R32_SFLOAT;
+		info.Format = MZ_FORMAT_R32_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RG32f:
-		info.format = MZ_FORMAT_R32G32_SFLOAT;
+		info.Format = MZ_FORMAT_R32G32_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA32f:
-		info.format = MZ_FORMAT_R32G32B32A32_SFLOAT;
+		info.Format = MZ_FORMAT_R32G32B32A32_SFLOAT;
 		break;
 
 	case ETextureRenderTargetFormat::RTF_RGB10A2:
-		info.format = MZ_FORMAT_A2R10G10B10_UNORM_PACK32;
+		info.Format = MZ_FORMAT_A2R10G10B10_UNORM_PACK32;
 		break;
 	}
 
@@ -125,17 +125,17 @@ MZTextureShareManager::~MZTextureShareManager()
 
 mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 {
-	MzTextureInfo info = GetResourceInfo(mzprop);
+	mzTextureInfo info = GetResourceInfo(mzprop);
 	{
 		std::unique_lock lock(PendingCopyQueueMutex);
 		PendingCopyQueue.Add(mzprop->Id, mzprop);
 	}
 	mz::fb::TTexture tex;
 	tex.size = mz::fb::SizePreset::CUSTOM;
-	tex.width = info.width;
-	tex.height = info.height;
-	tex.format = mz::fb::Format(info.format);
-	tex.usage = mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED;
+	tex.width = info.Width;
+	tex.height = info.Height;
+	tex.format = mz::fb::Format(info.Format);
+	tex.usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
 	tex.type = 0x00000040;
 	// return tex;
 	UObject* obj = mzprop->GetRawObjectContainer();
@@ -146,8 +146,8 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	D3D12_RESOURCE_DESC desc{};
 	desc.Dimension        = D3D12_RESOURCE_DIMENSION_TEXTURE2D;
 	desc.Alignment        = 0;
-	desc.Width            = info.width;
-	desc.Height           = info.height;
+	desc.Width            = info.Width;
+	desc.Height           = info.Height;
 	desc.DepthOrArraySize = 1;
 	desc.MipLevels        = 1;
 	desc.Format           = TargetFormat;
@@ -190,18 +190,19 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	mzprop->data.resize(size);
 	memcpy(mzprop->data.data(), data, size);
 	//std::unique_lock lock(CopyOnTickMutex);
-	MzTextureShareInfo info = {
-	.type = tex->type(),
-	.handle = tex->handle(),
-	.pid = tex->pid(),
-	.memory = tex->memory(),
-	.offset = tex->offset(),
-	.textureInfo = {
-		.width = tex->width(),
-		.height = tex->height(),
-		.format = (MzFormat)tex->format(),
-		.usage = (MzImageUsage)tex->usage(),
-	},
+	mzTextureShareInfo info = {
+		.Memory = {
+			.Type = tex->type(),
+			.Handle = tex->handle(),
+			.PID = tex->pid(),
+			.Memory = tex->memory(),
+			.Offset = tex->offset(),
+		},
+		.Info = {
+			.Width = tex->width(),
+			.Height = tex->height(),
+			.Format = (mzFormat)tex->format(),
+			.Usage =  (mzImageUsage)tex->usage()},
 	};
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
@@ -209,7 +210,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 		.Info = info,
 	};
 
-	if (MzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &copyInfo.DstResource))
+	if (mzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &copyInfo.DstResource))
 	{
 		abort();
 	}
@@ -289,25 +290,27 @@ void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 		std::unique_lock lock(PendingCopyQueueMutex);
 		PendingCopyQueue.Remove(textureProp->Id);
 		auto tex = flatbuffers::GetRoot<mz::fb::Texture>(textureProp->data.data());
-		MzTextureShareInfo info = {
-		.type = tex->type(),
-		.handle = tex->handle(),
-		.pid = tex->pid(),
-		.memory = tex->memory(),
-		.offset = tex->offset(),
-		.textureInfo = {
-			.width = tex->width(),
-			.height = tex->height(),
-			.format = (MzFormat)tex->format(),
-			.usage = (MzImageUsage)tex->usage(),
-		},
+		mzTextureShareInfo info = {
+			.Memory = {
+				.Type = tex->type(),
+				.Handle = tex->handle(),
+				.PID = tex->pid(),
+				.Memory = tex->memory(),
+				.Offset = tex->offset(),
+			},
+			.Info = {
+				.Width = tex->width(),
+				.Height = tex->height(),
+				.Format = (mzFormat)tex->format(),
+				.Usage =  (mzImageUsage)tex->usage()},
 		};
-		if(!info.handle)
+
+		if(!info.Memory.Handle)
 		{
 			return;
 		}
 		ID3D12Resource* TextureResource = 0;
-		if (MzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &TextureResource))
+		if (mzResult::MZ_RESULT_SUCCESS != FMediaZ::GetD3D12Resources(&info, Dev, &TextureResource))
 		{
 			abort();
 		}
