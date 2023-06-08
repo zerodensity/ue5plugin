@@ -1109,7 +1109,6 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(MZObjectReference* Obje
 	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
 	UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
 
-
 	if(MZPropertyFactory::OnPropertyCreatedCallback)
 	{
 		if (actor)
@@ -1119,7 +1118,6 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(MZObjectReference* Obje
 		{
 			MZPropertyFactory::OnPropertyCreatedCallback(ObjectReference, prop);
 		}
-		
 	}
 
 	return prop;

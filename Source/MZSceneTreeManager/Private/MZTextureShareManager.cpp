@@ -342,6 +342,7 @@ void MZTextureShareManager::EnqueueCommands(mz::app::IAppServiceClient* Client)
 		std::unique_lock lock(CopyOnTickMutex);
 		for (auto &[mzprop, info] : CopyOnTick)
 		{
+			UObject* obj = mzprop->GetRawObjectContainer();
 			if (!obj) return;
 			
 			auto prop = CastField<FObjectProperty>(mzprop->Property);

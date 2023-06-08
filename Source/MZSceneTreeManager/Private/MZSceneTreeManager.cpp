@@ -142,8 +142,17 @@ void FMZSceneTreeManager::StartupModule()
 			{
 				// Could be scene component, then find owner actor and add as its child
 				// ToDo simplfy finding ActorNode from ObjectReference...
-				MZComponentReference *ComponentReference = static_cast<MZComponentReference *>(ObjectReference);
-				auto Actor = ComponentReference->Get()->GetOwner();
+				
+				AActor* Actor;
+				
+				if(Cast<USceneComponent>(ObjectReference->GetAsObject()))
+				{
+					MZComponentReference *ComponentReference = static_cast<MZComponentReference *>(ObjectReference);
+					Actor = ComponentReference->Get()->GetOwner();
+				}else
+				{
+					Actor = Cast<AActor>(ObjectReference->GetAsObject());
+				}
 				FGuid ActorGuid = Actor->GetActorGuid();
 				TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(ActorGuid);
 				ActorNode *ActorNode = TreeNode->GetAsActorNode();
