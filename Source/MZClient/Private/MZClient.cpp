@@ -42,7 +42,7 @@ bool FMediaZ::Initialize()
 
 	if (!FPaths::FileExists(SdkDllPath))
 	{
-		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzSDK.dll at %s. Plugin will not be functional."), *SdkPath);
+		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzAppSDK.dll at %s. Plugin will not be functional."), *SdkPath);
 		return false;
 	}
 
