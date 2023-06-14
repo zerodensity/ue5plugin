@@ -505,7 +505,10 @@ void FMZClient::ShutdownModule()
 {
 	// AppServiceClient-/*>*/
 	MZTimeStep = nullptr;
-	FMediaZ::ShutdownClient(AppServiceClient);
+	if(FMediaZ::ShutdownClient)
+	{
+		FMediaZ::ShutdownClient(AppServiceClient);
+	}
 	FMediaZ::Shutdown();
 }
 
