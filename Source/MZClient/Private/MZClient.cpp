@@ -30,6 +30,7 @@ FString FMZClient::AppKey = "";
 
 void* FMediaZ::LibHandle = nullptr;
 PFN_MakeAppServiceClient FMediaZ::MakeAppServiceClient = nullptr;
+PFN_ShutdownClient FMediaZ::ShutdownClient = nullptr;
 PFN_mzGetD3D12Resources FMediaZ::GetD3D12Resources = nullptr;
 
 bool FMediaZ::Initialize()
@@ -37,11 +38,11 @@ bool FMediaZ::Initialize()
 	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("MZ_SDK_DIR"));
 	FString SdkBinPath = FPaths::Combine(SdkPath, TEXT("bin"));
 	FPlatformProcess::PushDllDirectory(*SdkBinPath);
-	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzSDK.dll");
+	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzAppSDK.dll");
 
 	if (!FPaths::FileExists(SdkDllPath))
 	{
-		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzSDK.dll at %s. Plugin will not be functional."), *SdkPath);
+		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzAppSDK.dll at %s. Plugin will not be functional."), *SdkPath);
 		return false;
 	}
 
@@ -54,9 +55,10 @@ bool FMediaZ::Initialize()
 	}
 
 	MakeAppServiceClient = (PFN_MakeAppServiceClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
+	ShutdownClient = (PFN_ShutdownClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("ShutdownClient"));
 	GetD3D12Resources = (PFN_mzGetD3D12Resources)FPlatformProcess::GetDllExport(LibHandle, TEXT("mzGetD3D12Resources"));
 	
-	if (!MakeAppServiceClient || !GetD3D12Resources)
+	if (!MakeAppServiceClient || !ShutdownClient || !GetD3D12Resources)
 	{
 		UE_LOG(LogMZClient, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
 		return false;
@@ -72,6 +74,7 @@ void FMediaZ::Shutdown()
 		FPlatformProcess::FreeDllHandle(LibHandle);
 		LibHandle = nullptr;
 		MakeAppServiceClient = nullptr;
+		ShutdownClient = nullptr;
 		GetD3D12Resources = nullptr;
 		LOG("Unloaded MediaZ SDK dll successfully.");
 	}
@@ -394,7 +397,7 @@ void FMZClient::TryConnect()
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
-		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", TCHAR_TO_ANSI(*FMZClient::AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
+		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", TCHAR_TO_ANSI(*FMZClient::AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
@@ -502,6 +505,7 @@ void FMZClient::ShutdownModule()
 {
 	// AppServiceClient-/*>*/
 	MZTimeStep = nullptr;
+	FMediaZ::ShutdownClient(AppServiceClient);
 	FMediaZ::Shutdown();
 }
 

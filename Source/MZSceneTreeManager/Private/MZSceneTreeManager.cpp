@@ -335,6 +335,12 @@ void FMZSceneTreeManager::ShutdownModule()
 
 bool FMZSceneTreeManager::Tick(float dt)
 {
+	//TODO check after merge
+	//if (MZClient)
+	//{
+	//	MZTextureShareManager::GetInstance()->EnqueueCommands(MZClient->AppServiceClient);
+	//}
+
 	return true;
 }
 

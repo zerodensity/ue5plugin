@@ -49,17 +49,17 @@ mzTextureInfo GetResourceInfo(MZProperty* mzprop)
 	if (!trt2d)
 	{
 		return mzTextureInfo{
-			.width = 1600,
-			.height = 900,
-			.format = mzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
-			.usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST)
+			.Width = 1600,
+			.Height = 900,
+			.Format = mzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
+			.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST)
 		};
 	}
 
 	mzTextureInfo info = {
-		.width = (uint32_t)trt2d->GetSurfaceWidth(),
-		.height = (uint32_t)trt2d->GetSurfaceHeight(),
-		.usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST),
+		.Width = (uint32_t)trt2d->GetSurfaceWidth(),
+		.Height = (uint32_t)trt2d->GetSurfaceHeight(),
+		.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST),
 	};
 
 	switch (trt2d->RenderTargetFormat)
@@ -162,7 +162,7 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	tex.width = info.Width;
 	tex.height = info.Height;
 	tex.format = mz::fb::Format(info.Format);
-	tex.usage = mz::fb::ImageUsage(info.usage) | mz::fb::ImageUsage::SAMPLED;
+	tex.usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
 	tex.type = 0x00000040;
 	tex.memory = (u64)handle;
 	tex.pid = FPlatformProcess::GetCurrentProcessId();
@@ -219,17 +219,18 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	memcpy(mzprop->data.data(), data, size);
 	//std::unique_lock lock(CopyOnTickMutex);
 	mzTextureShareInfo info = {
-	.Type = tex->type(),
-	.Handle = tex->handle(),
-	.Pid = tex->pid(),
-	.Memory = tex->memory(),
-	.Offset = tex->offset(),
-	.TextureInfo = {
-		.width = tex->width(),
-		.height = tex->height(),
-		.format = (mzFormat)tex->format(),
-		.usage = (mzImageUsage)tex->usage(),
-	},
+		.Memory = {
+			.Type = tex->type(),
+			.Handle = tex->handle(),
+			.PID = tex->pid(),
+			.Memory = tex->memory(),
+			.Offset = tex->offset(),
+		},
+		.Info = {
+			.Width = tex->width(),
+			.Height = tex->height(),
+			.Format = (mzFormat)tex->format(),
+			.Usage =  (mzImageUsage)tex->usage()},
 	};
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,

@@ -14,6 +14,8 @@
 #pragma warning (disable : 4668)
 
 #include "Mediaz/PinDataQueues.h"
+#include "MediaZ/AppAPI.h"
+//#include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include <functional> 
@@ -94,6 +96,7 @@ private:
 };
 
 using PFN_MakeAppServiceClient = decltype(&mz::app::MakeAppServiceClient);
+using PFN_ShutdownClient = decltype(&mz::app::ShutdownClient);
 using PFN_mzGetD3D12Resources = decltype(&mzGetD3D12Resources);
 
 class MZCLIENT_API FMediaZ
@@ -102,6 +105,7 @@ public:
 	static bool Initialize();
 	static void Shutdown();
 	static PFN_MakeAppServiceClient MakeAppServiceClient;
+	static PFN_ShutdownClient ShutdownClient;
 	static PFN_mzGetD3D12Resources GetD3D12Resources;
 private:
 	// MediaZ SDK DLL handle
@@ -151,7 +155,7 @@ public:
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;
 
 	//To send events to mediaz and communication
-	TSharedPtr<mz::app::IAppServiceClient> AppServiceClient = nullptr;
+	mz::app::IAppServiceClient* AppServiceClient = nullptr;
 
 	//Task queue
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;
