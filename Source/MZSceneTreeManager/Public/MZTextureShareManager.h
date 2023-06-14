@@ -16,10 +16,9 @@ void MemoryBarrier();
 #include "Windows/HideWindowsPlatformTypes.h"
 
 #include <shared_mutex>
-#include "MediaZ/MediaZ.h"
 
 #include "MZActorProperties.h"
-#include "MediaZ/AppInterface.h" 
+#include "MediaZ/AppAPI.h" 
 #include <mzFlatBuffersCommon.h>
 #include "MZClient.h"
 #include "RHI.h"

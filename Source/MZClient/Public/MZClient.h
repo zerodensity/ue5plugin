@@ -13,8 +13,7 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "MediaZ/PinDataQueues.h"
-#include "MediaZ/MediaZ.h"
+#include "Mediaz/PinDataQueues.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include <functional> 

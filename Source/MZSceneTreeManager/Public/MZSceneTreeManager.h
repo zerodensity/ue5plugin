@@ -5,8 +5,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
-#include "MediaZ/AppInterface.h"
-#include "MediaZ/MediaZ.h"
+#include "MediaZ/AppAPI.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include "MZSceneTree.h"
