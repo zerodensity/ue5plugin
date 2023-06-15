@@ -110,7 +110,7 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode, mz::app::AppSync const& appSync)
+void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 {
 	FMZClient::NodeId = *(FGuid*)appNode.id();
 	if (!PluginClient)

@@ -50,7 +50,7 @@ class MZCLIENT_API MZEventDelegates : public mz::app::PinDataQueues
 public:
 	~MZEventDelegates() {}
 
-	virtual void OnAppConnected(mz::fb::Node const& appNode, mz::app::AppSync const& appSync) override;
+	virtual void OnAppConnected(mz::fb::Node const& appNode) override;
 	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
