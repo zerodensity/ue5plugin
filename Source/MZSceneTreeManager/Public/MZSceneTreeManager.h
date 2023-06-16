@@ -5,8 +5,7 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
-#include "MediaZ/AppInterface.h"
-#include "MediaZ/MediaZ.h"
+#include "MediaZ/AppAPI.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include "MZSceneTree.h"
@@ -54,7 +53,9 @@ public:
 
 	TMap<TPair<FProperty*, void*>, TSharedPtr<MZProperty>> PropertiesByPropertyAndContainer;
 	void Reset(bool ResetPortals = true);
-	 
+
+	void OnBeginFrame();
+	void OnEndFrame();
 };
 
 class FMZActorManager
@@ -118,6 +119,9 @@ public:
 	virtual void ShutdownModule() override;
 
 	bool Tick(float dt);
+
+	void OnBeginFrame();
+	void OnEndFrame();
 
 	void OnMZConnected(mz::fb::Node const& appNode);
 

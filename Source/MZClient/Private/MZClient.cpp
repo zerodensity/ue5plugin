@@ -30,6 +30,7 @@ FString FMZClient::AppKey = "";
 
 void* FMediaZ::LibHandle = nullptr;
 PFN_MakeAppServiceClient FMediaZ::MakeAppServiceClient = nullptr;
+PFN_ShutdownClient FMediaZ::ShutdownClient = nullptr;
 PFN_mzGetD3D12Resources FMediaZ::GetD3D12Resources = nullptr;
 
 bool FMediaZ::Initialize()
@@ -37,11 +38,11 @@ bool FMediaZ::Initialize()
 	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("MZ_SDK_DIR"));
 	FString SdkBinPath = FPaths::Combine(SdkPath, TEXT("bin"));
 	FPlatformProcess::PushDllDirectory(*SdkBinPath);
-	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzSDK.dll");
+	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzAppSDK.dll");
 
 	if (!FPaths::FileExists(SdkDllPath))
 	{
-		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzSDK.dll at %s. Plugin will not be functional."), *SdkPath);
+		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzAppSDK.dll at %s. Plugin will not be functional."), *SdkPath);
 		return false;
 	}
 
@@ -54,9 +55,10 @@ bool FMediaZ::Initialize()
 	}
 
 	MakeAppServiceClient = (PFN_MakeAppServiceClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
+	ShutdownClient = (PFN_ShutdownClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("ShutdownClient"));
 	GetD3D12Resources = (PFN_mzGetD3D12Resources)FPlatformProcess::GetDllExport(LibHandle, TEXT("mzGetD3D12Resources"));
 	
-	if (!MakeAppServiceClient || !GetD3D12Resources)
+	if (!MakeAppServiceClient || !ShutdownClient || !GetD3D12Resources)
 	{
 		UE_LOG(LogMZClient, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
 		return false;
@@ -72,38 +74,11 @@ void FMediaZ::Shutdown()
 		FPlatformProcess::FreeDllHandle(LibHandle);
 		LibHandle = nullptr;
 		MakeAppServiceClient = nullptr;
+		ShutdownClient = nullptr;
 		GetD3D12Resources = nullptr;
 		LOG("Unloaded MediaZ SDK dll successfully.");
 	}
 }
-
-//class FMediaZPluginEditorCommands : public TCommands<FMediaZPluginEditorCommands>
-//{
-//public:
-//	FMediaZPluginEditorCommands()
-//		: TCommands<FMediaZPluginEditorCommands>
-//		(
-//			TEXT("MediaZPluginEditor"),
-//			NSLOCTEXT("Contexts", "MediaZPluginEditor", "MediaZPluginEditor Plugin"),
-//			NAME_None,
-//			FAppStyle::GetAppStyleSetName()
-//			) {}
-//
-//	virtual void RegisterCommands() override
-//	{
-//		UI_COMMAND(TestCommand, "TestCommand", "This is test command", EUserInterfaceActionType::Button, FInputGesture());
-//		UI_COMMAND(PopulateRootGraph, "PopulateRootGraph", "Call PopulateRootGraph", EUserInterfaceActionType::Button, FInputGesture());
-//		UI_COMMAND(SendRootUpdate, "SendRootUpdate", "Call SendNodeUpdate with Root Graph Id", EUserInterfaceActionType::Button, FInputGesture());
-//		UI_COMMAND(SendAssetList, "SendAssetList", "Call SendAssetList", EUserInterfaceActionType::Button, FInputGesture());
-//	}
-//
-//public:
-//	TSharedPtr<FUICommandInfo> TestCommand;
-//	TSharedPtr<FUICommandInfo> PopulateRootGraph;
-//	TSharedPtr<FUICommandInfo> SendRootUpdate;
-//	TSharedPtr<FUICommandInfo> SendAssetList;
-//};
-
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
@@ -144,11 +119,10 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 	}
 
 	LOG("Connected to mzEngine");
-	//PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
 	PluginClient->Connected();
 
 	mz::fb::TNode copy;
-	appNode.UnPackTo(&copy);	
+	appNode.UnPackTo(&copy);
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
@@ -173,7 +147,6 @@ void MZEventDelegates::OnNodeUpdated(mz::fb::Node const& appNode)
 	if (!FMZClient::NodeId.IsValid())
 	{
 		FMZClient::NodeId = *(FGuid*)appNode.id();
-		//PluginClient->SceneTree.Root->Id = *(FGuid*)appNode.id();
 		PluginClient->Connected();
 	}
 
@@ -222,24 +195,6 @@ void MZEventDelegates::OnNodeRemoved()
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
 		{
 			MZClient->OnMZNodeRemoved.Broadcast();
-		});
-}
-
-void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
-{
-	LOG("Pin value changed from mediaz editor");
-	if (!PluginClient)
-	{
-		return;
-	}
-	
-	std::vector<uint8_t> copy(size, 0);
-	memcpy(copy.data(), data, size);
-	FGuid id = *(FGuid*)&pinId;
-
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, size, id]()
-		{
-			MZClient->OnMZPinValueChanged.Broadcast(*(mz::fb::UUID*)&id, copy.data(), size);
 		});
 }
 
@@ -442,7 +397,7 @@ void FMZClient::TryConnect()
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
-		AppServiceClient = TSharedPtr<mz::app::IAppServiceClient>(FMediaZ::MakeAppServiceClient("localhost:50053", TCHAR_TO_ANSI(*FMZClient::AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand)));
+		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", TCHAR_TO_ANSI(*FMZClient::AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand));
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
@@ -462,16 +417,21 @@ void FMZClient::TryConnect()
 	//	Client->IsChannelReady = (GRPC_CHANNEL_READY == Client->Connect());
 	//}
 
-	if (!CustomTimeStepBound && IsConnected())
-	{
-		MZTimeStep = NewObject<UMZCustomTimeStep>();
-		MZTimeStep->PluginClient = this;
-		if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
-		{
-			CustomTimeStepBound = true;
-		}
-	}
+	 if (!CustomTimeStepBound && IsConnected())
+	 {
+	 	MZTimeStep = NewObject<UMZCustomTimeStep>();
+	 	MZTimeStep->PluginClient = this;
+	 	if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
+	 	{
+	 		CustomTimeStepBound = true;
+	 	}
+	 }
 	return;
+}
+
+void FMZClient::OnBeginFrame()
+{
+
 }
 
 void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues initValues)
@@ -545,6 +505,10 @@ void FMZClient::ShutdownModule()
 {
 	// AppServiceClient-/*>*/
 	MZTimeStep = nullptr;
+	if(FMediaZ::ShutdownClient)
+	{
+		FMediaZ::ShutdownClient(AppServiceClient);
+	}
 	FMediaZ::Shutdown();
 }
 
@@ -613,7 +577,6 @@ void UENodeStatusHandler::SendStatus()
 	auto buf = Builder.Release();
 	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
 	PluginClient->AppServiceClient->SendPartialNodeUpdate(*root);
-	// PluginClient->AppServiceClient->SendPartialNodeUpdate(FinishBuffer(Builder, mz::CreatePartialNodeUpdate(Builder, &UpdateRequest)));
 	Dirty = false;
 }
 

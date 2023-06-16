@@ -16,10 +16,9 @@ void MemoryBarrier();
 #include "Windows/HideWindowsPlatformTypes.h"
 
 #include <shared_mutex>
-#include "MediaZ/MediaZ.h"
 
 #include "MZActorProperties.h"
-#include "MediaZ/AppInterface.h" 
+#include "MediaZ/AppAPI.h" 
 #include <mzFlatBuffersCommon.h>
 #include "MZClient.h"
 #include "RHI.h"
@@ -40,15 +39,27 @@ struct ResourceInfo
 {
 	MZProperty* SrcMzp = 0;
 	ID3D12Resource* DstResource = 0;
-	bool ReadOnly = true;
-	MzTextureShareInfo Info = {};
-	void Release()
-	{
-		
-		if (DstResource) DstResource->Release();
-		memset(this, 0, sizeof(*this));
-	}
+	ID3D12Fence* Fence = 0;
+	u64 FenceValue = 0;
 };
+
+enum CmdState
+{
+	Pending,
+	Recording,
+	Running,
+};
+
+struct CmdStruct
+{
+	struct ID3D12CommandAllocator* CmdAlloc;
+	struct ID3D12GraphicsCommandList* CmdList;
+	struct ID3D12Fence* CmdFence;
+	uint64_t CmdFenceValue;
+	CmdState State;
+};
+
+
 
 //This class manages copy operations between textures of MediaZ and unreal 2d texture target
 class MZSCENETREEMANAGER_API MZTextureShareManager
@@ -65,31 +76,34 @@ public:
 	mz::fb::TTexture AddTexturePin(MZProperty*);
 	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs, void* data, uint32_t size);
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
-	//void AddToCopyQueue();
-	//void RemoveFromCopyQueue();
 	void Reset();
 	void WaitCommands();
-	void ExecCommands();
-	void EnqueueCommands(mz::app::IAppServiceClient* client);
+	void ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void TextureDestroyed(MZProperty* texture);
-
-
+	void AllocateCommandLists();
+	CmdStruct* GetNewCommandList();
+	void ProcessCopies(bool bIsInput, TMap<MZProperty*, ResourceInfo>& CopyMap);
+	void OnBeginFrame();
+	void OnEndFrame();
+	
+	class FMZClient* MZClient;
+	
 	struct ID3D12Device* Dev;
-	struct ID3D12CommandAllocator* CmdAlloc;
 	struct ID3D12CommandQueue* CmdQueue;
-	struct ID3D12GraphicsCommandList* CmdList;
-	struct ID3D12Fence* CmdFence;
-	HANDLE CmdEvent;
-	uint64_t CmdFenceValue = 0;
+	size_t CommandListCount = 10;
+	std::vector<CmdStruct*> Cmds;
 
-	std::mutex PendingCopyQueueMutex;
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
-	std::mutex ResourcesToDeleteMutex;
 	TSet<ID3D12Resource*> ResourcesToDelete;
 	
-	std::shared_mutex CopyOnTickMutex;
 	TMap<MZProperty*, ResourceInfo> CopyOnTick;
+
+	TMap<MZProperty*, ResourceInfo> InputCopies;
+
+	TMap<MZProperty*, ResourceInfo> OutputCopies;
+	
+	TMap<MZProperty*, ResourceInfo> Copies;
 
 private:
 	void Initiate();

@@ -79,7 +79,7 @@ void UMZUMGRendererComponent::TickComponent(float DeltaTime, ELevelTick TickType
 		// Return the updated render target 2D.
 		
 		//for debug purposes writes texture to a file
-		//TUniquePtr<FArchive> Ar(IFileManager::Get().CreateFileWriter(*FString("aaaaatexture.png")));
+		//TUniquePtr<FArchive> Ar(IFileManager::Get().CreateFileWriter(*FString("TEXTURE_DEBUG_MZ.png")));
 		//FBufferArchive Buffer;
 		//bool bSuccess = FImageUtils::ExportRenderTarget2DAsPNG(UMGRenderTarget, Buffer);
 		//if (bSuccess)

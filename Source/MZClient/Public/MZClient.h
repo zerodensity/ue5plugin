@@ -13,8 +13,9 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "MediaZ/AppInterface.h"
-#include "MediaZ/MediaZ.h"
+#include "Mediaz/PinDataQueues.h"
+#include "MediaZ/AppAPI.h"
+//#include "MediaZ/MediaZ.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include <functional> 
@@ -39,21 +40,21 @@ DECLARE_EVENT_OneParam(FMZClient, FMZNodeImported, mz::fb::Node const&);
 DECLARE_EVENT(FMZClient, FMZConnectionClosed);
 
 
-
 /**
  * Implements communication with the MediaZ Engine
  */
 class FMZClient;
 
-class MZCLIENT_API MZEventDelegates : public mz::app::IEventDelegates
+class MZCLIENT_API MZEventDelegates : public mz::app::PinDataQueues
 {
 public:
+	~MZEventDelegates() {}
+
 	virtual void OnAppConnected(mz::fb::Node const& appNode) override;
 	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
-	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size) override;
 	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
 	virtual void OnExecuteApp(mz::app::AppExecute const& appExecute) override; 
 	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;
@@ -95,6 +96,7 @@ private:
 };
 
 using PFN_MakeAppServiceClient = decltype(&mz::app::MakeAppServiceClient);
+using PFN_ShutdownClient = decltype(&mz::app::ShutdownClient);
 using PFN_mzGetD3D12Resources = decltype(&mzGetD3D12Resources);
 
 class MZCLIENT_API FMediaZ
@@ -103,6 +105,7 @@ public:
 	static bool Initialize();
 	static void Shutdown();
 	static PFN_MakeAppServiceClient MakeAppServiceClient;
+	static PFN_ShutdownClient ShutdownClient;
 	static PFN_mzGetD3D12Resources GetD3D12Resources;
 private:
 	// MediaZ SDK DLL handle
@@ -137,6 +140,8 @@ public:
 	//Tick is called every frame once and handles the tasks queued from grpc threads
 	bool Tick(float dt);
 
+	void OnBeginFrame();
+
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
 	 
@@ -150,7 +155,7 @@ public:
 	TSharedPtr<MZEventDelegates> EventDelegates = 0;
 
 	//To send events to mediaz and communication
-	TSharedPtr<mz::app::IAppServiceClient> AppServiceClient = nullptr;
+	mz::app::IAppServiceClient* AppServiceClient = nullptr;
 
 	//Task queue
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;

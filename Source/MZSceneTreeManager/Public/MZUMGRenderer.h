@@ -29,13 +29,3 @@ public:
 
 	
 };
-
-//
-//UCLASS()
-//class MZCLIENT_API AMZUMGRenderer :: public AActor
-//{
-//	GENERATE_BODY()
-//public: 
-//	TMap<FString, >
-//
-//};

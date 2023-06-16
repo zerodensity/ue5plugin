@@ -23,7 +23,6 @@ class MZCLIENT_API UMZCustomTimeStep : public UEngineCustomTimeStep
 {
 	GENERATED_BODY()
 public:
-	//std::atomic<bool> wait = false;
 	/** This CustomTimeStep became the Engine's CustomTimeStep. */
 	bool Initialize(class UEngine* InEngine) override
 	{
@@ -64,8 +63,8 @@ public:
 		FApp::SetDeltaTime(CustomDeltaTime);	
 		if (PluginClient && PluginClient->IsConnected() /*&& IsGameRunning()*/)
 		{
-			std::unique_lock lock(Mutex);
-			CV.wait(lock, [this] { return IsReadyForNextStep; });
+			// std::unique_lock lock(Mutex);
+			// CV.wait(lock, [this] { return IsReadyForNextStep; });
 			IsReadyForNextStep = false;
 			return false;
 		}

@@ -106,7 +106,6 @@ void FMZAssetManager::SendAssetList()
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
 	MZClient->AppServiceClient->UpdateStringList(*root);
-	// MZClient->AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
 }
 
 void FMZAssetManager::SendUMGList()
@@ -140,7 +139,6 @@ void FMZAssetManager::SendUMGList()
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
 	MZClient->AppServiceClient->UpdateStringList(*root);
-	// MZClient->AppServiceClient->UpdateStringList(FinishBuffer(mb, mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList))));
 }
 
 TSet<FTopLevelAssetPath> FMZAssetManager::GetAssetPathsOfClass(UClass* ParentClass)
