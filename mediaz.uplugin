@@ -51,11 +51,5 @@
 				"Win64"
 			]
 		}
-	],
-	"Plugins": [
-		{
-			"Name": "RealityEngine",
-			"Enabled": true
-		}
 	]
 }

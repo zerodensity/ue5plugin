@@ -104,7 +104,7 @@ public:
 };
 
 
-class FMZSceneTreeManager : public IModuleInterface {
+class MZSCENETREEMANAGER_API FMZSceneTreeManager : public IModuleInterface {
 
 public:
 	//Empty constructor
@@ -198,6 +198,8 @@ public:
 	//Sends node updates to the MediaZ
 	void SendNodeUpdate(FGuid NodeId, bool bResetRootPins = true);
 
+	void SendEngineFunctionUpdate();
+
 	//Sends pin value changed event to MediaZ
 	void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
 
@@ -241,6 +243,8 @@ public:
 	void OnMapChange(uint32 MapFlags);
 	void OnNewCurrentLevel();
 
+	void AddCustomFunction(MZCustomFunction* CustomFunction);
+	
 	//the world we interested in
 	static UWorld* daWorld;
 

@@ -4,7 +4,7 @@
 #include "MZTextureShareManager.h"
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
-#include "Reality/Public/RealityTrack.h"
+#include "MZTrack.h"
 #include "EngineUtils.h"
 #include "Blueprint/UserWidget.h"
 #include "MZSceneTreeManager.h"
@@ -206,7 +206,7 @@ void MZTrackProperty::SetPropValue(void* val, size_t size, uint8* customContaine
 void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 {
 	auto track = flatbuffers::GetRoot<mz::fb::Track>(val);
-	FRealityTrack* TrackData = structprop->ContainerPtrToValuePtr<FRealityTrack>(container);
+	FMZTrack* TrackData = structprop->ContainerPtrToValuePtr<FMZTrack>(container);
 	// TrackData.location = FVector(0);
 	// TrackData.rotation = FVector(0);
 	// TrackData.center_shift = FVector2d(0);
@@ -285,7 +285,7 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 
 	if (container)
 	{
-		FRealityTrack TrackData = *Property->ContainerPtrToValuePtr<FRealityTrack>(container);
+		FMZTrack TrackData = *Property->ContainerPtrToValuePtr<FMZTrack>(container);
 		
 		flatbuffers::FlatBufferBuilder fb;
 		mz::fb::TTrack TempTrack;
@@ -906,7 +906,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 			prop = TSharedPtr<MZProperty>(new MZVec4Property(container, structprop, parentCategory, StructPtr, parentProperty));
 
 		}
-		else if (structprop->Struct == FRealityTrack::StaticStruct()) //track
+		else if (structprop->Struct == FMZTrack::StaticStruct()) //track
 		{
 			prop = TSharedPtr<MZProperty>(new MZTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}

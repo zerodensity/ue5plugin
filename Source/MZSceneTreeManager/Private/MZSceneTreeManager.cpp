@@ -84,6 +84,12 @@ void FMZSceneTreeManager::OnNewCurrentLevel()
 	//todo we may need to fill these according to the level system
 }
 
+void FMZSceneTreeManager::AddCustomFunction(MZCustomFunction* CustomFunction)
+{
+	CustomFunctions.Add(CustomFunction->Id, CustomFunction);
+	SendEngineFunctionUpdate();
+}
+
 void FMZSceneTreeManager::OnBeginFrame()
 {
 	MZPropertyManager.OnBeginFrame();
@@ -1549,6 +1555,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	return false;
 }
 
+
 void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 {
 	LOGF("Sending node update to MediaZ with id %s", *nodeId.ToString());
@@ -1633,6 +1640,27 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 	}
 	auto metadata = treeNode->SerializeMetaData(mb);
 	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS | mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES | mz::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+}
+
+void FMZSceneTreeManager::SendEngineFunctionUpdate()
+{
+	if (!MZClient || !MZClient->IsConnected())
+	{
+		return;
+	}
+	flatbuffers::FlatBufferBuilder mb = flatbuffers::FlatBufferBuilder();
+	std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+	for (auto& [_, cfunc] : CustomFunctions)
+	{
+		graphFunctions.push_back(cfunc->Serialize(mb));
+
+	}
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
+	auto offset =  mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)(&FMZClient::NodeId), mz::ClearFlags::CLEAR_FUNCTIONS, 0, 0, 0, &graphFunctions, 0, 0, 0, 0, &metadata);
 	mb.Finish(offset);
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
