@@ -13,6 +13,8 @@
 #include "Engine/StaticMeshActor.h"
 #include "LevelSequence.h"
 
+#include <vector>
+
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
 const char* FMZAssetManager::LevelSequencerList = "UE5_LEVEL_SEQUENCER_LIST";
@@ -81,18 +83,13 @@ void FMZAssetManager::SendList(const char* ListName, const TArray<FString>& Valu
 		return;
 
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<mz::fb::String256> NameList;
-	for (auto name : Value)
+	std::vector<std::string> NameList;
+	for (const auto& name : Value)
 	{
-		mz::fb::String256 str256;
-		auto val = str256.mutable_val();
-		auto size = name.Len() < 256 ? name.Len() : 256;
-		memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
-		NameList.push_back(str256);
+		NameList.push_back(TCHAR_TO_UTF8(*name));
 	}
-	mz::fb::String256 listName;
-	strcat((char*)listName.mutable_val()->data(), ListName);
-	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
+	
+	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateStringList(mb, mb.CreateString(ListName), mb.CreateVectorOfStrings(NameList)));
 	mb.Finish(offset);
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());

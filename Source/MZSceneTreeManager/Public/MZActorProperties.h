@@ -189,19 +189,16 @@ public:
 
 		
 		flatbuffers::FlatBufferBuilder mb;
-		std::vector<mz::fb::String256> NameList;
-		for (auto [name, _]: NameMap)
+
+		std::vector<std::string> NameList;
+		for (const auto& [name, _] : NameMap)
 		{
-			mz::fb::String256 str256;
-			auto val = str256.mutable_val();
-			auto size = name.Len() < 256 ? name.Len() : 256;
-			memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
-			NameList.push_back(str256);
+			NameList.push_back(TCHAR_TO_UTF8(*name));
 		}
-		mz::fb::String256 listName;
-		strcat((char*)listName.mutable_val()->data(), TCHAR_TO_UTF8(*Enum->GetFName().ToString()));
-		auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
+
+		auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateStringList(mb, mb.CreateString(TCHAR_TO_UTF8(*Enum->GetFName().ToString())), mb.CreateVectorOfStrings(NameList)));
 		mb.Finish(offset);
+
 		auto buf = mb.Release();
 		auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
 		auto MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
