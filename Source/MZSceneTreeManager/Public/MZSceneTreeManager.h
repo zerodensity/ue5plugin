@@ -11,6 +11,7 @@
 #include "MZSceneTree.h"
 #include "MZClient.h"
 #include "MZViewportClient.h"
+#include "MZAssetManager.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
 
@@ -25,7 +26,7 @@ struct MZPortal
 	mz::fb::ShowAs ShowAs;
 };
 //This class holds the list of all properties and pins 
-class FMZPropertyManager
+class MZSCENETREEMANAGER_API FMZPropertyManager
 {
 public:
 	FMZPropertyManager();
@@ -56,7 +57,7 @@ public:
 	void OnEndFrame();
 };
 
-class FMZActorManager
+class MZSCENETREEMANAGER_API FMZActorManager
 {
 public:
 	FMZActorManager(MZSceneTree& SceneTree) : SceneTree(SceneTree)

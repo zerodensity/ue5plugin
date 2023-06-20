@@ -53,6 +53,7 @@ public class MZSceneTreeManager : ModuleRules
 					"MZClient",
 					"MZAssetManager",
 					"MZViewportManager",
+					"MZDataStructures",
 					"LevelSequence",
 					}
 					);
@@ -80,6 +81,7 @@ public class MZSceneTreeManager : ModuleRules
 					"MZClient",
 					"MZAssetManager",
 					"MZViewportManager",
+					"MZDataStructures",
 					"LevelSequence",
 					}
 					);

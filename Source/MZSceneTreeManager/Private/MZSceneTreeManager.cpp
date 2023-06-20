@@ -192,108 +192,108 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
-	//Add Camera function
-	{
-		MZAssetManager->CustomSpawns.Add("CustomRealityCamera", [this]()
-			{
-				AActor* realityCamera = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_Camera.Reality_Camera_C'"));
-
-				return realityCamera;
-			});
-
-		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
-		{
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
-		};
-		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
-		{
-
-			AActor* realityCamera = MZActorManager->SpawnActor("CustomRealityCamera");
-			if (!realityCamera || !SceneTree.NodeMap.Contains(realityCamera->GetActorGuid()))
-			{
-				return;
-			}
-
-			auto cameraNode = SceneTree.NodeMap.FindRef(realityCamera->GetActorGuid());
-
-			PopulateNode(cameraNode->Id);
-			SendNodeUpdate(cameraNode->Id);
-			for (auto ChildNode : cameraNode->Children)
-			{
-				PopulateNode(ChildNode->Id);
-				SendNodeUpdate(ChildNode->Id);
-			}
-
-			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
-			auto FrameTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
-			auto MaskTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
-			auto LightingTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
-			auto BloomTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
-			auto Track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
-
-			MZPropertyManager.CreatePortal(FrameTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(MaskTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(LightingTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(BloomTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
-
-			LOG("Reality camera is spawned.");
-		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
-	}
-	//Add Projection cube function
-	{
-		MZAssetManager->CustomSpawns.Add("CustomProjectionCube", [this]()
-			{
-				AActor* projectionCube = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'"));
-				auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-				RenderTarget2D->InitAutoFormat(1920, 1080);
-				InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
-				return projectionCube;
-			});
-		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
-		{
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
-		};
-		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
-		{
-
-			AActor* projectionCube = MZActorManager->SpawnActor("CustomProjectionCube");
-			if (!projectionCube || !SceneTree.NodeMap.Contains(projectionCube->GetActorGuid()))
-			{
-				return;
-			}
-			auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
-			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-			auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-			RenderTarget2D->InitAutoFormat(1920, 1080);
-			InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
-
-			PopulateNode(projectionNode->Id);
-			SendNodeUpdate(projectionNode->Id);
-			for (auto ChildNode : projectionNode->Children)
-			{
-				PopulateNode(ChildNode->Id);
-				SendNodeUpdate(ChildNode->Id);
-			}
-
-			MZPropertyManager.CreatePortal(InputTexture, projectionCube, mz::fb::ShowAs::INPUT_PIN);
-			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({InputTexture, projectionCube}))
-			{
-				auto MzProperty =MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({InputTexture, projectionCube});
-				auto texman = MZTextureShareManager::GetInstance();
-				texman->UpdatePinShowAs(MzProperty.Get(), mz::fb::ShowAs::INPUT_PIN);
-			}
-
-			LOG("Projection cube is spawned.");
-		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
-	}
+	// //Add Camera function
+	// {
+	// 	MZAssetManager->CustomSpawns.Add("CustomRealityCamera", [this]()
+	// 		{
+	// 			AActor* realityCamera = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_Camera.Reality_Camera_C'"));
+	//
+	// 			return realityCamera;
+	// 		});
+	//
+	// 	MZCustomFunction* mzcf = new MZCustomFunction;
+	// 	mzcf->Id = FGuid::NewGuid();
+	// 	mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+	// 	{
+	// 		return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
+	// 	};
+	// 	mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
+	// 	{
+	//
+	// 		AActor* realityCamera = MZActorManager->SpawnActor("CustomRealityCamera");
+	// 		if (!realityCamera || !SceneTree.NodeMap.Contains(realityCamera->GetActorGuid()))
+	// 		{
+	// 			return;
+	// 		}
+	//
+	// 		auto cameraNode = SceneTree.NodeMap.FindRef(realityCamera->GetActorGuid());
+	//
+	// 		PopulateNode(cameraNode->Id);
+	// 		SendNodeUpdate(cameraNode->Id);
+	// 		for (auto ChildNode : cameraNode->Children)
+	// 		{
+	// 			PopulateNode(ChildNode->Id);
+	// 			SendNodeUpdate(ChildNode->Id);
+	// 		}
+	//
+	// 		auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
+	// 		auto FrameTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
+	// 		auto MaskTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
+	// 		auto LightingTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
+	// 		auto BloomTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
+	// 		auto Track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
+	//
+	// 		MZPropertyManager.CreatePortal(FrameTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+	// 		// MZPropertyManager.CreatePortal(MaskTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+	// 		// MZPropertyManager.CreatePortal(LightingTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+	// 		// MZPropertyManager.CreatePortal(BloomTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
+	// 		MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
+	//
+	// 		LOG("Reality camera is spawned.");
+	// 	};
+	// 	CustomFunctions.Add(mzcf->Id, mzcf);
+	// }
+	// //Add Projection cube function
+	// {
+	// 	MZAssetManager->CustomSpawns.Add("CustomProjectionCube", [this]()
+	// 		{
+	// 			AActor* projectionCube = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'"));
+	// 			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
+	// 			auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+	// 			RenderTarget2D->InitAutoFormat(1920, 1080);
+	// 			InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+	// 			return projectionCube;
+	// 		});
+	// 	MZCustomFunction* mzcf = new MZCustomFunction;
+	// 	mzcf->Id = FGuid::NewGuid();
+	// 	mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+	// 	{
+	// 		return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
+	// 	};
+	// 	mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
+	// 	{
+	//
+	// 		AActor* projectionCube = MZActorManager->SpawnActor("CustomProjectionCube");
+	// 		if (!projectionCube || !SceneTree.NodeMap.Contains(projectionCube->GetActorGuid()))
+	// 		{
+	// 			return;
+	// 		}
+	// 		auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
+	// 		auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
+	// 		auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
+	// 		RenderTarget2D->InitAutoFormat(1920, 1080);
+	// 		InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
+	//
+	// 		PopulateNode(projectionNode->Id);
+	// 		SendNodeUpdate(projectionNode->Id);
+	// 		for (auto ChildNode : projectionNode->Children)
+	// 		{
+	// 			PopulateNode(ChildNode->Id);
+	// 			SendNodeUpdate(ChildNode->Id);
+	// 		}
+	//
+	// 		MZPropertyManager.CreatePortal(InputTexture, projectionCube, mz::fb::ShowAs::INPUT_PIN);
+	// 		if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({InputTexture, projectionCube}))
+	// 		{
+	// 			auto MzProperty =MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({InputTexture, projectionCube});
+	// 			auto texman = MZTextureShareManager::GetInstance();
+	// 			texman->UpdatePinShowAs(MzProperty.Get(), mz::fb::ShowAs::INPUT_PIN);
+	// 		}
+	//
+	// 		LOG("Projection cube is spawned.");
+	// 	};
+	// 	CustomFunctions.Add(mzcf->Id, mzcf);
+	// }
 	//add umg renderer function
 	MZAssetManager->CustomSpawns.Add("CustomUMGRenderManager", [this]()
 		{

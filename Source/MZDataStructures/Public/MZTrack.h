@@ -3,7 +3,7 @@
 #include "MZTrack.generated.h"
 /** Track data used for connecting with mediaZ */
 USTRUCT(BlueprintType)
-struct MZSCENETREEMANAGER_API FMZTrack 
+struct MZDATASTRUCTURES_API FMZTrack 
 {
 	GENERATED_BODY()
 public:
