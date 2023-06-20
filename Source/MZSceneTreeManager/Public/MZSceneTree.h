@@ -84,8 +84,7 @@ public:
 	TSharedPtr<ActorNode> AddActor(FString folderPath, MZActorReference *ActorReference);
 	TSharedPtr<ActorNode> AddActor(FString folderPath, MZActorReference *ActorReference, TSharedPtr<TreeNode>& mostRecentParent);
 	TSharedPtr<ActorNode> AddActor(TSharedPtr<TreeNode> parent, MZActorReference *ActorReference);
-	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<ActorNode> parent, MZComponentReference* sceneComponent);
-	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<SceneComponentNode> parent, MZComponentReference* sceneComponent);
+	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<TreeNode> parent, MZComponentReference* sceneComponent);
 
 	void Clear();
 

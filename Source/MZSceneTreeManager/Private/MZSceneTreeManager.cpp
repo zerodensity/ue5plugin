@@ -16,7 +16,9 @@
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 
-DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
+DEFINE_LOG_CATEGORY(LogMZSceneTreeManager)
+DEFINE_LOG_CATEGORY(LogMZObjectPlacement)
+
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
 
@@ -872,12 +874,17 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 				GetObjProperties (Replacement.Value, NewObjProperties,NewFunctionsMap);
 				TArray<TPair<FName, FProperty*>> NewProps = GetNewlyAddedProperties(OldProperties, NewObjProperties);
 
-				TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(OldActorGuid);
-				ActorNode *ActorNode = TreeNode->GetAsActorNode();
-
+				TSharedPtr<TreeNode> TreeNodePtr = SceneTree.NodeMap.FindRef(OldActorGuid);
+				ActorNode *ActorNode = TreeNodePtr->GetAsActorNode();
+				
 				if(Component)
 				{
-					for(auto &SceneComponent : ActorNode->Children)
+					TArray<TSharedPtr<TreeNode>> ChildrenList;
+
+					GetNodeAndDescendantNodesRecursive(TreeNodePtr, ChildrenList);
+					ChildrenList.RemoveAt(0);	// Delete first node, as it will be root actor
+					
+					for(auto &SceneComponent : ChildrenList)
 					{
 						SceneComponentNode *SceneComponentNode = SceneComponent->GetAsSceneComponentNode();
 
@@ -885,10 +892,17 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 						{
 							UObject* SceneComponentAsObject = SceneComponentNode->sceneComponent->GetAsObject();
 									
-							if(SceneComponentAsObject->GetClass() == Replacement.Key->GetClass())
+							if(SceneComponentAsObject == Replacement.Key && SceneComponentAsObject->GetClass() == Replacement.Key->GetClass())
 							{
 								isUpdated = true;
+								SceneComponentNode->NeedsReload = true;
+								
 								SceneComponentNode->sceneComponent->UpdateObjectPointer(Replacement.Value);
+								UE_LOG(LogMZObjectPlacement, Warning, TEXT(">>> Scene component updated. Old name is %s, "
+										"Old addr is %lx, "
+		   								"new name is %s, "
+	 									"new addr is %lx"), *SceneComponentNode->sceneComponent->Get()->GetFName().ToString(), *(unsigned long *)SceneComponentNode->sceneComponent->GetAsObject()
+	 													 , *SceneComponentNode->sceneComponent->Get()->GetFName().ToString(), *(unsigned long *)Replacement.Value);
 								for(auto &[PropName, MzProperty] : SceneComponentNode->sceneComponent->PropertiesMap)
 								{
 									if(!OldProperties.Contains(PropName))
@@ -906,6 +920,7 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 				else if(Cast<AActor>(Replacement.Key))
 				{
 					isUpdated = true;
+					ActorNode->NeedsReload = true;
 					for(auto &[PropName, MzProperty] : ActorNode->actor->PropertiesMap)
 					{
 						if(!OldProperties.Contains(PropName))
@@ -941,7 +956,7 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 							{
 								UE_LOG(LogTemp, Warning, TEXT("Newly added MzProperty creation returned null. Property name is: %s"), *Property->GetFName().ToString());
 							}
-							SendPinAdded(TreeNode->Id, mzprop);
+							SendPinAdded(TreeNodePtr->Id, mzprop);
 						}
 								
 					}
@@ -1704,7 +1719,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			{
 				continue;
 			}
-
+		// ToDo treeNode->GetAsSceneComponentNode()->sceneComponent->PropertiesMap.Add(mzprop->PropertyNameAsReference, mzprop); simplfy that no need to GetAsSceneComp always
 			auto mzprop = MZPropertyManager.CreateProperty(Component, Property);
 			if (mzprop)
 			{

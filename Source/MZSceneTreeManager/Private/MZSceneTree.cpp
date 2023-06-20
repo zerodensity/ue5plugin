@@ -146,7 +146,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, MZActor
 	return newChild;
 }
 
-TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNode> parent, MZComponentReference* sceneComponent)
+TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<TreeNode> parent, MZComponentReference* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
 	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
@@ -162,24 +162,6 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNo
 
 	return newComponentNode;
 }
-
-TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, MZComponentReference* sceneComponent)
-{
-	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
-	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
-	newComponentNode->sceneComponent = sceneComponent;
-	newComponentNode->Id = FGuid::NewGuid();
-	newComponentNode->Name = sceneComponent->Get()->GetFName().ToString();
-	newComponentNode->Parent = parent;
-	newComponentNode->NeedsReload = true;
-	parent->Children.push_back(newComponentNode);
-	NodeMap.Add(newComponentNode->Id, newComponentNode);
-
-	newComponentNode->Children.push_back(GetNewLoadingChild(newComponentNode));
-
-	return newComponentNode;
-}
-
 
 flatbuffers::Offset<mz::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
