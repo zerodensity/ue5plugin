@@ -288,5 +288,7 @@ public:
 	FMZActorManager* MZActorManager;
 
 	FMZPropertyManager MZPropertyManager;
+
+	bool bIsModuleFunctional = false;
 };
 

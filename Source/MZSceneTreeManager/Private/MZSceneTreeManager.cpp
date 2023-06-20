@@ -115,6 +115,8 @@ void FMZSceneTreeManager::StartupModule()
 		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
 		return;
 	}
+	
+	bIsModuleFunctional = true; 
 
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
