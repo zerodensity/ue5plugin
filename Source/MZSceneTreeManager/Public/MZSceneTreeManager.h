@@ -314,6 +314,7 @@ private:
 	void UpdateSavedPropertyReferences(TSharedPtr<MZProperty> MzProperty, FProperty *NewProperty);
 	void UpdateMZPropertyReferences(const FName &PropertyName, TSharedPtr<MZProperty> MzProperty, FPropertiesMap &NewObjProperties, TArray<FName> &RemovedProperties);
 	void UpdateMZPropertyReferences(const FName &PropertyName, FProperty*& Property, FPropertiesMap &NewObjProperties, TArray<FName> &RemovedProperties);
+	void UpdatePropertiesOfObject(TMap<FName, TSharedPtr<MZProperty>>& TrackedMZPropertiesMap, FPropertiesMap& OldProperties, FPropertiesMap& NewObjProperties, TArray<FName>& RemovedProperties);
 	void SendPinsToDelete(std::vector<mz::fb::UUID> &pinsToDelete);
 	
 	static void GenerateFieldMappings(UObject* OldObject,

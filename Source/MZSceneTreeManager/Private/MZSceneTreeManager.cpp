@@ -775,8 +775,6 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 			GetNodesWithProperty(child, out);
 		}
 	}
-	
-
 }
 
 void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
@@ -839,123 +837,98 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 		{
 			OldActor = Component->GetOwner();
 		}
-		/* We are holding an Actor->RelatedProperties map, so all properties are related with Actors(Containers)
-		 * This is why for USceneComponents, we're getting Owner actor. After getting the Actor, rest is same
-		 */
-		if(OldActor)
+		if(!OldActor)
+			continue;
+		if(!MZActorManager->ActorIds.Contains(OldActor->GetActorGuid()))
+			continue;
+		
+		ReInstanceCache.Add(Replacement);
+		
+		/*****************************************/
+		/*  Update all Actor related references  */
+		/*****************************************/
+		AActor *NewActor = Cast<AActor>(Replacement.Value);
+		FGuid OldActorGuid = OldActor->GetActorGuid();
+
+		FFunctionsMap NewFunctionsMap;
+		FPropertiesMap  NewObjProperties;
+
+		FFunctionsMap OldFunctionsMap;
+		FPropertiesMap  OldProperties;
+
+		FFunctionsMap OnReplacementOldFunctionsMap;
+		FPropertiesMap  OnReplacementOldProperties;
+
+		FPropertyMapping PropertyMapping;
+		FFunctionMapping FunctionMapping;
+
+		TArray<FName> RemovedProperties;
+		bool isUpdated = false;
+		
+		GetObjProperties (Replacement.Key, OldProperties,OldFunctionsMap);
+		GetObjProperties (Replacement.Value, NewObjProperties,NewFunctionsMap);
+		TArray<TPair<FName, FProperty*>> NewProps = GetNewlyAddedProperties(OldProperties, NewObjProperties);
+
+		TSharedPtr<TreeNode> TreeNodePtr = SceneTree.NodeMap.FindRef(OldActorGuid);
+		ActorNode *ActorNode = TreeNodePtr->GetAsActorNode();
+		
+		if(Component)
 		{
-			if(MZActorManager->ActorIds.Contains(OldActor->GetActorGuid()))
+			TArray<TSharedPtr<TreeNode>> ChildrenList;
+
+			GetNodeAndDescendantNodesRecursive(TreeNodePtr, ChildrenList);
+			ChildrenList.RemoveAt(0);	// Delete first node, as it will be root actor, not a component
+			
+			for(auto &ChildTreeNode : ChildrenList)
 			{
-				ReInstanceCache.Add(Replacement);
-				
-				/*****************************************/
-				/*  Update all Actor related references  */
-				/*****************************************/
-				AActor *NewActor = Cast<AActor>(Replacement.Value);
-				FGuid OldActorGuid = OldActor->GetActorGuid();
+				SceneComponentNode *SceneComponentNode = ChildTreeNode->GetAsSceneComponentNode();
 
-				FFunctionsMap NewFunctionsMap;
-				FPropertiesMap  NewObjProperties;
-
-				FFunctionsMap OldFunctionsMap;
-				FPropertiesMap  OldProperties;
-
-				FFunctionsMap OnReplacementOldFunctionsMap;
-				FPropertiesMap  OnReplacementOldProperties;
-
-				FPropertyMapping PropertyMapping;
-				FFunctionMapping FunctionMapping;
-
-				TArray<FName> RemovedProperties;
-				bool isUpdated = false;
-				
-				GetObjProperties (Replacement.Key, OldProperties,OldFunctionsMap);
-				GetObjProperties (Replacement.Value, NewObjProperties,NewFunctionsMap);
-				TArray<TPair<FName, FProperty*>> NewProps = GetNewlyAddedProperties(OldProperties, NewObjProperties);
-
-				TSharedPtr<TreeNode> TreeNodePtr = SceneTree.NodeMap.FindRef(OldActorGuid);
-				ActorNode *ActorNode = TreeNodePtr->GetAsActorNode();
-				
-				if(Component)
+				if(!SceneComponentNode)
 				{
-					TArray<TSharedPtr<TreeNode>> ChildrenList;
-
-					GetNodeAndDescendantNodesRecursive(TreeNodePtr, ChildrenList);
-					ChildrenList.RemoveAt(0);	// Delete first node, as it will be root actor
-					
-					for(auto &SceneComponent : ChildrenList)
-					{
-						SceneComponentNode *SceneComponentNode = SceneComponent->GetAsSceneComponentNode();
-
-						if(SceneComponentNode && SceneComponentNode->sceneComponent)
-						{
-							UObject* SceneComponentAsObject = SceneComponentNode->sceneComponent->GetAsObject();
-									
-							if(SceneComponentAsObject == Replacement.Key && SceneComponentAsObject->GetClass() == Replacement.Key->GetClass())
-							{
-								isUpdated = true;
-								SceneComponentNode->NeedsReload = true;
-								
-								SceneComponentNode->sceneComponent->UpdateObjectPointer(Replacement.Value);
-								
-								for(auto &[PropName, MzProperty] : SceneComponentNode->sceneComponent->PropertiesMap)
-								{
-									if(!OldProperties.Contains(PropName))
-									{
-										// Odd behaviour
-										UE_LOG(LogTemp, Warning, TEXT("OldProperties does not contain %s, which is stored in sceneComponent->PropertiesMap"), *PropName.ToString());
-									}
-									UpdateMZPropertyReferences(PropName, MzProperty, NewObjProperties, RemovedProperties);
-									NewObjProperties.Remove(PropName);
-								}
-							}
-						}
-					}
+					continue;
 				}
-				else if(Cast<AActor>(Replacement.Key))
+
+				UObject *ObjectPtrOfSceneNode = SceneComponentNode->sceneComponent->GetAsObject();
+				UObject *ObjectBeingReplaced = Replacement.Key;
+
+				if(ObjectPtrOfSceneNode == ObjectBeingReplaced && ObjectPtrOfSceneNode->GetClass() == ObjectBeingReplaced->GetClass())
 				{
 					isUpdated = true;
-					ActorNode->NeedsReload = true;
-					for(auto &[PropName, MzProperty] : ActorNode->actor->PropertiesMap)
-					{
-						if(!OldProperties.Contains(PropName))
-						{
-							// Odd behaviour
-							UE_LOG(LogTemp, Warning, TEXT("OldProperties does not contain %s, which is stored in actor->PropertiesMap"), *PropName.ToString());
-						}
-						UpdateMZPropertyReferences(PropName, MzProperty, NewObjProperties, RemovedProperties);
-						NewObjProperties.Remove(PropName);
-					}
-					if(NewActor) // Suitable for Actors, not Components
-					{
-						ActorNode->actor->UpdateActorReference(NewActor);
-					}
-				}
-				if(isUpdated)
+					SceneComponentNode->NeedsReload = true;
+					SceneComponentNode->sceneComponent->UpdateObjectPointer(Replacement.Value);
+					UpdatePropertiesOfObject(SceneComponentNode->sceneComponent->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);	
+				}	
+			}
+		}
+		else if(Cast<AActor>(Replacement.Key))
+		{
+			isUpdated = true;
+			ActorNode->NeedsReload = true;
+			ActorNode->actor->UpdateActorReference(NewActor);
+			UpdatePropertiesOfObject(ActorNode->actor->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);
+		}
+		if(isUpdated)
+		{
+			if(RemovedProperties.Num() > 0)
+			{
+				// Remove references
+				for(auto &PropertyName : RemovedProperties)
 				{
-					if(RemovedProperties.Num() > 0)
-					{
-						// Remove references
-						for(auto &PropertyName : RemovedProperties)
-						{
-							RemovePropertyOfActor(PropertyName, OldActor);
-						}
-					}
-					if(NewProps.Num() > 0)
-					{
-						// Create new entries
-						for(auto &[Name, Property] : NewProps)
-						{
-							auto mzprop = MZPropertyManager.CreateProperty(ActorNode->actor, Property);
-							if(!mzprop)
-							{
-								UE_LOG(LogTemp, Warning, TEXT("Newly added MzProperty creation returned null. Property name is: %s"), *Property->GetFName().ToString());
-							}
-							SendPinAdded(TreeNodePtr->Id, mzprop);
-						}
-								
-					}
+					RemovePropertyOfActor(PropertyName, OldActor);
 				}
+			}
+			if(NewProps.Num() > 0)
+			{
+				// Create new entries
+				for(auto &[Name, Property] : NewProps)
+				{
+					auto mzprop = MZPropertyManager.CreateProperty(ActorNode->actor, Property);
+					if(!mzprop)
+					{
+						UE_LOG(LogTemp, Warning, TEXT("Newly added MzProperty creation returned null. Property name is: %s"), *Property->GetFName().ToString());
+					}
+					SendPinAdded(TreeNodePtr->Id, mzprop);
+				}		
 			}
 		}
 	}
@@ -3034,6 +3007,19 @@ void FMZSceneTreeManager::UpdateMZPropertyReferences(const FName &PropertyName, 
 		RemovedProperties.Add(PropertyName);
 		UE_LOG(LogTemp, Warning, TEXT("Property match not found for: %s"), *PropertyName.ToString());
 	}
+}
+void FMZSceneTreeManager::UpdatePropertiesOfObject(TMap<FName, TSharedPtr<MZProperty>>& TrackedMZPropertiesMap, FPropertiesMap& OldProperties, FPropertiesMap& NewObjProperties, TArray<FName>& RemovedProperties)
+{
+	for(auto &[PropName, MzProperty] : TrackedMZPropertiesMap)
+	{
+		if(!OldProperties.Contains(PropName))
+		{
+			// Odd behaviour
+			UE_LOG(LogTemp, Warning, TEXT("OldProperties does not contain %s, which is stored in actor->PropertiesMap"), *PropName.ToString());
+		}
+		UpdateMZPropertyReferences(PropName, MzProperty, NewObjProperties, RemovedProperties);
+		NewObjProperties.Remove(PropName);
+	}	
 }
 void FMZSceneTreeManager::UpdateMZReferences(FPropertyMapping& PropertyMapping, FFunctionMapping& FunctionMapping)
 {
