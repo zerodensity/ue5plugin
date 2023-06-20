@@ -91,4 +91,5 @@ public:
 
 private:
 	void ClearRecursive(TSharedPtr<TreeNode> node);
+	static TSharedPtr<SceneComponentNode> GetNewLoadingChild(TSharedPtr<TreeNode> parentToAttach);
 };

@@ -58,6 +58,17 @@ void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 	}
 }
 
+
+TSharedPtr<SceneComponentNode> MZSceneTree::GetNewLoadingChild(TSharedPtr<TreeNode> parentToAttach)
+{
+	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
+	loadingChild->Name = "Loading...";
+	loadingChild->Id = FGuid::NewGuid();
+	loadingChild->Parent = parentToAttach;
+	parentToAttach->Children.push_back(loadingChild);
+	return loadingChild;
+}
+
 TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, MZActorReference *ActorReference)
 {
 	TSharedPtr<TreeNode> mostRecentParent;
@@ -96,11 +107,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, MZActorReference
 
 	if (actor->GetRootComponent())
 	{
-		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-		loadingChild->Name = "Loading...";
-		loadingChild->Id = FGuid::NewGuid();
-		loadingChild->Parent = newChild;
-		newChild->Children.push_back(loadingChild);
+		newChild->Children.push_back(GetNewLoadingChild(newChild));
 	}
 	if (!mostRecentParent)
 	{
@@ -133,11 +140,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, MZActor
 
 	if (actor->GetRootComponent())
 	{
-		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-		loadingChild->Name = "Loading...";
-		loadingChild->Id = FGuid::NewGuid();
-		loadingChild->Parent = newChild;
-		newChild->Children.push_back(loadingChild);
+		newChild->Children.push_back(GetNewLoadingChild(newChild));
 	}
 
 	return newChild;
@@ -155,11 +158,7 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<ActorNo
 	parent->Children.push_back(newComponentNode);
 	NodeMap.Add(newComponentNode->Id, newComponentNode);
 
-	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-	loadingChild->Name = "Loading...";
-	loadingChild->Id = FGuid::NewGuid();
-	loadingChild->Parent = newComponentNode;
-	newComponentNode->Children.push_back(loadingChild);
+	newComponentNode->Children.push_back(GetNewLoadingChild(newComponentNode));
 
 	return newComponentNode;
 }
@@ -176,11 +175,7 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneCo
 	parent->Children.push_back(newComponentNode);
 	NodeMap.Add(newComponentNode->Id, newComponentNode);
 
-	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-	loadingChild->Name = "Loading...";
-	loadingChild->Id = FGuid::NewGuid();
-	loadingChild->Parent = newComponentNode;
-	newComponentNode->Children.push_back(loadingChild);
+	newComponentNode->Children.push_back(GetNewLoadingChild(newComponentNode));
 
 	return newComponentNode;
 }
