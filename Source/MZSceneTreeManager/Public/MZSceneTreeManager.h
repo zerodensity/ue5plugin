@@ -13,7 +13,6 @@
 #include "MZViewportClient.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
-DECLARE_LOG_CATEGORY_EXTERN(LogMZObjectPlacement, Log, All);
 struct MZPortal
 {
 	FGuid Id;
@@ -69,7 +68,7 @@ public:
 	};
 
 	AActor* GetParentTransformActor();
-	AActor* SpawnActor(FString SpawnTag, TFunction<void(AActor *Actor)> OnSpawnedCallback = nullptr);
+	AActor* SpawnActor(FString SpawnTag, const TFunction<void(AActor *Actor)>& OnSpawnedCallback = nullptr);
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	AActor* SpawnActor(UClass* ClassToSpawn);
 	void ClearActors();

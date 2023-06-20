@@ -17,7 +17,6 @@
 #include "HardwareInfo.h"
 
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager)
-DEFINE_LOG_CATEGORY(LogMZObjectPlacement)
 
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
@@ -36,7 +35,7 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 		return re;
 	}
 
-	for (auto pin : *archive.pins())
+	for (const auto pin : *archive.pins())
 	{
 		if(!pin->data() || pin->data()->size() <= 0 )
 		{
@@ -898,11 +897,7 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 								SceneComponentNode->NeedsReload = true;
 								
 								SceneComponentNode->sceneComponent->UpdateObjectPointer(Replacement.Value);
-								UE_LOG(LogMZObjectPlacement, Warning, TEXT(">>> Scene component updated. Old name is %s, "
-										"Old addr is %lx, "
-		   								"new name is %s, "
-	 									"new addr is %lx"), *SceneComponentNode->sceneComponent->Get()->GetFName().ToString(), *(unsigned long *)SceneComponentNode->sceneComponent->GetAsObject()
-	 													 , *SceneComponentNode->sceneComponent->Get()->GetFName().ToString(), *(unsigned long *)Replacement.Value);
+								
 								for(auto &[PropName, MzProperty] : SceneComponentNode->sceneComponent->PropertiesMap)
 								{
 									if(!OldProperties.Contains(PropName))
@@ -1525,7 +1520,6 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		//ITERATE PROPERTIES END
 
 		//ITERATE FUNCTIONS BEGIN
-		auto ActorComponent = actorNode->actor->Get()->GetRootComponent();
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
 			UFunction* UEFunction = *FuncIt;
@@ -1707,8 +1701,6 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		auto Actor = Component->Get()->GetOwner();
 		auto ComponentClass = Component->Get()->GetClass();
 		
-		TSharedPtr<TreeNode>* ParentActorNode = SceneTree.NodeMap.Find(Actor->GetActorGuid());
-
 		for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
 		{
 
@@ -2357,7 +2349,7 @@ void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer
 	}
 	TArray<FString> ChildContainerNames;
 	ContainerPath.ParseIntoArray(ChildContainerNames, TEXT("/"));
-	FProperty* Property = nullptr;
+	FProperty* Property;
 	const UClass* ContainerClass = BaseContainer->GetClass();
 	void* Container = BaseContainer;
 	for(auto ChildContainerName : ChildContainerNames)
@@ -2367,13 +2359,13 @@ void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer
 			return nullptr;
 		}
 		Property = FindFProperty<FProperty>(ContainerClass, *ChildContainerName);
-		if(FObjectProperty* ObjectProperty = CastField<FObjectProperty>(Property))
+		if(const FObjectProperty* ObjectProperty = CastField<FObjectProperty>(Property))
 		{
 			UObject* Object = ObjectProperty->GetObjectPropertyValue(ObjectProperty->ContainerPtrToValuePtr<UObject>(Container));
 			ContainerClass = Object->GetClass();
 			Container = Object;
 		}
-		else if (FStructProperty* StructProperty = CastField<FStructProperty>(Property))
+		else if (const FStructProperty* StructProperty = CastField<FStructProperty>(Property))
 		{
 			uint8* StructInstance = StructProperty->ContainerPtrToValuePtr<uint8>(Container);
 			ContainerClass = StructProperty->Struct->GetClass();
@@ -2390,8 +2382,7 @@ void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer
 
 void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 {
-	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
-	WorldName = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->GetMapName();
+	FString WorldName = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->GetMapName();
 	FMZSceneTreeManager::daWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 	HandleWorldChange();
 }
@@ -2415,7 +2406,7 @@ AActor* FMZActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag, TFunction<void(AActor *actor)> OnSpawnedCallback)
+AActor* FMZActorManager::SpawnActor(FString SpawnTag, const TFunction<void(AActor *actor)>& OnSpawnedCallback)
 {
 	if (!MZAssetManager)
 	{
@@ -2952,11 +2943,8 @@ TArray<TPair<FGuid, TSharedPtr<TreeNode>>> FMZSceneTreeManager::GetRootActorNode
 			}
 		}
 	}
-
 	return RelatedNodes;
 }
-
-
 TMap<FName, TSharedPtr<MZProperty>>* FMZSceneTreeManager::GetNodeProperties(TSharedPtr<TreeNode> Node)
 {
 	TMap<FName, TSharedPtr<MZProperty>>* nodeProps = nullptr;
@@ -2968,7 +2956,6 @@ TMap<FName, TSharedPtr<MZProperty>>* FMZSceneTreeManager::GetNodeProperties(TSha
 	{
 		nodeProps = &Node->GetAsSceneComponentNode()->sceneComponent->PropertiesMap;
 	}
-
 	return nodeProps;
 }
 
@@ -2982,7 +2969,6 @@ bool FMZSceneTreeManager::CheckIfPreviousPropertyStillExistAndCompatible(TShared
 		return false; // MZProperty not exist anymore in Actor Properties
 	}
 
-	// This part checks for property type, like Int, float, struct, enum etc.
 	const FString PropertyUnderlyingClassName = UEProperty->GetClass()->GetName();
 	bool ClassNameMatch = (PropertyUnderlyingClassName.Compare(MZProperty->Property->GetClass()->GetName()) == 0);
 
@@ -2995,65 +2981,7 @@ bool FMZSceneTreeManager::CheckIfPreviousPropertyStillExistAndCompatible(TShared
 void FMZSceneTreeManager::OnBlueprintCompiled(UBlueprint *BP)
 {
 	return;
-	TArray<TPair<FGuid, TSharedPtr<TreeNode>>> RelatedNodesInSceneTree = GetRootActorNodesRelatedWithBP(BP);
-
-	if(RelatedNodesInSceneTree.Num() > 0)
-	{
-		TArray<TSharedPtr<TreeNode>> NodeAndDescendantsList;
-
-		// We have either Actor or SceneComponents, these might have child components/nodes. Collect all of them in an array for ease of use
-		// RelatedNodesInSceneTree only included root actors, here we're also collecting child components because target properties may exist in childen
-		for (auto [guid, node] : RelatedNodesInSceneTree)
-		{
-			GetNodeAndDescendantNodesRecursive(node, NodeAndDescendantsList);
-		}
-
-		std::vector<mz::fb::UUID> pinsToDelete;
-		
-		for(auto node : NodeAndDescendantsList)
-		{
-			if(TMap<FName, TSharedPtr<MZProperty>>*nodeProps = GetNodeProperties(node))
-			{
-
-				for(auto &[PropName, MZProperty] : *nodeProps)	// Iterate all properties
-				{
-					// Does this property have a portal(previously)
-					if(MZPropertyManager.PropertyToPortalPin.Contains(MZProperty->Id))
-					{
-						auto PortalGuid = MZPropertyManager.PropertyToPortalPin.FindRef(MZProperty->Id);
-						
-						// In case of a deleted property that has previously portal associated, result shouldn't exist
-						auto Portal = MZPropertyManager.PortalPinsById[PortalGuid];
-						
-						if(!CheckIfPreviousPropertyStillExistAndCompatible(node, MZProperty)) // Checking if the property not exist anymore
-						{
-							// Portalled property is deleted or inconsistently updated. Now remove its related stuff
-
-							// Remove Property and Portals
-							MZPropertyManager.PortalPinsById.Remove(Portal->Id);
-							MZPropertyManager.PropertyToPortalPin.Remove(MZProperty->Id);
-
-							MZPropertyManager.PropertiesById.Remove(MZProperty->Id);
-							MZPropertyManager.PropertiesByPointer.Remove(MZProperty->Property);
-							MZPropertyManager.PropertiesByPropertyAndContainer.Remove({MZProperty->Property, MZProperty->GetRawObjectContainer()});
-
-							auto PropertyContainer = (MZProperty->ActorContainer)?(MZProperty->ActorContainer->Get()):(MZProperty->ComponentContainer->GetOwnerActor());
-							MZPropertyManager.ActorsPropertyIds.Remove(PropertyContainer->GetActorGuid());
-							
-							pinsToDelete.push_back(*(mz::fb::UUID*)&Portal->Id);
-							pinsToDelete.push_back(*(mz::fb::UUID*)&MZProperty->Id);
-						}
-					}
-				}
-			}
-		}
-		
-		if(!MZClient->IsConnected())
-		{
-			return;
-		}
-		SendPinsToDelete(pinsToDelete);
-	}
+	// OnObjectsReplaced satisfy the requirement about blueprint compilation, hence left as stub
 }
 
 
@@ -3152,7 +3080,6 @@ void FMZSceneTreeManager::UpdateSavedPropertyReferences(FProperty *OldProperty, 
 		{
 			MZPropertyManager.PropertiesByPointer.Remove(OldProperty);
 			MZPropertyManager.PropertiesByPointer.Add(NewProperty, MZProperty);
-			
 		}
 	}
 	if(PropertiesMap.Contains(OldProperty))
@@ -3207,7 +3134,6 @@ void FMZSceneTreeManager::GenerateFieldMappings(UObject* OldObject,
 		UFunction* NewFunction = NewClass->FindFunctionByName(Name, EIncludeSuperFlag::IncludeSuper);
 		FunctionMapping.Add(Function, NewFunction);
 	}
-	
 }
 void FMZSceneTreeManager::GetClassProperties (UClass* ActorReferencedClass, FPropertiesMap& OutProperties, FFunctionsMap& OutFunctions)
 {
@@ -3229,40 +3155,6 @@ void FMZSceneTreeManager::GetClassProperties (UClass* ActorReferencedClass, FPro
 	{
 		OutFunctions.Add(Function->GetFName(),Function);
 	}
-#if 0
-	for (FProperty* Prop = ActorReferencedClass->PropertyLink; Prop && (Prop->GetOwner<UObject>() == ActorReferencedClass); Prop = Prop->PropertyLinkNext)
-	{
-		ObjProperties.Add(Prop->GetFName(), Prop);
-	}
-
-	for (UFunction* Function : TFieldRange<UFunction>(ActorReferencedClass, EFieldIteratorFlags::ExcludeSuper))
-	{
-		Functions.Add(Function->GetFName(),Function);
-	}
-#endif
-#if 0
-	for (TFieldIterator<FProperty> PropIt(ActorReferencedClass, EFieldIteratorFlags::IncludeSuper); PropIt; ++PropIt)
-	{
-		FProperty* Prop = *PropIt;
-		OutProperties.Add(Prop->GetFName(), Prop);
-
-#if 0	
-		if (FStructProperty* structprop = CastField<FStructProperty>(Prop))
-		{
-			class FProperty* AProperty = structprop->Struct->PropertyLink;
-			while (AProperty != nullptr)
-			{
-				OutProperties.Add(AProperty->GetFName(), AProperty);
-				AProperty = AProperty->PropertyLinkNext;
-			}
-		}
-#endif
-	}
-	for (UFunction* Function : TFieldRange<UFunction>(ActorReferencedClass, EFieldIteratorFlags::IncludeSuper))
-	{
-		OutFunctions.Add(Function->GetFName(),Function);
-	}
-#endif
 }
 
 TArray<TPair<FName, FProperty*>> FMZSceneTreeManager::GetNewlyAddedProperties(FPropertiesMap& OldProperties, FPropertiesMap& NewObjProperties)
@@ -3280,19 +3172,6 @@ TArray<TPair<FName, FProperty*>> FMZSceneTreeManager::GetNewlyAddedProperties(FP
 void FMZSceneTreeManager::GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FFunctionsMap& Functions)
 {
 	GetClassProperties (Obj->GetClass(), ObjProperties, Functions);
-
-	/*
-	for (FProperty* Prop = InClassToReinstance->PropertyLink; Prop && (Prop->GetOwner<UObject>() == InClassToReinstance); Prop = Prop->PropertyLinkNext)
-	{
-		PropertyMap.Add(Prop->GetFName(), Prop);
-	}
-
-	for (UFunction* Function : TFieldRange<UFunction>(InClassToReinstance, EFieldIteratorFlags::ExcludeSuper))
-	{
-		FunctionMap.Add(Function->GetFName(),Function);
-	}
-	*/
-	
 }
 
 bool FMZSceneTreeManager::ShouldCompareProperty (const FProperty* Property)
