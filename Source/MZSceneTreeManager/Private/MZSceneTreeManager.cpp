@@ -174,7 +174,7 @@ void FMZSceneTreeManager::StartupModule()
 				TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(ActorGuid);
 				ActorNode *ActorNode = TreeNode->GetAsActorNode();
 
-				MZActorManager->ObjectPropertyRelationMap[ActorNode->actor].Add(MzProperty->Property->GetFName(), MzProperty->Property);
+				MZActorManager->ObjectPropertyRelationMap[ActorNode->ActorReference].Add(MzProperty->Property->GetFName(), MzProperty->Property);
 			}
 		}
 	};
@@ -659,7 +659,7 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 	{
 		if (auto actorNode = SceneTree.NodeMap.FindRef(itemId)->GetAsActorNode())
 		{
-			auto actor = actorNode->actor->Get();
+			auto actor = actorNode->ActorReference->Get();
 			if (!actor)
 			{
 				return;
@@ -888,15 +888,15 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 					continue;
 				}
 
-				UObject *ObjectPtrOfSceneNode = SceneComponentNode->sceneComponent->GetAsObject();
+				UObject *ObjectPtrOfSceneNode = SceneComponentNode->ComponentReference->GetAsObject();
 				UObject *ObjectBeingReplaced = Replacement.Key;
 
 				if(ObjectPtrOfSceneNode == ObjectBeingReplaced && ObjectPtrOfSceneNode->GetClass() == ObjectBeingReplaced->GetClass())
 				{
 					isUpdated = true;
 					SceneComponentNode->NeedsReload = true;
-					SceneComponentNode->sceneComponent->UpdateObjectPointer(Replacement.Value);
-					UpdatePropertiesOfObject(SceneComponentNode->sceneComponent->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);	
+					SceneComponentNode->ComponentReference->UpdateObjectPointer(Replacement.Value);
+					UpdatePropertiesOfObject(SceneComponentNode->ComponentReference->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);	
 				}	
 			}
 		}
@@ -904,8 +904,8 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 		{
 			isUpdated = true;
 			ActorNode->NeedsReload = true;
-			ActorNode->actor->UpdateActorReference(NewActor);
-			UpdatePropertiesOfObject(ActorNode->actor->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);
+			ActorNode->ActorReference->UpdateActorReference(NewActor);
+			UpdatePropertiesOfObject(ActorNode->ActorReference->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);
 		}
 		if(isUpdated)
 		{
@@ -922,7 +922,7 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 				// Create new entries
 				for(auto &[Name, Property] : NewProps)
 				{
-					auto mzprop = MZPropertyManager.CreateProperty(ActorNode->actor, Property);
+					auto mzprop = MZPropertyManager.CreateProperty(ActorNode->ActorReference, Property);
 					if(!mzprop)
 					{
 						UE_LOG(LogTemp, Warning, TEXT("Newly added MzProperty creation returned null. Property name is: %s"), *Property->GetFName().ToString());
@@ -950,10 +950,10 @@ void FMZSceneTreeManager::RemovePropertyOfActor(const FName& PropertyNameToRemov
 			TMap<FName, TSharedPtr<class MZProperty>> *Properties = nullptr;
 			if(node->GetAsActorNode())
 			{
-				Properties = &(node->GetAsActorNode()->actor->PropertiesMap);
+				Properties = &(node->GetAsActorNode()->ActorReference->PropertiesMap);
 			}else if(node->GetAsSceneComponentNode())
 			{
-				Properties = &(node->GetAsSceneComponentNode()->sceneComponent->PropertiesMap);
+				Properties = &(node->GetAsSceneComponentNode()->ComponentReference->PropertiesMap);
 			}
 
 			for (auto It = Properties->CreateIterator(); It; ++It)
@@ -1442,7 +1442,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	if (treeNode->GetAsActorNode())
 	{
 		auto actorNode = StaticCastSharedPtr<ActorNode>(treeNode);
-		if (!IsValid(actorNode->actor->Get()))
+		if (!IsValid(actorNode->ActorReference->Get()))
 		{
 			return false;
 		}
@@ -1451,7 +1451,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		{
 			ColoredChilds = true;
 		}
-		auto ActorClass = (Cast<AActor>(actorNode->actor->Get()))->GetClass();
+		auto ActorClass = (Cast<AActor>(actorNode->ActorReference->Get()))->GetClass();
 
 		//ITERATE PROPERTIES BEGIN
 		class FProperty* AProperty = ActorClass->PropertyLink;
@@ -1468,7 +1468,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				continue;
 			}
 			
-			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor, AProperty);
+			auto mzprop = MZPropertyManager.CreateProperty(actorNode->ActorReference, AProperty);
 			
 			if (!mzprop)
 			{
@@ -1489,7 +1489,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			AProperty = AProperty->PropertyLinkNext;
 		}
 
-		auto Components = actorNode->actor->Get()->GetComponents();
+		auto Components = actorNode->ActorReference->Get()->GetComponents();
 		//ITERATE PROPERTIES END
 
 		//ITERATE FUNCTIONS BEGIN
@@ -1513,7 +1513,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				//	//continue; // export only BP functions //? what we will show in mediaz
 				//}
 
-				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor->Get(), UEFunction));
+				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->ActorReference->Get(), UEFunction));
 
 				// Parse all function parameters.
 				bool bNotSupported = false;
@@ -1556,7 +1556,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			SceneTree.AddActor(actorNode, new MZActorReference(child));
 		}
 
-		AActor* ActorContext = actorNode->actor->Get();
+		AActor* ActorContext = actorNode->ActorReference->Get();
 		TSet<UActorComponent*> ComponentsToAdd(ActorContext->GetComponents());
 
 		const bool bHideConstructionScriptComponentsInDetailsView = false; //GetDefault<UBlueprintEditorSettings>()->bHideConstructionScriptComponentsInDetailsView;
@@ -1670,7 +1670,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	}
 	else if (treeNode->GetAsSceneComponentNode())
 	{
-		auto Component = treeNode->GetAsSceneComponentNode()->sceneComponent;
+		auto Component = treeNode->GetAsSceneComponentNode()->ComponentReference;
 		auto Actor = Component->Get()->GetOwner();
 		auto ComponentClass = Component->Get()->GetClass();
 		
@@ -1684,15 +1684,15 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			{
 				continue;
 			}
-		// ToDo treeNode->GetAsSceneComponentNode()->sceneComponent->PropertiesMap.Add(mzprop->PropertyNameAsReference, mzprop); simplfy that no need to GetAsSceneComp always
+		// ToDo treeNode->GetAsSceneComponentNode()->ComponentReference->PropertiesMap.Add(mzprop->PropertyNameAsReference, mzprop); simplfy that no need to GetAsSceneComp always
 			auto mzprop = MZPropertyManager.CreateProperty(Component, Property);
 			if (mzprop)
 			{
-				treeNode->GetAsSceneComponentNode()->sceneComponent->PropertiesMap.Add(mzprop->PropertyNameAsReference, mzprop);
+				treeNode->GetAsSceneComponentNode()->ComponentReference->PropertiesMap.Add(mzprop->PropertyNameAsReference, mzprop);
 
 				for (auto it : mzprop->childProperties)
 				{
-					treeNode->GetAsSceneComponentNode()->sceneComponent->PropertiesMap.Add(it->PropertyNameAsReference, it);
+					treeNode->GetAsSceneComponentNode()->ComponentReference->PropertiesMap.Add(it->PropertyNameAsReference, it);
 				}
 
 			}
@@ -1969,7 +1969,7 @@ void FMZSceneTreeManager::RemoveProperties(TSharedPtr<TreeNode> Node,
 {
 	if (auto componentNode = Node->GetAsSceneComponentNode())
 	{
-		for (auto& [PropName, MzProperty] : componentNode->sceneComponent->PropertiesMap)
+		for (auto& [PropName, MzProperty] : componentNode->ComponentReference->PropertiesMap)
 		{
 			PropertiesToRemove.Add(MzProperty);
 			MZPropertyManager.PropertiesById.Remove(MzProperty->Id);
@@ -1978,7 +1978,7 @@ void FMZSceneTreeManager::RemoveProperties(TSharedPtr<TreeNode> Node,
 	}
 	else if (auto actorNode = Node->GetAsActorNode())
 	{
-		for (auto& [PropName, MzProperty] : actorNode->actor->PropertiesMap)
+		for (auto& [PropName, MzProperty] : actorNode->ActorReference->PropertiesMap)
 		{
 			PropertiesToRemove.Add(MzProperty);
 			MZPropertyManager.PropertiesById.Remove(MzProperty->Id);
@@ -2125,7 +2125,7 @@ void FMZSceneTreeManager::PopulateAllChilds(FGuid ActorId)
 		{
 			if (ChildNode->GetAsActorNode())
 			{
-				PopulateAllChilds(ChildNode->GetAsActorNode()->actor->Get());
+				PopulateAllChilds(ChildNode->GetAsActorNode()->ActorReference->Get());
 			}
 			else if (ChildNode->GetAsSceneComponentNode())
 			{
@@ -2152,7 +2152,7 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 	{
 		if (ChildNode->GetAsActorNode())
 		{
-			PopulateAllChilds(ChildNode->GetAsActorNode()->actor->Get());
+			PopulateAllChilds(ChildNode->GetAsActorNode()->ActorReference->Get());
 		}
 		else if (ChildNode->GetAsSceneComponentNode())
 		{
@@ -2865,10 +2865,10 @@ UClass* FMZSceneTreeManager::GetRootActorOfNode(TSharedPtr<TreeNode> Node)
 	
 	if(ActorNode)
 	{
-		Root = ActorNode->actor->Get()->GetClass();
+		Root = ActorNode->ActorReference->Get()->GetClass();
 	}else if(SceneComponentNode)
 	{
-			Root = SceneComponentNode->sceneComponent->GetOwnerActor()->GetClass();
+			Root = SceneComponentNode->ComponentReference->GetOwnerActor()->GetClass();
 	}
 	return Root;
 }
@@ -2923,18 +2923,18 @@ TMap<FName, TSharedPtr<MZProperty>>* FMZSceneTreeManager::GetNodeProperties(TSha
 	TMap<FName, TSharedPtr<MZProperty>>* nodeProps = nullptr;
 	if (Node->GetAsActorNode())
 	{
-		nodeProps = &Node->GetAsActorNode()->actor->PropertiesMap;
+		nodeProps = &Node->GetAsActorNode()->ActorReference->PropertiesMap;
 	}
 	else if (Node->GetAsSceneComponentNode())
 	{
-		nodeProps = &Node->GetAsSceneComponentNode()->sceneComponent->PropertiesMap;
+		nodeProps = &Node->GetAsSceneComponentNode()->ComponentReference->PropertiesMap;
 	}
 	return nodeProps;
 }
 
 bool FMZSceneTreeManager::CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty)
 {
-	const UClass *PropertyOwner = (TargetNode->GetAsActorNode())?(TargetNode->GetAsActorNode()->actor->Get()->GetClass()):(TargetNode->GetAsSceneComponentNode()->sceneComponent->Get()->GetClass());
+	const UClass *PropertyOwner = (TargetNode->GetAsActorNode())?(TargetNode->GetAsActorNode()->ActorReference->Get()->GetClass()):(TargetNode->GetAsSceneComponentNode()->ComponentReference->Get()->GetClass());
 	const FProperty* UEProperty = PropertyOwner->FindPropertyByName(MZProperty->Property->GetFName());
 
 	if(!UEProperty)

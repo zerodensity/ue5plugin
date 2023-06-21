@@ -41,9 +41,9 @@ struct MZSCENETREEMANAGER_API  TreeNode {
 
 struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 {
-	MZActorReference * actor = nullptr;
+	MZActorReference * ActorReference = nullptr;
 	std::vector<TSharedPtr<MZFunction>> Functions;
-	virtual FString GetClassDisplayName() override { return actor ? actor->Get()->GetClass()->GetFName().ToString() : "Actor"; };
+	virtual FString GetClassDisplayName() override { return ActorReference ? ActorReference->Get()->GetClass()->GetFName().ToString() : "Actor"; };
 	virtual ActorNode* GetAsActorNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
@@ -53,8 +53,8 @@ struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
 
 struct MZSCENETREEMANAGER_API  SceneComponentNode : TreeNode
 {
-	MZComponentReference *sceneComponent = nullptr;
-	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->Get()->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
+	MZComponentReference *ComponentReference = nullptr;
+	virtual FString GetClassDisplayName() override { return ComponentReference ? ComponentReference->Get()->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
 	virtual SceneComponentNode* GetAsSceneComponentNode() override { return this; };
 	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);

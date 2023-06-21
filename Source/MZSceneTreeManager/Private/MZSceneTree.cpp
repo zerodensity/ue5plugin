@@ -100,7 +100,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, MZActorReference
 	//todo fix display names newChild->Name = actor->GetActorLabel();
 	newChild->Name = actor->GetFName().ToString();
 	newChild->Id = actor->GetActorGuid();
-	newChild->actor = ActorReference;
+	newChild->ActorReference = ActorReference;
 	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
@@ -133,7 +133,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TSharedPtr<TreeNode> parent, MZActor
 	newChild->Parent = parent;
 	newChild->Name = actor->GetActorLabel();
 	newChild->Id = actor->GetActorGuid();
-	newChild->actor = ActorReference;
+	newChild->ActorReference = ActorReference;
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
@@ -150,7 +150,7 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<TreeNod
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
 	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
-	newComponentNode->sceneComponent = sceneComponent;
+	newComponentNode->ComponentReference = sceneComponent;
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->Get()->GetFName().ToString();
 	newComponentNode->Parent = parent;
@@ -181,9 +181,9 @@ flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBu
 std::vector<flatbuffers::Offset<mz::fb::Pin>> ActorNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-	if(actor)
+	if(ActorReference)
 	{
-		for (auto &[PropName, MzProperty] : actor->PropertiesMap)
+		for (auto &[PropName, MzProperty] : ActorReference->PropertiesMap)
 		{
 			pins.push_back(MzProperty->Serialize(fbb));
 		}
@@ -206,9 +206,9 @@ flatbuffers::Offset<mz::fb::Node> SceneComponentNode::Serialize(flatbuffers::Fla
 std::vector<flatbuffers::Offset<mz::fb::Pin>> SceneComponentNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-	if(sceneComponent)
+	if(ComponentReference)
 	{
-		for (auto &[PropName, MzProperty] : sceneComponent->PropertiesMap)
+		for (auto &[PropName, MzProperty] : ComponentReference->PropertiesMap)
 		{
 			pins.push_back(MzProperty->Serialize(fbb));
 		}
