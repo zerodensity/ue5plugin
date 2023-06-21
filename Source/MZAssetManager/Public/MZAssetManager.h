@@ -78,7 +78,6 @@ public:
 	class FMZClient* MZClient;
 
 	static const char* LevelSequencerList;
-	static const char* CustomLevelSequencerName;
 
 private:
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);

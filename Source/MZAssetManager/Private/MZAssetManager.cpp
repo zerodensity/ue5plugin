@@ -18,7 +18,6 @@
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
 const char* FMZAssetManager::LevelSequencerList = "UE5_LEVEL_SEQUENCER_LIST";
-const char* FMZAssetManager::CustomLevelSequencerName = "CustomLevelSequencer";
 
 template<typename T>
 inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)

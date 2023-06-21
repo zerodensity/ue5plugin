@@ -2140,24 +2140,6 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 	return SpawnedActor;
 }
 
-AActor* FMZActorManager::SpawnLevelSequencer(
-	const FString& LevelSequenceName)
-{
-	AActor* LevelSequencer = MZAssetManager->SpawnFromTag(FMZAssetManager::CustomLevelSequencerName);
-	if (LevelSequencer)
-	{
-		FObjectProperty* LevelSequenceProperty = FindFProperty<FObjectProperty>(LevelSequencer->GetClass(), "LevelSequence");
-		if (LevelSequenceProperty)
-		{
-			typedef UObject* UObjectPtr;
-			UObjectPtr* Ptr = MZAssetManager->LevelSequencers.Find(LevelSequenceName);
-			if (Ptr)
-				LevelSequenceProperty->SetObjectPropertyValue_InContainer(LevelSequencer, *Ptr);
-		}
-	}
-	return LevelSequencer;
-}
-
 AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)
 {
 
