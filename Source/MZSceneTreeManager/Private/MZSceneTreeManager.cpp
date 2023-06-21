@@ -336,9 +336,15 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 	MZActorManager->ClearActors();
 }
 
-void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
+void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
+	if(MZPropertyManager.PortalPinsById.Contains(Id))
+	{
+		MZClient->EventDelegates->PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
+		return;
+	}
+	
 	if (CustomProperties.Contains(Id))
 	{
 		auto mzprop = CustomProperties.FindRef(Id);

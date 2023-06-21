@@ -132,7 +132,7 @@ public:
 	void OnMZConnectionClosed();
 
 	//called when a pin value changed from mediaz
-	void OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size);
+	void OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset);
 
 	//called when a pins show as changed
 	void OnMZPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs);
