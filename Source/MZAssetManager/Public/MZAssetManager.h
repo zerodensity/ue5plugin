@@ -37,8 +37,6 @@ public:
 
 	void SendUMGList();
 
-	void SendLevelSequencerList();
-
 	void RescanAndSendAll();
 
 	TSet<FTopLevelAssetPath> GetAssetPathsOfClass(UClass* ParentClass);
@@ -51,8 +49,6 @@ public:
 	AActor* SpawnBasicShape(FSoftObjectPath BasicShape);
 
 	void ScanUMGs();
-
-	void ScanLevelSequencers();
 
 	AActor* SpawnFromTag(FString SpawnTag);
 
@@ -69,17 +65,12 @@ public:
 	//UMG assets list
 	TAssetNameToPathMap UMGs;
 
-	TAssetNameToObjectMap LevelSequencers;
-
 	//for custom spawnables like basic shapes(cube, sphere etc.)
 	TMap<FString, TFunction<AActor*()>> CustomSpawns;
 
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;
 
-	static const char* LevelSequencerList;
-
-private:
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);
 	void ScanAssetObjects(TAssetNameToObjectMap& Map, const UClass* ParentClass);
 	void SendList(const char* ListName, const TArray<FString>& Value);

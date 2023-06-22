@@ -11,13 +11,10 @@
 #include "Blueprint/UserWidget.h"
 #include "UObject/Object.h"
 #include "Engine/StaticMeshActor.h"
-#include "LevelSequence.h"
 
 #include <vector>
 
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
-
-const char* FMZAssetManager::LevelSequencerList = "UE5_LEVEL_SEQUENCER_LIST";
 
 template<typename T>
 inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
@@ -45,7 +42,6 @@ void FMZAssetManager::StartupModule()
 
 	ScanAssets();
 	ScanUMGs();
-	ScanLevelSequencers();
 	SetupCustomSpawns();
 }
 
@@ -140,11 +136,6 @@ void FMZAssetManager::SendUMGList()
 	SendList("UE5_UMG_LIST", UMGs);
 }
 
-void FMZAssetManager::SendLevelSequencerList()
-{
-	SendList(LevelSequencerList, LevelSequencers);
-}
-
 TSet<FTopLevelAssetPath> FMZAssetManager::GetAssetPathsOfClass(UClass* ParentClass)
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
@@ -172,11 +163,9 @@ void FMZAssetManager::RescanAndSendAll()
 {
 	ScanAssets();
 	ScanUMGs();
-	ScanLevelSequencers();
 
 	SendAssetList();
 	SendUMGList();
-	SendLevelSequencerList();
 }
 
 void FMZAssetManager::ScanAssets(
@@ -219,11 +208,6 @@ void FMZAssetManager::ScanUMGs()
 void FMZAssetManager::ScanAssets()
 {
 	ScanAssets(SpawnableAssets, AActor::StaticClass());
-}
-
-void FMZAssetManager::ScanLevelSequencers()
-{
-	ScanAssetObjects(LevelSequencers, ULevelSequence::StaticClass());
 }
 
 void FMZAssetManager::SetupCustomSpawns()
