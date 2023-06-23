@@ -395,10 +395,11 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 		
 	if(MZPropertyManager.PortalPinsById.Contains(pinId))
 	{
-		auto Portal = MZPropertyManager.PortalPinsById.FindRef(pinId);
-		if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+		auto Portal = MZPropertyManager.PortalPinsById.Find(pinId);
+		Portal->ShowAs = newShowAs;
+		if(MZPropertyManager.PropertiesById.Contains(Portal->SourceId))
 		{
-			auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+			auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal->SourceId);
 			MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
 		}
 	}
