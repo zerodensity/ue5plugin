@@ -4,9 +4,6 @@
 #include "MZSceneTreeManager.h"
 #include "MZClient.h"
 #include "MZTextureShareManager.h"
-#include "MZUMGRenderer.h"
-#include "MZUMGRendererComponent.h"
-#include "MZUMGRenderManager.h"
 #include "MZAssetManager.h"
 #include "MZViewportManager.h"
 
@@ -194,44 +191,7 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
-	//add umg renderer function
-	MZAssetManager->CustomSpawns.Add("CustomUMGRenderManager", [this]()
-		{
-			AActor* UMGRenderManager = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/CoreUObject.Class'/Script/MZSceneTreeManager.MZUMGRenderManager'"));
-			
-			return UMGRenderManager;
-	});
-	{
-		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		FGuid actorPinId = FGuid::NewGuid();
-		mzcf->Params.Add(actorPinId, "UMG to spawn");
-		mzcf->Serialize = [funcid = mzcf->Id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
-		{
-			auto data = std::vector<uint8_t>(1, 0);
-			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
-			};
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
-		};
-		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
-		{
-			FString umgName((char*)properties.FindRef(actorPinId).data());
-			if(umgName.IsEmpty())
-			{
-				return;
-			}
-			UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgName);
-			auto UMGManager = MZActorManager->SpawnUMGRenderManager(umgName, newWidget);
-			
-			PopulateAllChilds(UMGManager);
-			auto OutputTexture = FindFProperty<FObjectProperty>(UMGManager->GetClass(), "UMGRenderTarget");
-			MZPropertyManager.CreatePortal(OutputTexture, UMGManager, mz::fb::ShowAs::OUTPUT_PIN);
 
-			LOG("UMG Renderer is spawned.");
-		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
-	}
 	LOG("MZSceneTreeManager module successfully loaded.");
 }
 
@@ -2163,7 +2123,11 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	}
 	UMGManager->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
 	UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName(umgTag)).ToString());
-	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
+
+//	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
+	FObjectProperty* WidgetProperty = FindFProperty<FObjectProperty>(UMGManager->GetClass(), "Widget");
+	if (WidgetProperty != nullptr)
+		WidgetProperty->SetObjectPropertyValue_InContainer(UMGManager, widget);
 
 	ActorIds.Add(UMGManager->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
