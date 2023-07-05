@@ -25,4 +25,5 @@ private:
 	void OnViewportCreated();
 	void OnViewportResized(FViewport* viewport, uint32 val);
 #endif
+	virtual EMouseCaptureMode GetMouseCaptureMode() const override { return EMouseCaptureMode::NoCapture;  }
 };
