@@ -18,7 +18,7 @@ void UMZViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 {
 	if (GetWorld()->WorldType == EWorldType::Game)
 	{
-		bDisableWorldRendering = true;
+		bDisableWorldRendering = ShouldDisableWorldRendering();
 	}
 #ifdef VIEWPORT_TEXTURE
 	SceneCanvas->DrawTile(0, 0, ViewportTexture->SizeX, ViewportTexture->SizeY, 0, 0, 1, 1, FLinearColor::White, ViewportTexture->GetResource(), ESimpleElementBlendMode::SE_BLEND_Additive);
