@@ -15,15 +15,29 @@ class MZVIEWPORTMANAGER_API UMZViewportClient : public UGameViewportClient
 	GENERATED_BODY()
 public:
 	~UMZViewportClient() override;
-	void Draw(FViewport* InViewport, FCanvas* SceneCanvas) override;
-	UPROPERTY()
-	TObjectPtr<UTextureRenderTarget2D> ViewportTexture;
+	virtual void Draw(FViewport* InViewport, FCanvas* SceneCanvas) override;
+
 #ifdef VIEWPORT_TEXTURE
 	virtual void Init(struct FWorldContext& WorldContext, UGameInstance* OwningGameInstance, bool bCreateNewAudioDevice = true) override;
-	static FSimpleMulticastDelegate MZViewportDestroyedDelegate;
+#endif
+
+	virtual EMouseCaptureMode GetMouseCaptureMode() const override { return EMouseCaptureMode::NoCapture; }
+
+#ifdef VIEWPORT_TEXTURE
 private:
 	void OnViewportCreated();
 	void OnViewportResized(FViewport* viewport, uint32 val);
 #endif
-	virtual EMouseCaptureMode GetMouseCaptureMode() const override { return EMouseCaptureMode::NoCapture;  }
+
+protected:
+	virtual bool ShouldDisableWorldRendering() const { return true; }
+
+public:
+	// it's not inside #ifdef VIEWPORT_TEXTURE, because of "UPROPERTY must not be inside preprocessor blocks" error
+	UPROPERTY()
+	TObjectPtr<UTextureRenderTarget2D> ViewportTexture;
+
+#ifdef VIEWPORT_TEXTURE
+	static FSimpleMulticastDelegate MZViewportDestroyedDelegate;
+#endif
 };
