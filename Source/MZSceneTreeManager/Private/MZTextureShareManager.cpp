@@ -315,7 +315,7 @@ void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap
 	
 	// cmdData->CmdList->Reset(CmdAlloc, 0);
 	cmdData->State = CmdState::Running;
-#if 0
+#if 1
 	{
 		if (cmdData->CmdFence->GetCompletedValue() < cmdData->CmdFenceValue)
 		{
@@ -584,6 +584,7 @@ void MZTextureShareManager::ProcessCopies(bool bIsInput,  TMap<MZProperty*, Reso
 				{
 					CmdQueue->Wait(pin.Fence, (2 * pin.FenceValue));
 					SignalGroup.Add(pin.Fence, (2 * pin.FenceValue) + 1);
+					UE_LOG(LogTemp, Warning, TEXT("%s waiting on %d"), *pin.SrcMzp->PropertyName, 2 * pin.FenceValue);
 				}
 				if(MZCopyTexture_RenderThread(bIsInput, URT, pin.DstResource, pin.Fence, cmdData->CmdList, barriers) && !bIsInput)
 				{
