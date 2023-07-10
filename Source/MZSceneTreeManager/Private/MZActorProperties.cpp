@@ -224,7 +224,7 @@ FStructProperty* MZTrackProperty::GetStructProperty() const
 void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 {
 	auto track = flatbuffers::GetRoot<mz::fb::Track>(val);
-	FRealityTrack* TrackData = GetStructProperty()->ContainerPtrToValuePtr<FRealityTrack>(container);
+	FMZTrack* TrackData = GetStructProperty()->ContainerPtrToValuePtr<FMZTrack>(container);
 	// TrackData.location = FVector(0);
 	// TrackData.rotation = FVector(0);
 	// TrackData.center_shift = FVector2d(0);
@@ -281,7 +281,7 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	}
 	
 	//structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &TrackData); 
-	//FRealityTrack newTrack = *(FRealityTrack*)val;
+	//FMZTrack newTrack = *(FMZTrack*)val;
 
 	//if (ActorContainer.Get())
 	//{
@@ -971,7 +971,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(MZObjectReference* Obje
 			prop = TSharedPtr<MZProperty>(new MZVec4Property(ObjectReference, structprop, parentCategory, StructPtr, parentProperty));
 
 		}
-		else if (structprop->Struct == FRealityTrack::StaticStruct()) //track
+		else if (structprop->Struct == FMZTrack::StaticStruct()) //track
 		{
 			prop = TSharedPtr<MZProperty>(new MZTrackProperty(ObjectReference, structprop, parentCategory, StructPtr, parentProperty));
 		}
