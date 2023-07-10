@@ -46,15 +46,15 @@ public class MZSceneTreeManager : ModuleRules
 					"D3D12RHI",
 					"EditorFramework",
                     "TypedElementFramework",
-					"RealityEditor",
-					"Reality",
 					"Slate",
 					"SlateCore",
 					"UMG",
 					"UnrealEd",
 					"MZClient",
 					"MZAssetManager",
-					"MZViewportManager"
+					"MZViewportManager",
+					"MZDataStructures",
+					"LevelSequence",
 					}
 					);
 
@@ -72,8 +72,6 @@ public class MZSceneTreeManager : ModuleRules
 					"D3D12RHI",
 					"EditorFramework",
                     "TypedElementFramework",
-					"RealityEditor",
-					"Reality",
 					"Slate",
 					"SlateCore",
 					"UMG",
@@ -82,7 +80,9 @@ public class MZSceneTreeManager : ModuleRules
 					"UnrealEd",
 					"MZClient",
 					"MZAssetManager",
-					"MZViewportManager"
+					"MZViewportManager",
+					"MZDataStructures",
+					"LevelSequence",
 					}
 					);
 

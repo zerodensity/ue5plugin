@@ -31,7 +31,7 @@ DECLARE_EVENT_OneParam(FMZClient, FMZNodeUpdated, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuRequested, mz::ContextMenuRequest const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAction const&);
 DECLARE_EVENT(FMZClient, FMZNodeRemoved);
-DECLARE_EVENT_ThreeParams(FMZClient, FMZPinValueChanged, mz::fb::UUID const&, uint8_t const*, size_t);
+DECLARE_EVENT_FourParams(FMZClient, FMZPinValueChanged, mz::fb::UUID const&, uint8_t const*, size_t, bool);
 DECLARE_EVENT_TwoParams(FMZClient, FMZPinShowAsChanged, mz::fb::UUID const&, mz::fb::ShowAs);
 DECLARE_EVENT_OneParam(FMZClient, FMZExecutedApp, mz::app::AppExecute const&);
 DECLARE_EVENT_TwoParams(FMZClient, FMZFunctionCalled, mz::fb::UUID const&, mz::fb::Node const&);
@@ -55,6 +55,7 @@ public:
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
+	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset) override;
 	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
 	virtual void OnExecuteApp(mz::app::AppExecute const& appExecute) override; 
 	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;

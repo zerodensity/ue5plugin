@@ -46,6 +46,7 @@ public class MZAssetManager : ModuleRules
 					"UMG",
 					"UnrealEd",
 					"MZClient",
+					"LevelSequence",
 					}
 					);
 
@@ -62,6 +63,7 @@ public class MZAssetManager : ModuleRules
 					"UMG",
 					"UnrealEd",
 					"MZClient",
+					"LevelSequence",
 					}
 					);
 			}

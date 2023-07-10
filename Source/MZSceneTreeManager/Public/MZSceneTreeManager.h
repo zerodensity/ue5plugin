@@ -11,6 +11,7 @@
 #include "MZSceneTree.h"
 #include "MZClient.h"
 #include "MZViewportClient.h"
+#include "MZAssetManager.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
 struct MZPortal
@@ -24,7 +25,7 @@ struct MZPortal
 	mz::fb::ShowAs ShowAs;
 };
 //This class holds the list of all properties and pins 
-class FMZPropertyManager
+class MZSCENETREEMANAGER_API FMZPropertyManager
 {
 public:
 	FMZPropertyManager();
@@ -57,7 +58,7 @@ public:
 	void OnEndFrame();
 };
 
-class FMZActorManager
+class MZSCENETREEMANAGER_API FMZActorManager
 {
 public:
 	FMZActorManager(MZSceneTree& SceneTree) : SceneTree(SceneTree)
@@ -105,7 +106,7 @@ public:
 };
 
 
-class FMZSceneTreeManager : public IModuleInterface {
+class MZSCENETREEMANAGER_API FMZSceneTreeManager : public IModuleInterface {
 
 public:
 	//Empty constructor
@@ -133,7 +134,7 @@ public:
 	void OnMZConnectionClosed();
 
 	//called when a pin value changed from mediaz
-	void OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size);
+	void OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset);
 
 	//called when a pins show as changed
 	void OnMZPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs);
@@ -204,6 +205,8 @@ public:
 	//Sends node updates to the MediaZ
 	void SendNodeUpdate(FGuid NodeId, bool bResetRootPins = true);
 
+	void SendEngineFunctionUpdate();
+
 	//Sends pin value changed event to MediaZ
 	void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
 
@@ -252,6 +255,8 @@ public:
 	void OnMapChange(uint32 MapFlags);
 	void OnNewCurrentLevel();
 
+	void AddCustomFunction(MZCustomFunction* CustomFunction);
+	
 	//the world we interested in
 	static UWorld* daWorld;
 
@@ -326,7 +331,6 @@ private:
 	
 	static void GenerateFieldMappings(FPropertiesMap &OldPropertyMap,
 									  FPropertiesMap &NewPropertyMap,
-									  FFunctionsMap &OldFunctionsMap,
 									  FFunctionsMap &NewFunctionsMap,
 									  FPropertyMapping& FieldMapping,
 									  FFunctionMapping& FunctionMapping);

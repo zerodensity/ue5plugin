@@ -50,12 +50,14 @@
 			"PlatformAllowList": [
 				"Win64"
 			]
-		}
-	],
-	"Plugins": [
+		},
 		{
-			"Name": "RealityEngine",
-			"Enabled": true
+			"Name": "MZDataStructures",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "Default",
+			"PlatformAllowList": [
+				"Win64"
+			]
 		}
 	]
 }

@@ -4,7 +4,7 @@
 #include "MZTextureShareManager.h"
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
-#include "Reality/Public/RealityTrack.h"
+#include "MZTrack.h"
 #include "EngineUtils.h"
 #include "Blueprint/UserWidget.h"
 #include "MZSceneTreeManager.h"
@@ -303,7 +303,7 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 
 	if (container)
 	{
-		FRealityTrack TrackData = *Property->ContainerPtrToValuePtr<FRealityTrack>(container);
+		FMZTrack TrackData = *Property->ContainerPtrToValuePtr<FMZTrack>(container);
 		
 		flatbuffers::FlatBufferBuilder fb;
 		mz::fb::TTrack TempTrack;

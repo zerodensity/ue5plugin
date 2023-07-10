@@ -12,6 +12,8 @@
 #include "UObject/Object.h"
 #include "Engine/StaticMeshActor.h"
 
+#include <vector>
+
 IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
 
 template<typename T>
@@ -70,6 +72,43 @@ void FMZAssetManager::OnAssetDeleted(const FAssetData& removedAsset)
 	RescanAndSendAll();
 }
 
+void FMZAssetManager::SendList(const char* ListName, const TArray<FString>& Value)
+{
+	if (!(MZClient && MZClient->IsConnected()))
+		return;
+
+	flatbuffers::FlatBufferBuilder mb;
+	std::vector<std::string> NameList;
+	for (const auto& name : Value)
+	{
+		NameList.push_back(TCHAR_TO_UTF8(*name));
+	}
+	
+	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateStringList(mb, mb.CreateString(ListName), mb.CreateVectorOfStrings(NameList)));
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
+	MZClient->AppServiceClient->UpdateStringList(*root);
+}
+
+void FMZAssetManager::SendList(const char* ListName, const TAssetNameToPathMap& Value)
+{
+	TArray<FString> Names;
+	for (auto [Name, _] : Value)
+		Names.Add(Name);
+
+	SendList(ListName, Names);
+}
+
+void FMZAssetManager::SendList(const char* ListName, const TAssetNameToObjectMap& Value)
+{
+	TArray<FString> Names;
+	for (auto [Name, _] : Value)
+		Names.Add(Name);
+
+	SendList(ListName, Names);
+}
+
 void FMZAssetManager::SendAssetList()
 {
 	if (!(MZClient && MZClient->IsConnected()))
@@ -89,56 +128,12 @@ void FMZAssetManager::SendAssetList()
 	}
 	SpawnTags.Sort();
 	
-	flatbuffers::FlatBufferBuilder mb;
-	std::vector<mz::fb::String256> NameList;
-	for (auto name : SpawnTags)
-	{
-		mz::fb::String256 str256;
-		auto val = str256.mutable_val();
-		auto size = name.Len() < 256 ? name.Len() : 256;
-		memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
-		NameList.push_back(str256);
-	}
-	mz::fb::String256 listName;
-	strcat((char*)listName.mutable_val()->data(), "UE5_ACTOR_LIST");
-	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
-	mb.Finish(offset);
-	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
-	MZClient->AppServiceClient->UpdateStringList(*root);
+	SendList("UE5_ACTOR_LIST", SpawnTags);
 }
 
 void FMZAssetManager::SendUMGList()
 {
-	if (!(MZClient && MZClient->IsConnected()))
-	{
-		return;
-	}
-
-	TArray<FString> UMGNames;
-
-	for (auto [UMGName, _] : UMGs)
-	{
-		UMGNames.Add(UMGName);
-	}
-
-	flatbuffers::FlatBufferBuilder mb;
-	std::vector<mz::fb::String256> NameList;
-	for (auto name : UMGNames)
-	{
-		mz::fb::String256 str256;
-		auto val = str256.mutable_val();
-		auto size = name.Len() < 256 ? name.Len() : 256;
-		memcpy(val->data(), TCHAR_TO_UTF8(*name), size);
-		NameList.push_back(str256);
-	}
-	mz::fb::String256 listName;
-	strcat((char*)listName.mutable_val()->data(), "UE5_UMG_LIST");
-	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateString256ListDirect(mb, &listName, &NameList));
-	mb.Finish(offset);
-	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
-	MZClient->AppServiceClient->UpdateStringList(*root);
+	SendList("UE5_UMG_LIST", UMGs);
 }
 
 TSet<FTopLevelAssetPath> FMZAssetManager::GetAssetPathsOfClass(UClass* ParentClass)
@@ -168,14 +163,17 @@ void FMZAssetManager::RescanAndSendAll()
 {
 	ScanAssets();
 	ScanUMGs();
+
 	SendAssetList();
 	SendUMGList();
 }
 
-void FMZAssetManager::ScanUMGs()
+void FMZAssetManager::ScanAssets(
+	TAssetNameToPathMap& Map,
+	UClass* ParentClass)
 {
-	UMGs.Empty();
-	TSet< FTopLevelAssetPath > DerivedAssetPaths = GetAssetPathsOfClass(UUserWidget::StaticClass());
+	Map.Empty();
+	TSet< FTopLevelAssetPath > DerivedAssetPaths = GetAssetPathsOfClass(ParentClass);
 	for (auto AssetPath : DerivedAssetPaths)
 	{
 		FString AssetName = AssetPath.GetAssetName().ToString();
@@ -184,26 +182,32 @@ void FMZAssetManager::ScanUMGs()
 			continue;
 		}
 		AssetName.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
-		UMGs.Add(AssetName, AssetPath);
+		Map.Add(AssetName, AssetPath);
 	}
-	return;
+}
+
+void FMZAssetManager::ScanAssetObjects(
+	TAssetNameToObjectMap& Map,
+	const UClass* ParentClass)
+{
+	Map.Empty();
+
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+
+	TArray<FAssetData> ObjectList;
+	AssetRegistryModule.Get().GetAssetsByClass(ParentClass->GetClassPathName(), ObjectList);
+	for (const FAssetData& Object : ObjectList)
+		Map.Add(Object.AssetName.ToString(), Object.GetAsset());
+}
+
+void FMZAssetManager::ScanUMGs()
+{
+	ScanAssets(UMGs, UUserWidget::StaticClass());
 }
 
 void FMZAssetManager::ScanAssets()
 {
-	SpawnableAssets.Empty();
-	TSet<FTopLevelAssetPath> DerivedAssetPaths = GetAssetPathsOfClass(AActor::StaticClass());
-	for (auto AssetPath : DerivedAssetPaths)
-	{
-		FString AssetName = AssetPath.GetAssetName().ToString();
-		if (AssetName.StartsWith(TEXT("SKEL_")))
-		{
-			continue;
-		}
-		AssetName.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
-		SpawnableAssets.Add(AssetName, AssetPath);
-	}
-	return;
+	ScanAssets(SpawnableAssets, AActor::StaticClass());
 }
 
 void FMZAssetManager::SetupCustomSpawns()

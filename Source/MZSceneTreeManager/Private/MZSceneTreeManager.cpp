@@ -4,7 +4,6 @@
 #include "MZSceneTreeManager.h"
 #include "MZClient.h"
 #include "MZTextureShareManager.h"
-#include "MZUMGRenderManager.h"
 #include "MZAssetManager.h"
 #include "MZViewportManager.h"
 
@@ -15,9 +14,9 @@
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
+#include "LevelSequence.h"
 
-DEFINE_LOG_CATEGORY(LogMZSceneTreeManager)
-
+DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
 
@@ -84,6 +83,12 @@ void FMZSceneTreeManager::OnNewCurrentLevel()
 	//todo we may need to fill these according to the level system
 }
 
+void FMZSceneTreeManager::AddCustomFunction(MZCustomFunction* CustomFunction)
+{
+	CustomFunctions.Add(CustomFunction->Id, CustomFunction);
+	SendEngineFunctionUpdate();
+}
+
 void FMZSceneTreeManager::OnBeginFrame()
 {
 	MZPropertyManager.OnBeginFrame();
@@ -109,6 +114,8 @@ void FMZSceneTreeManager::StartupModule()
 		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
 		return;
 	}
+	
+	bIsModuleFunctional = true; 
 
 	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
@@ -221,149 +228,7 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
-	//Add Camera function
-	{
-		MZAssetManager->CustomSpawns.Add("CustomRealityCamera", [this]()
-			{
-				AActor* realityCamera = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/Reality_Camera.Reality_Camera_C'"));
 
-				return realityCamera;
-			});
-
-		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
-		{
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Camera", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
-		};
-		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
-		{
-
-			AActor* realityCamera = MZActorManager->SpawnActor("CustomRealityCamera", [this](AActor* Actor) {
-				AddBlueprintOnCompileHandler(Actor);
-			});
-			if (!realityCamera || !SceneTree.NodeMap.Contains(realityCamera->GetActorGuid()))
-			{
-				return;
-			}
-			
-			auto cameraNode = SceneTree.NodeMap.FindRef(realityCamera->GetActorGuid());
-
-			PopulateNode(cameraNode->Id);
-			SendNodeUpdate(cameraNode->Id);
-			for (auto ChildNode : cameraNode->Children)
-			{
-				PopulateNode(ChildNode->Id);
-				SendNodeUpdate(ChildNode->Id);
-			}
-			
-			
-
-			auto videoCamera = FindObject<USceneComponent>(realityCamera, TEXT("VideoCamera"));
-			auto FrameTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "FrameTexture");
-			auto MaskTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "MaskTexture");
-			auto LightingTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "LightingTexture");
-			auto BloomTexture = FindFProperty<FObjectProperty>(videoCamera->GetClass(), "BloomTexture");
-			auto Track = FindFProperty<FProperty>(videoCamera->GetClass(), "Track");
-
-			MZPropertyManager.CreatePortal(FrameTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(MaskTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(LightingTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			// MZPropertyManager.CreatePortal(BloomTexture, videoCamera, mz::fb::ShowAs::OUTPUT_PIN);
-			MZPropertyManager.CreatePortal(Track, videoCamera, mz::fb::ShowAs::INPUT_PIN);
-
-			LOG("Reality camera is spawned.");
-		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
-	}
-	//Add Projection cube function
-	{
-		MZAssetManager->CustomSpawns.Add("CustomProjectionCube", [this]()
-			{
-				AActor* projectionCube = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/Engine.Blueprint'/RealityEngine/Actors/RealityActor_ProjectionCube.RealityActor_ProjectionCube_C'"));
-				auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-				auto RenderTarget2D = NewObject<UTextureRenderTarget2D>(projectionCube);
-				RenderTarget2D->InitAutoFormat(1920, 1080);
-				InputTexture->SetObjectPropertyValue_InContainer(projectionCube, RenderTarget2D);
-				return projectionCube;
-			});
-		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		mzcf->Serialize = [funcid = mzcf->Id](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
-		{
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Reality Projection Cube", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
-		};
-		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
-		{
-
-			AActor* projectionCube = MZActorManager->SpawnActor("CustomProjectionCube", [this](AActor* Actor) {
-				AddBlueprintOnCompileHandler(Actor);
-			});
-			if (!projectionCube || !SceneTree.NodeMap.Contains(projectionCube->GetActorGuid()))
-			{
-				return;
-			}
-			auto projectionNode = SceneTree.NodeMap.FindRef(projectionCube->GetActorGuid());
-			auto InputTexture = FindFProperty<FObjectProperty>(projectionCube->GetClass(), "VideoInput");
-
-			PopulateNode(projectionNode->Id);
-			SendNodeUpdate(projectionNode->Id);
-			for (auto ChildNode : projectionNode->Children)
-			{
-				PopulateNode(ChildNode->Id);
-				SendNodeUpdate(ChildNode->Id);
-			}
-
-			MZPropertyManager.CreatePortal(InputTexture, projectionCube, mz::fb::ShowAs::INPUT_PIN);
-			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({InputTexture, projectionCube}))
-			{
-				auto MzProperty =MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({InputTexture, projectionCube});
-				auto texman = MZTextureShareManager::GetInstance();
-				texman->UpdatePinShowAs(MzProperty.Get(), mz::fb::ShowAs::INPUT_PIN);
-			}
-
-			LOG("Projection cube is spawned.");
-		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
-	}
-	//add umg renderer function
-	MZAssetManager->CustomSpawns.Add("CustomUMGRenderManager", [this]()
-		{
-			AActor* UMGRenderManager = MZAssetManager->SpawnFromAssetPath(FTopLevelAssetPath("/Script/CoreUObject.Class'/Script/MZSceneTreeManager.MZUMGRenderManager'"));
-			
-			return UMGRenderManager;
-	});
-	{
-		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		FGuid actorPinId = FGuid::NewGuid();
-		mzcf->Params.Add(actorPinId, "UMG to spawn");
-		mzcf->Serialize = [funcid = mzcf->Id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
-		{
-			auto data = std::vector<uint8_t>(1, 0);
-			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("UMG to spawn")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_UMG_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
-			};
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn UMG Renderer", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
-		};
-		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
-		{
-			FString umgName((char*)properties.FindRef(actorPinId).data());
-			if(umgName.IsEmpty())
-			{
-				return;
-			}
-			UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgName);
-			auto UMGManager = MZActorManager->SpawnUMGRenderManager(umgName, newWidget);
-			
-			PopulateAllChilds(UMGManager);
-			auto OutputTexture = FindFProperty<FObjectProperty>(UMGManager->GetClass(), "UMGRenderTarget");
-			MZPropertyManager.CreatePortal(OutputTexture, UMGManager, mz::fb::ShowAs::OUTPUT_PIN);
-
-			LOG("UMG Renderer is spawned.");
-		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
-	}
 	LOG("MZSceneTreeManager module successfully loaded.");
 }
 
@@ -468,9 +333,15 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 	MZActorManager->ClearActors();
 }
 
-void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size)
+void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
+	if(MZPropertyManager.PortalPinsById.Contains(Id))
+	{
+		MZClient->EventDelegates->PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
+		return;
+	}
+	
 	if (CustomProperties.Contains(Id))
 	{
 		auto mzprop = CustomProperties.FindRef(Id);
@@ -521,7 +392,8 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 		
 	if(MZPropertyManager.PortalPinsById.Contains(pinId))
 	{
-		auto Portal = MZPropertyManager.PortalPinsById.FindRef(pinId);
+		auto Portal = MZPropertyManager.PortalPinsById.Find(pinId);
+		Portal->ShowAs = newShowAs;
 		if(MZPropertyManager.PropertiesById.Contains(Portal->SourceId))
 		{
 			auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal->SourceId);
@@ -1703,6 +1575,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	return false;
 }
 
+
 void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 {
 	LOGF("Sending node update to MediaZ with id %s", *nodeId.ToString());
@@ -1787,6 +1660,27 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 	}
 	auto metadata = treeNode->SerializeMetaData(mb);
 	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS | mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES | mz::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+}
+
+void FMZSceneTreeManager::SendEngineFunctionUpdate()
+{
+	if (!MZClient || !MZClient->IsConnected())
+	{
+		return;
+	}
+	flatbuffers::FlatBufferBuilder mb = flatbuffers::FlatBufferBuilder();
+	std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+	for (auto& [_, cfunc] : CustomFunctions)
+	{
+		graphFunctions.push_back(cfunc->Serialize(mb));
+
+	}
+	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
+	auto offset =  mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)(&FMZClient::NodeId), mz::ClearFlags::CLEAR_FUNCTIONS, 0, 0, 0, &graphFunctions, 0, 0, 0, 0, &metadata);
 	mb.Finish(offset);
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
@@ -2448,7 +2342,11 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	}
 	UMGManager->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
 	UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName(umgTag)).ToString());
-	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
+
+//	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
+	FObjectProperty* WidgetProperty = FindFProperty<FObjectProperty>(UMGManager->GetClass(), "Widget");
+	if (WidgetProperty != nullptr)
+		WidgetProperty->SetObjectPropertyValue_InContainer(UMGManager, widget);
 
 	ActorIds.Add(UMGManager->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
