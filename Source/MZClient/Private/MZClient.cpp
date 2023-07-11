@@ -461,6 +461,10 @@ void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValue
 			{
 				return;
 			}
+			if (!GEngine->GameViewport || !GEngine->GameViewport->IsStatEnabled("FPS"))
+			{ 
+				GEngine->Exec(World, TEXT("Stat FPS"));
+			}
 
 			IsWorldInitialized = true;
 
