@@ -62,7 +62,7 @@ struct CmdStruct
 struct SyncSemaphoresExport
 {
 	HANDLE InputSemaphore;
-	HANDLE OutputSemahore;
+	HANDLE OutputSemaphore;
 };
 
 //This class manages copy operations between textures of MediaZ and unreal 2d texture target
@@ -78,7 +78,7 @@ public:
 	~MZTextureShareManager();
 	
 	mz::fb::TTexture AddTexturePin(MZProperty*);
-	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs, void* data, uint32_t size);
+	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs, u64 frameCounter);
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();
@@ -105,13 +105,14 @@ public:
 
 	TMap<MZProperty*, ResourceInfo> Copies;
 
-	ID3D12Fence* InputFence;
 	uint64_t InputFenceValue = 0;
-	ID3D12Fence* OutputFence;
 	uint64_t OutputFenceValue = 0;
+	ID3D12Fence* InputFence = nullptr;
+	ID3D12Fence* OutputFence= nullptr;
 
 	SyncSemaphoresExport SyncSemaphoresExportHandles;
 	
+	void RenewSemaphores();
 private:
 	void Initiate();
 };

@@ -178,26 +178,17 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	return tex;
 }
 
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, void* data, uint32_t size)
+void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, u64 frameCounter)
 {
+	InputFenceValue = frameCounter;
 	UpdatePinShowAs(mzprop, RealShowAs);
 
-	// if(OutputCopies.Contains(mzprop))
-	// {
-	// 	auto CopyInfo = OutputCopies.FindRef(mzprop);
-	//
-	// 	//set real fence value
-	// 	CopyInfo.FenceValue = 0;
-	// }
-	// else if(InputCopies.Contains(mzprop))
-	// {
-	// 	auto CopyInfo = InputCopies.FindRef(mzprop);
-	//
-	// 	//set real fence value
-	// 	CopyInfo.FenceValue = 0;
-	// }
-	
-	return;
+#if 0 
+	// since we are using the texture pin data queue for frame counters,
+	// this part assuming it's a fb::TTexture is obsolete
+
+
+
 	//TODO better update handling (texture size etc.)
 	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
@@ -257,6 +248,7 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 			CopyOnTick.Add(mzprop, copyInfo);
 		}
 	}
+#endif
 }
 
 void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
@@ -270,14 +262,6 @@ void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::Show
 
 void MZTextureShareManager::WaitCommands()
 {
-	// if (CmdFence->GetCompletedValue() < CmdFenceValue)
-	// {
-	// 	CmdFence->SetEventOnCompletion(CmdFenceValue, CmdEvent);
-	// 	WaitForSingleObject(CmdEvent, INFINITE);
-	// }
-	//
-	// CmdAlloc->Reset();
-	// CmdList->Reset(CmdAlloc, 0);
 }
 
 
@@ -547,6 +531,9 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 	}
 	TMap<UTextureRenderTarget2D*, ResourceInfo> CopiesFiltered;
 	FilterCopies(CopyShowAs, CopyMap, CopiesFiltered);
+	if (CopiesFiltered.IsEmpty())
+		return;
+
 	auto cmdData = GetNewCommandList();
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this, CopyShowAs, CopiesFiltered, cmdData](FRHICommandListImmediate& RHICmdList)
@@ -557,7 +544,9 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 			flatbuffers::FlatBufferBuilder fbb;
 			if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
 			{
-				//TODO add wait for syncing input pins
+				//CmdQueue->Wait(InputFence, (2 * InputFenceValue) + 1);
+				//SignalGroup.Add(InputFence, (2 * InputFenceValue) + 2);
+				//UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * InputFenceValue);
 			}
 			else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 			{
@@ -618,11 +607,29 @@ void MZTextureShareManager::Initiate()
 	
 	AllocateCommandLists();
 
+	RenewSemaphores();
+}
+
+void MZTextureShareManager::RenewSemaphores()
+{
+	if (InputFence)
+	{
+		::CloseHandle(SyncSemaphoresExportHandles.InputSemaphore);
+		InputFence->Release();
+
+	}
+	if (OutputFence)
+	{
+		::CloseHandle(SyncSemaphoresExportHandles.OutputSemaphore);
+		OutputFence->Release();
+	}
+
+	InputFenceValue = OutputFenceValue = 0;
+
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&InputFence));
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&OutputFence));
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(InputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.InputSemaphore));
-	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(OutputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.OutputSemahore));
-
+	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(OutputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.OutputSemaphore));
 }
 
 	

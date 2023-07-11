@@ -264,7 +264,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 					ShowAs = Portal.ShowAs;
 				}
 			}
-			texman->UpdateTexturePin(mzprop, ShowAs, (void*)pin->data()->Data(), pin->data()->size());
+			texman->UpdatePinShowAs(mzprop, ShowAs);
 		}
 	}
 }
@@ -441,7 +441,7 @@ void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 						ShowAs = Portal.ShowAs;
 					}
 				}
-				texman->UpdateTexturePin(mzprop.Get(), ShowAs, (void*)update->value()->data(), update->value()->size());
+				texman->UpdatePinShowAs(mzprop.Get(), ShowAs);
 				
 			}
 		}
@@ -1850,8 +1850,10 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 void FMZSceneTreeManager::SendSyncSemaphores()
 {
 	auto TextureShareManager = MZTextureShareManager::GetInstance();
+	TextureShareManager->RenewSemaphores();
+
 	uint64_t inputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.InputSemaphore;
-	uint64_t outputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.OutputSemahore;
+	uint64_t outputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.OutputSemaphore;
 
 	flatbuffers::FlatBufferBuilder mb;
 	auto offset = mz::CreateAppEventOffset(mb, mz::app::CreateSetSyncSemaphores(mb, (mz::fb::UUID*)&FMZClient::NodeId, FPlatformProcess::GetCurrentProcessId(), inputSemaphore, outputSemaphore));
@@ -2460,7 +2462,10 @@ void FMZPropertyManager::OnBeginFrame()
 
 		if(portal.TypeName == "mz.fb.Texture")
 		{
-			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs, buffer.data(), buffer.size());
+			assert(buffer.size() == sizeof(uint64_t));
+			u64 frameCounter = (u64)buffer.data();
+
+			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs, frameCounter);
 		}
 	}
 }
