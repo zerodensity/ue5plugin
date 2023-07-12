@@ -749,14 +749,16 @@ void MZEnumProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 
 	if (container)
 	{
-		FString newval((char*)val);
-		auto NewVal = Enum->GetValueByName(FName(newval));
-		if(NewVal == INDEX_NONE)
+		FEnumProperty* PropAsEnum = CastField<FEnumProperty>(Property);
+		UEnum* EnumPtr = PropAsEnum->GetEnum();
+		FString ValueString((char*)val);
+		int64 Index = EnumPtr->GetIndexByNameString(ValueString);
+		if (Index != INDEX_NONE)
 		{
-			return;
+			int64 Value = EnumPtr->GetValueByIndex(Index);
+			uint8* PropData = PropAsEnum->ContainerPtrToValuePtr<uint8>(container);
+			PropAsEnum->GetUnderlyingProperty()->SetIntPropertyValue(PropData, Value);
 		}
-		uint8* PropData = IndexProp->ContainerPtrToValuePtr<uint8>(container);
-		IndexProp->SetIntPropertyValue(PropData, NewVal);
 	}
 
 	if (!customContainer && container)
