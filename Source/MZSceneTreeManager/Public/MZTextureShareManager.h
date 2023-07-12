@@ -78,7 +78,7 @@ public:
 	~MZTextureShareManager();
 	
 	mz::fb::TTexture AddTexturePin(MZProperty*);
-	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs, u64 frameCounter);
+	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs);
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();

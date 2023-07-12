@@ -301,7 +301,7 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
-	if(MZPropertyManager.PortalPinsById.Contains(Id))
+	if(MZPropertyManager.PropertiesById.Contains(Id))
 	{
 		MZClient->EventDelegates->PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
 		return;
@@ -2453,7 +2453,7 @@ void FMZPropertyManager::OnBeginFrame()
 		
 		auto MzProperty = PropertiesById.FindRef(portal.SourceId);
 
-		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&id));
+		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id));
 
 		if (!buffer.IsEmpty())
 		{
@@ -2462,10 +2462,7 @@ void FMZPropertyManager::OnBeginFrame()
 
 		if(portal.TypeName == "mz.fb.Texture")
 		{
-			assert(buffer.size() == sizeof(uint64_t));
-			u64 frameCounter = (u64)buffer.data();
-
-			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs, frameCounter);
+			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs);
 		}
 	}
 }

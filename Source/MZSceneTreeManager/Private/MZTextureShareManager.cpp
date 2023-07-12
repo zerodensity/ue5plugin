@@ -178,9 +178,8 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	return tex;
 }
 
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, u64 frameCounter)
+void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs)
 {
-	InputFenceValue = frameCounter;
 	UpdatePinShowAs(mzprop, RealShowAs);
 
 #if 0 
@@ -546,7 +545,8 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 			{
 				//CmdQueue->Wait(InputFence, (2 * InputFenceValue) + 1);
 				//SignalGroup.Add(InputFence, (2 * InputFenceValue) + 2);
-				//UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * InputFenceValue);
+				//InputFenceValue++;
+				UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * InputFenceValue);
 			}
 			else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 			{
