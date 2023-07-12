@@ -303,7 +303,7 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
-	if(MZPropertyManager.PropertiesById.Contains(Id))
+	if(MZPropertyManager.PropertiesById.Contains(Id) && MZPropertyManager.PropertyToPortalPin.Contains(Id))
 	{
 		MZClient->EventDelegates->PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
 		return;
@@ -2462,7 +2462,7 @@ void FMZPropertyManager::OnBeginFrame()
 {
 	for (auto [id, portal] : PortalPinsById)
 	{
-		if (portal.ShowAs != mz::fb::ShowAs::INPUT_PIN || 
+		if (portal.ShowAs == mz::fb::ShowAs::OUTPUT_PIN || 
 		    !PropertiesById.Contains(portal.SourceId))
 		{
 			continue;
