@@ -300,6 +300,8 @@ public:
 	FMZActorManager* MZActorManager;
 
 	FMZPropertyManager MZPropertyManager;
+
+	bool bIsModuleFunctional = false;
 	
 	static void GetNodeAndDescendantNodesRecursive(TSharedPtr<TreeNode> Node, TArray<TSharedPtr<TreeNode>> &OutNodeList);
 	static UClass* GetRootActorOfNode(TSharedPtr<TreeNode> Node);
@@ -331,10 +333,11 @@ private:
 	                                  FFunctionMapping& FunctionMapping);
 	
 	static void GenerateFieldMappings(FPropertiesMap &OldPropertyMap,
-									  FPropertiesMap &NewPropertyMap,
-									  FFunctionsMap &NewFunctionsMap,
-									  FPropertyMapping& FieldMapping,
-									  FFunctionMapping& FunctionMapping);
+												FPropertiesMap &NewPropertyMap,
+												FFunctionsMap &OldFunctionsMap,
+												FFunctionsMap &NewFunctionsMap,
+												FPropertyMapping& FieldMapping,
+												FFunctionMapping& FunctionMapping);
 	
 	static void GetObjProperties (UObject* Obj, FPropertiesMap& ObjProperties, FFunctionsMap& Functions);
 	static TArray<TPair<FName, FProperty*>> GetNewlyAddedProperties(FPropertiesMap& OldProperties, FPropertiesMap& NewObjProperties);

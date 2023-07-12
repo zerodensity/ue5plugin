@@ -2705,7 +2705,7 @@ void FMZPropertyManager::OnBeginFrame()
 			MzProperty->SetPropValue(buffer.data(), buffer.size());
 		}
 
-		if(portal.TypeName == "mz.fb.Texture")
+		if(portal->TypeName == "mz.fb.Texture")
 		{
 			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal->ShowAs);
 		}
