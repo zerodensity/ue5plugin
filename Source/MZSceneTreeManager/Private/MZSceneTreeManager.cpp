@@ -16,6 +16,7 @@
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 #include "LevelSequence.h"
+#include "PacketHandler.h"
 
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
@@ -136,6 +137,7 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
 	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
 	MZClient->OnMZNodeRemoved.AddRaw(this, &FMZSceneTreeManager::OnMZNodeRemoved);
+	MZClient->OnMZStateChanged.AddRaw(this, &FMZSceneTreeManager::OnMZStateChanged);
 
 	FCoreDelegates::OnBeginFrame.AddRaw(this, &FMZSceneTreeManager::OnBeginFrame);
 	FCoreDelegates::OnEndFrame.AddRaw(this, &FMZSceneTreeManager::OnEndFrame);
@@ -236,7 +238,7 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		LOG("Node import request recieved on connection");
 		OnMZNodeImported(appNode);
 	}
-	SendSyncSemaphores();
+	SendSyncSemaphores(true);
 }
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
@@ -246,7 +248,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 		SceneTree.Root->Id = *(FGuid*)appNode.id();
 		RescanScene();
 		SendNodeUpdate(FMZClient::NodeId);
-		SendSyncSemaphores();
+		SendSyncSemaphores(true);
 	}
 	auto texman = MZTextureShareManager::GetInstance();
 	for (auto& [id, pin] : ParsePins(&appNode))
@@ -513,6 +515,18 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 void FMZSceneTreeManager::OnMZNodeRemoved()
 {
 	MZActorManager->ClearActors();
+}
+
+void FMZSceneTreeManager::OnMZStateChanged(mz::app::ExecutionState newState)
+{
+	ExecutionState = newState;
+	bool SemaphoresRenewed = false;
+	MZTextureShareManager::GetInstance()->ExecutionStateChanged(newState, SemaphoresRenewed);
+
+	if(SemaphoresRenewed)
+	{
+		SendSyncSemaphores(false);
+	}
 }
 
 void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues)
@@ -1847,10 +1861,13 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 	}
 }
 
-void FMZSceneTreeManager::SendSyncSemaphores()
+void FMZSceneTreeManager::SendSyncSemaphores(bool RenewSemaphores)
 {
 	auto TextureShareManager = MZTextureShareManager::GetInstance();
-	TextureShareManager->RenewSemaphores();
+	if(RenewSemaphores)
+	{
+		TextureShareManager->RenewSemaphores();
+	}
 
 	uint64_t inputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.InputSemaphore;
 	uint64_t outputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.OutputSemaphore;

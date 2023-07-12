@@ -37,6 +37,7 @@ DECLARE_EVENT_OneParam(FMZClient, FMZExecutedApp, mz::app::AppExecute const&);
 DECLARE_EVENT_TwoParams(FMZClient, FMZFunctionCalled, mz::fb::UUID const&, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeSelected, mz::fb::UUID const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeImported, mz::fb::Node const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZStateChanged, mz::app::ExecutionState);
 DECLARE_EVENT(FMZClient, FMZConnectionClosed);
 
 
@@ -62,6 +63,7 @@ public:
 	virtual void OnNodeSelected(mz::fb::UUID const& nodeId) override;
 	virtual void OnNodeImported(mz::fb::Node const& appNode) override;
 	virtual void OnConnectionClosed() override;
+	virtual void OnStateChanged(mz::app::ExecutionState newState) override;
 
 
 	FMZClient* PluginClient;
@@ -185,6 +187,7 @@ public:
 	FMZNodeSelected OnMZNodeSelected;
 	FMZNodeImported OnMZNodeImported;
 	FMZConnectionClosed OnMZConnectionClosed;
+	FMZStateChanged OnMZStateChanged;
 
 	UENodeStatusHandler UENodeStatusHandler;
 protected:
