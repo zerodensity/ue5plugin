@@ -160,7 +160,8 @@ public:
 
 	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
 
-
+	void SendSyncSemaphores();
+	
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
 

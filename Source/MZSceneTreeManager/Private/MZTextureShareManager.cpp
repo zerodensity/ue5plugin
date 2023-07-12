@@ -151,12 +151,6 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
 	//res->Release();
 
-
-	ID3D12Fence* fence;
-	HANDLE fenceHandle;
-	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&fence));
-	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(fence, 0, GENERIC_ALL, 0, &fenceHandle));
-	
 	mz::fb::TTexture tex;
 	tex.size = mz::fb::SizePreset::CUSTOM;
 	tex.width = info.Width;
@@ -169,42 +163,31 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	tex.unmanaged = true;
 	tex.offset = 0;
 	tex.handle = 0;
-	tex.semaphore = (u64)fenceHandle;
+	tex.semaphore = 0;
 	
 	ResourceInfo copyInfo = {
 		.SrcMzp = mzprop,
 		.DstResource = res,
-		.Fence = fence,
-		.FenceValue = 0,
+		.ShowAs = mzprop->PinShowAs,
 	};
 	
 	{
 		//start property pins as output pins
-		OutputCopies.Add(mzprop, copyInfo);
+		Copies.Add(mzprop, copyInfo);
 	}
 	return tex;
 }
 
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs, void* data, uint32_t size)
+void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs)
 {
 	UpdatePinShowAs(mzprop, RealShowAs);
 
-	if(OutputCopies.Contains(mzprop))
-	{
-		auto CopyInfo = OutputCopies.FindRef(mzprop);
+#if 0 
+	// since we are using the texture pin data queue for frame counters,
+	// this part assuming it's a fb::TTexture is obsolete
 
-		//set real fence value
-		CopyInfo.FenceValue = 0;
-	}
-	else if(InputCopies.Contains(mzprop))
-	{
-		auto CopyInfo = InputCopies.FindRef(mzprop);
 
-		//set real fence value
-		CopyInfo.FenceValue = 0;
-	}
-	
-	return;
+
 	//TODO better update handling (texture size etc.)
 	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
@@ -264,45 +247,24 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 			CopyOnTick.Add(mzprop, copyInfo);
 		}
 	}
+#endif
 }
 
 void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
 {
-	if(NewShowAs == mz::fb::ShowAs::INPUT_PIN)
+	if(Copies.Contains(MzProperty))
 	{
-		if(OutputCopies.Contains(MzProperty))
-		{
-			auto Info = OutputCopies.FindRef(MzProperty);
-			OutputCopies.Remove(MzProperty);
-			InputCopies.Add(MzProperty, Info);
-		}
+		auto resourceInfo = Copies.Find(MzProperty);
+		resourceInfo->ShowAs = NewShowAs;
 	}
-	else if(NewShowAs == mz::fb::ShowAs::OUTPUT_PIN)
-	{
-		if(InputCopies.Contains(MzProperty))
-		{
-			auto Info = InputCopies.FindRef(MzProperty);
-			InputCopies.Remove(MzProperty);
-			OutputCopies.Add(MzProperty, Info);
-		}
-	}
-	
 }
 
 void MZTextureShareManager::WaitCommands()
 {
-	// if (CmdFence->GetCompletedValue() < CmdFenceValue)
-	// {
-	// 	CmdFence->SetEventOnCompletion(CmdFenceValue, CmdEvent);
-	// 	WaitForSingleObject(CmdEvent, INFINITE);
-	// }
-	//
-	// CmdAlloc->Reset();
-	// CmdList->Reset(CmdAlloc, 0);
 }
 
 
-void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap<ID3D12Fence*, u64>& SignalGroup)
+void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup)
 {
 	cmdData->CmdList->Close();
 	CmdQueue->ExecuteCommandLists(1, (ID3D12CommandList**)&cmdData->CmdList);
@@ -315,7 +277,7 @@ void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap
 	
 	// cmdData->CmdList->Reset(CmdAlloc, 0);
 	cmdData->State = CmdState::Running;
-#if 1
+#if 0
 	{
 		if (cmdData->CmdFence->GetCompletedValue() < cmdData->CmdFenceValue)
 		{
@@ -331,8 +293,7 @@ void MZTextureShareManager::ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap
 
 void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
 {
-	OutputCopies.Remove(textureProp);
-	InputCopies.Remove(textureProp);
+	Copies.Remove(textureProp);
 	
 	//TODO delete real resource	
 }
@@ -414,7 +375,7 @@ CmdStruct* MZTextureShareManager::GetNewCommandList()
 	}
 }
 
-bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* RenderTarget, ID3D12Resource* PinTexture, ID3D12Fence* Fence, ID3D12GraphicsCommandList* CmdList, TArray<D3D12_RESOURCE_BARRIER>& Barriers)
+bool MZCopyTexture_RenderThread(mz::fb::ShowAs CopyShowAs, UTextureRenderTarget2D* RenderTarget, ID3D12Resource* PinTexture, ID3D12GraphicsCommandList* CmdList, TArray<D3D12_RESOURCE_BARRIER>& Barriers)
 {
 	auto rt = RenderTarget->GetRenderTargetResource();
 	if (!rt) return false;
@@ -439,7 +400,7 @@ bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* Render
 	}
 
 
-	if(bIsInputPin)
+	if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
 	{
 		Swap(SrcResource, DstResource);
 		D3D12_RESOURCE_BARRIER barrier = {
@@ -478,7 +439,7 @@ bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* Render
 		// Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
 		// Barriers.Add(barrier);
 	}
-	else
+	else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 	{
 		D3D12_RESOURCE_BARRIER barrier = {
 			.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
@@ -541,7 +502,7 @@ bool MZCopyTexture_RenderThread(bool bIsInputPin, UTextureRenderTarget2D* Render
 	return true;
 }
 
-void FilterCopies(TMap<MZProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTarget2D*, ResourceInfo>& FilteredCopies)
+void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTarget2D*, ResourceInfo>& FilteredCopies)
 {
 	for (auto [mzprop, info] : Copies)
 	{
@@ -552,11 +513,14 @@ void FilterCopies(TMap<MZProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTa
 		auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 		if (!URT) continue;
 
-		FilteredCopies.Add(URT, info);
+		if(info.ShowAs == FilterShowAs)
+		{
+			FilteredCopies.Add(URT, info);
+		}
 	}
 }
 
-void MZTextureShareManager::ProcessCopies(bool bIsInput,  TMap<MZProperty*, ResourceInfo>& CopyMap)
+void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap)
 {
 	{
 		if (CopyMap.IsEmpty())
@@ -565,53 +529,58 @@ void MZTextureShareManager::ProcessCopies(bool bIsInput,  TMap<MZProperty*, Reso
 		}
 	}
 	TMap<UTextureRenderTarget2D*, ResourceInfo> CopiesFiltered;
-	FilterCopies(CopyMap, CopiesFiltered);
+	FilterCopies(CopyShowAs, CopyMap, CopiesFiltered);
+	if (CopiesFiltered.IsEmpty())
+		return;
+
 	auto cmdData = GetNewCommandList();
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
-		[this, bIsInput, CopiesFiltered, cmdData](FRHICommandListImmediate& RHICmdList)
+		[this, CopyShowAs, CopiesFiltered, cmdData](FRHICommandListImmediate& RHICmdList)
 		{
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
 			TMap<ID3D12Fence*, u64> SignalGroup;
 			flatbuffers::FlatBufferBuilder fbb;
+			if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
+			{
+				//CmdQueue->Wait(InputFence, (2 * InputFenceValue) + 1);
+				//SignalGroup.Add(InputFence, (2 * InputFenceValue) + 2);
+				//InputFenceValue++;
+				UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * InputFenceValue);
+			}
+			else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
+			{
+				CmdQueue->Wait(OutputFence, (2 * OutputFenceValue));
+				SignalGroup.Add(OutputFence, (2 * OutputFenceValue) + 1);
+				UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * OutputFenceValue);
+			}
 			for (auto& [URT, pin] : CopiesFiltered)
 			{
-				if(bIsInput)
+				if(MZCopyTexture_RenderThread(CopyShowAs, URT, pin.DstResource, cmdData->CmdList, barriers)
+					&& CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN
+					&& events.empty())
 				{
-					CmdQueue->Wait(pin.Fence, pin.FenceValue);
-				}
-				else
-				{
-					CmdQueue->Wait(pin.Fence, (2 * pin.FenceValue));
-					SignalGroup.Add(pin.Fence, (2 * pin.FenceValue) + 1);
-					UE_LOG(LogTemp, Warning, TEXT("%s waiting on %d"), *pin.SrcMzp->PropertyName, 2 * pin.FenceValue);
-				}
-				if(MZCopyTexture_RenderThread(bIsInput, URT, pin.DstResource, pin.Fence, cmdData->CmdList, barriers) && !bIsInput)
-				{
-					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, pin.FenceValue)));
+					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, OutputFenceValue)));
 				}
 			}
 			cmdData->CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
-			ExecCommands(cmdData, bIsInput, SignalGroup);
+			ExecCommands(cmdData, CopyShowAs, SignalGroup);
 			if (!events.empty() && MZClient && MZClient->IsConnected())
 			{
 				MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+				OutputFenceValue++;
 			}
 		});
 }
 
 void MZTextureShareManager::OnBeginFrame()
 {
-	ProcessCopies(true, InputCopies);
+	ProcessCopies(mz::fb::ShowAs::INPUT_PIN, Copies);
 }
 
 void MZTextureShareManager::OnEndFrame()
 {
-	ProcessCopies(false, OutputCopies);
-	for(auto& [_, info] : OutputCopies)
-	{
-		info.FenceValue += 1;
-	}
+	ProcessCopies(mz::fb::ShowAs::OUTPUT_PIN, Copies);
 }
 
 void MZTextureShareManager::Reset()
@@ -637,4 +606,31 @@ void MZTextureShareManager::Initiate()
 	CmdQueue->AddRef();
 	
 	AllocateCommandLists();
+
+	RenewSemaphores();
 }
+
+void MZTextureShareManager::RenewSemaphores()
+{
+	if (InputFence)
+	{
+		::CloseHandle(SyncSemaphoresExportHandles.InputSemaphore);
+		InputFence->Release();
+
+	}
+	if (OutputFence)
+	{
+		::CloseHandle(SyncSemaphoresExportHandles.OutputSemaphore);
+		OutputFence->Release();
+	}
+
+	InputFenceValue = OutputFenceValue = 0;
+
+	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&InputFence));
+	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&OutputFence));
+	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(InputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.InputSemaphore));
+	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(OutputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.OutputSemaphore));
+}
+
+	
+	

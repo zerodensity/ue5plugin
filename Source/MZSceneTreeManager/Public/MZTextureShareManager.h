@@ -39,8 +39,7 @@ struct ResourceInfo
 {
 	MZProperty* SrcMzp = 0;
 	ID3D12Resource* DstResource = 0;
-	ID3D12Fence* Fence = 0;
-	u64 FenceValue = 0;
+	mz::fb::ShowAs ShowAs;
 };
 
 enum CmdState
@@ -60,6 +59,11 @@ struct CmdStruct
 };
 
 
+struct SyncSemaphoresExport
+{
+	HANDLE InputSemaphore;
+	HANDLE OutputSemaphore;
+};
 
 //This class manages copy operations between textures of MediaZ and unreal 2d texture target
 class MZSCENETREEMANAGER_API MZTextureShareManager
@@ -74,15 +78,15 @@ public:
 	~MZTextureShareManager();
 	
 	mz::fb::TTexture AddTexturePin(MZProperty*);
-	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs, void* data, uint32_t size);
+	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs);
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();
-	void ExecCommands(CmdStruct* cmdData, bool bIsInput, TMap<ID3D12Fence*, u64>& SignalGroup);
+	void ExecCommands(CmdStruct* cmdData, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void TextureDestroyed(MZProperty* texture);
 	void AllocateCommandLists();
 	CmdStruct* GetNewCommandList();
-	void ProcessCopies(bool bIsInput, TMap<MZProperty*, ResourceInfo>& CopyMap);
+	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();
 	
@@ -99,12 +103,16 @@ public:
 	
 	TMap<MZProperty*, ResourceInfo> CopyOnTick;
 
-	TMap<MZProperty*, ResourceInfo> InputCopies;
-
-	TMap<MZProperty*, ResourceInfo> OutputCopies;
-	
 	TMap<MZProperty*, ResourceInfo> Copies;
 
+	uint64_t InputFenceValue = 0;
+	uint64_t OutputFenceValue = 0;
+	ID3D12Fence* InputFence = nullptr;
+	ID3D12Fence* OutputFence= nullptr;
+
+	SyncSemaphoresExport SyncSemaphoresExportHandles;
+	
+	void RenewSemaphores();
 private:
 	void Initiate();
 };

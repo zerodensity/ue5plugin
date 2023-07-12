@@ -274,6 +274,7 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		LOG("Node import request recieved on connection");
 		OnMZNodeImported(appNode);
 	}
+	SendSyncSemaphores();
 }
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
@@ -283,6 +284,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 		SceneTree.Root->Id = *(FGuid*)appNode.id();
 		RescanScene();
 		SendNodeUpdate(FMZClient::NodeId);
+		SendSyncSemaphores();
 	}
 	auto texman = MZTextureShareManager::GetInstance();
 	for (auto& [id, pin] : ParsePins(&appNode))
@@ -300,7 +302,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 					ShowAs = Portal->ShowAs;
 				}
 			}
-			texman->UpdateTexturePin(mzprop, ShowAs, (void*)pin->data()->Data(), pin->data()->size());
+			texman->UpdatePinShowAs(mzprop, ShowAs);
 		}
 	}
 }
@@ -337,7 +339,7 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
-	if(MZPropertyManager.PortalPinsById.Contains(Id))
+	if(MZPropertyManager.PropertiesById.Contains(Id))
 	{
 		MZClient->EventDelegates->PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
 		return;
@@ -478,7 +480,7 @@ void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 						ShowAs = Portal->ShowAs;
 					}
 				}
-				texman->UpdateTexturePin(mzprop.Get(), ShowAs, (void*)update->value()->data(), update->value()->size());
+				texman->UpdatePinShowAs(mzprop.Get(), ShowAs);
 				
 			}
 		}
@@ -2063,6 +2065,22 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 	}
 }
 
+void FMZSceneTreeManager::SendSyncSemaphores()
+{
+	auto TextureShareManager = MZTextureShareManager::GetInstance();
+	TextureShareManager->RenewSemaphores();
+
+	uint64_t inputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.InputSemaphore;
+	uint64_t outputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.OutputSemaphore;
+
+	flatbuffers::FlatBufferBuilder mb;
+	auto offset = mz::CreateAppEventOffset(mb, mz::app::CreateSetSyncSemaphores(mb, (mz::fb::UUID*)&FMZClient::NodeId, FPlatformProcess::GetCurrentProcessId(), inputSemaphore, outputSemaphore));
+	mb.Finish(offset);
+	auto buf = mb.Release();
+	auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
+	MZClient->AppServiceClient->Send(*root);
+}
+
 struct PortalSourceContainerInfo
 {
 	FGuid ActorId;
@@ -2546,6 +2564,8 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 		return;
 	}
 	auto MZProperty = PropertiesById.FindRef(PropertyId);
+
+	MZTextureShareManager::GetInstance()->UpdatePinShowAs(MZProperty.Get(), ShowAs);
 	
 	TSharedPtr<MZPortal> NewPortal = MakeShared<MZPortal>(FGuid::NewGuid() ,PropertyId);
 	NewPortal->DisplayName = FString("");
@@ -2678,16 +2698,16 @@ void FMZPropertyManager::OnBeginFrame()
 		
 		auto MzProperty = PropertiesById.FindRef(portal->SourceId);
 
-		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&id));
+		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id));
 
 		if (!buffer.IsEmpty())
 		{
 			MzProperty->SetPropValue(buffer.data(), buffer.size());
 		}
 
-		if(portal->TypeName == "mz.fb.Texture")
+		if(portal.TypeName == "mz.fb.Texture")
 		{
-			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal->ShowAs, buffer.data(), buffer.size());
+			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal->ShowAs);
 		}
 	}
 }
