@@ -15,6 +15,7 @@
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 #include "LevelSequence.h"
+#include "Blueprint/UserWidget.h"
 
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
@@ -392,7 +393,8 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 		
 	if(MZPropertyManager.PortalPinsById.Contains(pinId))
 	{
-		auto Portal = MZPropertyManager.PortalPinsById.Find(pinId);
+		TSharedPtr<MZPortal> Portal = *MZPropertyManager.PortalPinsById.Find(pinId);
+		
 		Portal->ShowAs = newShowAs;
 		if(MZPropertyManager.PropertiesById.Contains(Portal->SourceId))
 		{
@@ -1863,20 +1865,26 @@ void FMZSceneTreeManager::RemoveProperties(TSharedPtr<TreeNode> Node,
 {
 	if (auto componentNode = Node->GetAsSceneComponentNode())
 	{
-		for (auto& [PropName, MzProperty] : componentNode->ComponentReference->PropertiesMap)
+		if(componentNode->ComponentReference)
 		{
-			PropertiesToRemove.Add(MzProperty);
-			MZPropertyManager.PropertiesById.Remove(MzProperty->Id);
-			MZPropertyManager.PropertiesByPropertyAndContainer.Remove({MzProperty->Property, MzProperty->GetRawObjectContainer()});
+			for (auto& [PropName, MzProperty] : componentNode->ComponentReference->PropertiesMap)
+			{
+				PropertiesToRemove.Add(MzProperty);
+				MZPropertyManager.PropertiesById.Remove(MzProperty->Id);
+				MZPropertyManager.PropertiesByPropertyAndContainer.Remove({MzProperty->Property, MzProperty->GetRawObjectContainer()});
+			}
 		}
 	}
 	else if (auto actorNode = Node->GetAsActorNode())
 	{
-		for (auto& [PropName, MzProperty] : actorNode->ActorReference->PropertiesMap)
+		if(actorNode->ActorReference)
 		{
-			PropertiesToRemove.Add(MzProperty);
-			MZPropertyManager.PropertiesById.Remove(MzProperty->Id);
-			MZPropertyManager.PropertiesByPropertyAndContainer.Remove({MzProperty->Property, MzProperty->GetRawObjectContainer()});
+			for (auto& [PropName, MzProperty] : actorNode->ActorReference->PropertiesMap)
+			{
+				PropertiesToRemove.Add(MzProperty);
+				MZPropertyManager.PropertiesById.Remove(MzProperty->Id);
+				MZPropertyManager.PropertiesByPropertyAndContainer.Remove({MzProperty->Property, MzProperty->GetRawObjectContainer()});
+			}
 		}
 	}
 	for (auto& child : Node->Children)
