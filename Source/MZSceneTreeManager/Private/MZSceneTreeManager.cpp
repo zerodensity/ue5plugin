@@ -11,6 +11,7 @@
 #include "EngineUtils.h"
 #include "GameFramework/WorldSettings.h"
 #include "Kismet2/ComponentEditorUtils.h"
+#include "Kismet/GameplayStatics.h"
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
@@ -223,9 +224,7 @@ void FMZSceneTreeManager::StartupModule()
 			{
 				return;
 			}
-			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag, [this](AActor* Actor) {
-				AddBlueprintOnCompileHandler(Actor);
-			});
+			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag);
 			LOGF("Actor with tag %s is spawned", *SpawnTag);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -2315,7 +2314,7 @@ AActor* FMZActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag, const TFunction<void(AActor *actor)>& OnSpawnedCallback)
+AActor* FMZActorManager::SpawnActor(FString SpawnTag)
 {
 	if (!MZAssetManager)
 	{
@@ -2361,10 +2360,6 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, const TFunction<void(AActo
 	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
 	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
-	if(OnSpawnedCallback)
-	{
-		OnSpawnedCallback(SpawnedActor);
-	}
 	return SpawnedActor;
 }
 
@@ -2830,68 +2825,6 @@ void FMZSceneTreeManager::GetNodeAndDescendantNodesRecursive(TSharedPtr<TreeNode
 		}
 	}
 }
-/**
- * Collect root actor nodes related with this blueprint
- */
-TArray<TPair<FGuid, TSharedPtr<TreeNode>>> FMZSceneTreeManager::GetRootActorNodesRelatedWithBP(UBlueprint *BP)
-{
-	const FString editedBPClassName = BP->GetName();
-	TArray<TPair<FGuid, TSharedPtr<TreeNode>>> RelatedNodes;
-	for(const TPair<FGuid, TSharedPtr<TreeNode>> &entry : SceneTree.NodeMap)
-	{
-		TSharedPtr<TreeNode> TreeNode = entry.Value;
-		if(TreeNode)
-		{
-			if(const UClass *RootActorClass = GetRootActorOfNode(TreeNode)){
-
-				// Has a blueprint class?
-				if(const UBlueprint* actorNodeBlueprint = UBlueprint::GetBlueprintFromClass(RootActorClass))
-				{
-					// Compare actor's BP and event's BP by name. If match, these nodes are related
-					FString ActorBlueprintName = actorNodeBlueprint->GetName();
-					if(ActorBlueprintName.Compare(editedBPClassName) == 0)
-					{
-						RelatedNodes.Add(entry); // Object list that uses this blueprint class inside SceneTree
-						break;
-					}
-				}
-			}
-		}
-	}
-	return RelatedNodes;
-}
-TMap<FName, TSharedPtr<MZProperty>>* FMZSceneTreeManager::GetNodeProperties(TSharedPtr<TreeNode> Node)
-{
-	TMap<FName, TSharedPtr<MZProperty>>* nodeProps = nullptr;
-	if (Node->GetAsActorNode())
-	{
-		nodeProps = &Node->GetAsActorNode()->ActorReference->PropertiesMap;
-	}
-	else if (Node->GetAsSceneComponentNode())
-	{
-		nodeProps = &Node->GetAsSceneComponentNode()->ComponentReference->PropertiesMap;
-	}
-	return nodeProps;
-}
-
-bool FMZSceneTreeManager::CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty)
-{
-	const UClass *PropertyOwner = (TargetNode->GetAsActorNode())?(TargetNode->GetAsActorNode()->ActorReference->Get()->GetClass()):(TargetNode->GetAsSceneComponentNode()->ComponentReference->Get()->GetClass());
-	const FProperty* UEProperty = PropertyOwner->FindPropertyByName(MZProperty->Property->GetFName());
-
-	if(!UEProperty)
-	{
-		return false; // MZProperty not exist anymore in Actor Properties
-	}
-
-	const FString PropertyUnderlyingClassName = UEProperty->GetClass()->GetName();
-	bool ClassNameMatch = (PropertyUnderlyingClassName.Compare(MZProperty->Property->GetClass()->GetName()) == 0);
-
-	/* Any other future checks comes here */
-	// OtherChecks()
-
-	return ClassNameMatch;
-}
 
 void FMZSceneTreeManager::OnBlueprintCompiled(UBlueprint *BP)
 {
@@ -2962,23 +2895,6 @@ void FMZSceneTreeManager::UpdatePropertiesOfObject(TMap<FName, TSharedPtr<MZProp
 		UpdateMZPropertyReferences(PropName, MzProperty, NewObjProperties, RemovedProperties);
 		NewObjProperties.Remove(PropName);
 	}	
-}
-void FMZSceneTreeManager::UpdateMZReferences(FPropertyMapping& PropertyMapping, FFunctionMapping& FunctionMapping)
-{
-	for(auto &[OldProperty, NewProperty] : PropertyMapping)
-	{
-		if(NewProperty)
-		{
-			if(OldProperty != NewProperty)
-			{
-				UpdateSavedPropertyReferences(OldProperty, NewProperty);
-			}
-		}else
-		{
-			// Property Deleted!
-			// ToDo
-		}
-	}
 }
 
 void FMZSceneTreeManager::UpdateSavedPropertyReferences(TSharedPtr<MZProperty> MzProperty, FProperty *NewProperty)

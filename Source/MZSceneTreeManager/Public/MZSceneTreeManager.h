@@ -69,7 +69,7 @@ public:
 	};
 
 	AActor* GetParentTransformActor();
-	AActor* SpawnActor(FString SpawnTag, const TFunction<void(AActor *Actor)>& OnSpawnedCallback = nullptr);
+	AActor* SpawnActor(FString SpawnTag);
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	AActor* SpawnActor(UClass* ClassToSpawn);
 	void ClearActors();
@@ -309,18 +309,13 @@ public:
 	
 	static void GetNodeAndDescendantNodesRecursive(TSharedPtr<TreeNode> Node, TArray<TSharedPtr<TreeNode>> &OutNodeList);
 	static UClass* GetRootActorOfNode(TSharedPtr<TreeNode> Node);
-	static bool CheckIfPreviousPropertyStillExistAndCompatible(TSharedPtr<TreeNode> TargetNode, TSharedPtr<MZProperty> MZProperty);
-	TArray<TPair<FGuid, TSharedPtr<TreeNode>>> GetRootActorNodesRelatedWithBP(UBlueprint *BP);
 
 	typedef TMap<FProperty*, FProperty*> FPropertyMapping;
 	typedef TMap<UFunction*, UFunction*> FFunctionMapping;
 	typedef TMap<FName, FProperty *>	FPropertiesMap;
 	typedef TMap<FName, UFunction *>	FFunctionsMap;
-	void UpdateMZReferences(FPropertyMapping& PropertyMapping, FFunctionMapping& FunctionMapping);
 private:
 	void OnBlueprintCompiled(UBlueprint *BP);
-
-	static TMap<FName, TSharedPtr<MZProperty>>* GetNodeProperties(TSharedPtr<TreeNode> Node);
 	
 	void UpdateSavedPropertyReferences(FProperty *OldProperties, FProperty *NewProp);
 	void UpdateSavedPropertyReferences(TSharedPtr<MZProperty> MzProperty, FProperty *NewProperty);
