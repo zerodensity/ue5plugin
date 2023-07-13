@@ -178,6 +178,20 @@ void MZEventDelegates::OnConnectionClosed()
 		});
 }
 
+void MZEventDelegates::OnStateChanged(mz::app::ExecutionState newState)
+{
+	LOG("Execution state is changed from mediaz");
+	if (!PluginClient)
+	{
+		return;
+	}
+	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, newState]()
+		{
+			MZClient->OnMZStateChanged.Broadcast(newState);
+		});
+	
+}
+
 void MZEventDelegates::OnNodeRemoved()
 {
 	LOG("Plugin node removed from mediaz");

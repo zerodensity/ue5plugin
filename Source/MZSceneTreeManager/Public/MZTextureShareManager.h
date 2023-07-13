@@ -86,9 +86,11 @@ public:
 	void TextureDestroyed(MZProperty* texture);
 	void AllocateCommandLists();
 	CmdStruct* GetNewCommandList();
+void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();
+	void ExecutionStateChanged(mz::app::ExecutionState newState, bool& outSemaphoresRenewed);
 	
 	class FMZClient* MZClient;
 	
@@ -111,6 +113,8 @@ public:
 	ID3D12Fence* OutputFence= nullptr;
 
 	SyncSemaphoresExport SyncSemaphoresExportHandles;
+	
+	mz::app::ExecutionState ExecutionState;
 	
 	void RenewSemaphores();
 private:

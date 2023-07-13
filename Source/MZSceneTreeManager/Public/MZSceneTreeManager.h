@@ -152,6 +152,8 @@ public:
 	void OnMZContextMenuCommandFired(mz::ContextMenuAction const& action);
 
 	void OnMZNodeRemoved();
+
+	void OnMZStateChanged(mz::app::ExecutionState);
 	//END OF MediaZ DELEGATES
 	 
 	void PopulateAllChilds(AActor* actor);
@@ -160,7 +162,7 @@ public:
 
 	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
 
-	void SendSyncSemaphores();
+	void SendSyncSemaphores(bool RenewSemaphores);
 	
 	//Called when the level is initiated
 	void OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues);
@@ -302,6 +304,8 @@ public:
 	FMZPropertyManager MZPropertyManager;
 
 	bool bIsModuleFunctional = false;
+	
+	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
 	
 	static void GetNodeAndDescendantNodesRecursive(TSharedPtr<TreeNode> Node, TArray<TSharedPtr<TreeNode>> &OutNodeList);
 	static UClass* GetRootActorOfNode(TSharedPtr<TreeNode> Node);
