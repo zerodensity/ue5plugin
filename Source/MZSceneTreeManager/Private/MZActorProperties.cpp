@@ -813,15 +813,29 @@ void MZEnumProperty::SetPropValue(void* val, size_t size, uint8* customContainer
 
 	if (container)
 	{
-		FEnumProperty* PropAsEnum = CastField<FEnumProperty>(Property);
-		UEnum* EnumPtr = PropAsEnum->GetEnum();
-		FString ValueString((char*)val);
-		int64 Index = EnumPtr->GetIndexByNameString(ValueString);
-		if (Index != INDEX_NONE)
+		UEnum* EnumPtr = nullptr;
+		FNumericProperty *NumericProperty = nullptr;
+		if(const FEnumProperty* PropAsEnum = CastField<FEnumProperty>(Property))
 		{
-			int64 Value = EnumPtr->GetValueByIndex(Index);
-			uint8* PropData = PropAsEnum->ContainerPtrToValuePtr<uint8>(container);
-			PropAsEnum->GetUnderlyingProperty()->SetIntPropertyValue(PropData, Value);
+			EnumPtr = PropAsEnum->GetEnum();
+			NumericProperty = PropAsEnum->GetUnderlyingProperty();
+		}
+		else if (const FByteProperty* ByteProperty = CastField<FByteProperty>(Property))
+		{
+			EnumPtr = ByteProperty->GetIntPropertyEnum();
+			NumericProperty = CastField<FNumericProperty>(Property);
+		}
+
+		if(EnumPtr && NumericProperty)
+		{
+			FString ValueString((char*)val);
+			int64 Index = EnumPtr->GetIndexByNameString(ValueString);
+			if (Index != INDEX_NONE)
+			{
+				int64 Value = EnumPtr->GetValueByIndex(Index);
+				uint8* PropData = Property->ContainerPtrToValuePtr<uint8>(container);
+				NumericProperty->SetIntPropertyValue(PropData, Value);
+			}
 		}
 	}
 
