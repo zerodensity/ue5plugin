@@ -184,7 +184,7 @@ void FMZSceneTreeManager::StartupModule()
 				TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(ActorGuid);
 				ActorNode *ActorNode = TreeNode->GetAsActorNode();
 
-				MZActorManager->ObjectPropertyRelationMap[ActorNode->ActorReference].Add(MzProperty->Property->GetFName(), MzProperty->Property);
+				MZActorManager->ObjectPropertyRelationMap.FindOrAdd(ActorNode->ActorReference).Add(MzProperty->Property->GetFName(), MzProperty->Property);
 			}
 		}
 	};
@@ -721,6 +721,10 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 {
 	for(auto Replacement : ReplacementMap)
 	{
+		if(!Replacement.Value)
+		{
+			continue;	
+		}
 		AActor *OldActor = Cast<AActor>(Replacement.Key);
 		USceneComponent* Component = Cast<USceneComponent>(Replacement.Key);
 		if(Component)
@@ -859,7 +863,7 @@ void FMZSceneTreeManager::RemovePropertyOfActor(const FName& PropertyNameToRemov
 				}
 			}
 		}
-		SendPinsToDelete(pinsToDelete);
+		SendPinsToDelete(pinsToDelete, TreeNodeRef->Id);
 	}
 }
 
@@ -2835,12 +2839,12 @@ void FMZSceneTreeManager::OnBlueprintCompiled(UBlueprint *BP)
 }
 
 
-void FMZSceneTreeManager::SendPinsToDelete(std::vector<mz::fb::UUID> &pinsToDelete)
+void FMZSceneTreeManager::SendPinsToDelete(std::vector<mz::fb::UUID> &pinsToDelete, FGuid NodeId)
 {
 	if(pinsToDelete.size() > 0)
 	{
 		flatbuffers::FlatBufferBuilder mb;
-		auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId,
+		auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&NodeId,
 																				mz::ClearFlags::NONE,
 																				&pinsToDelete,
 																				0, 0, 0, 0, 0);
