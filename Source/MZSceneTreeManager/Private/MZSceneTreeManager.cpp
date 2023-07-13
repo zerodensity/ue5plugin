@@ -240,7 +240,8 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		LOG("Node import request recieved on connection");
 		OnMZNodeImported(appNode);
 	}
-	SendSyncSemaphores(true);
+	else
+		SendSyncSemaphores(true);
 }
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
@@ -860,7 +861,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
-	for (auto update : updates)
+	for (auto const& update : updates)
 	{
 		FGuid ActorId = update.actorId;
 		
@@ -921,8 +922,8 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
 		}
 
-		delete update.newVal;
-		delete update.defVal;
+		delete[] update.newVal;
+		delete[] update.defVal;
 	}
 
 	RescanScene(true);
@@ -931,7 +932,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	PinUpdates.clear();
 	flatbuffers::FlatBufferBuilder fb2;
 	std::vector<MZPortal> NewPortals;
-	for (auto update : updates)
+	for (auto const& update : updates)
 	{
 		FGuid ActorId = update.actorId;
 		
@@ -991,6 +992,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 				MZPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
 				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
 				NewPortals.push_back(NewPortal);
+				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), update.pinShowAs);
 			}
 			
 		}
@@ -1018,6 +1020,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			MZClient->AppServiceClient->Send(*root4);
 		}
 	}
+	SendSyncSemaphores(true);
 	LOG("Node from MediaZ successfully imported");
 }
 
