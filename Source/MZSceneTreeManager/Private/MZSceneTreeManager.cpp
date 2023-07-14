@@ -225,7 +225,7 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		flatbuffers::FlatBufferBuilder fb1;
 		for (auto pin : *appNode.pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
 		}
 		auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb1.Finish(offset);
@@ -715,7 +715,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	{
 		for (auto pin : *node->pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Object not found in the scene")));
 		}
 	}
 	auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
@@ -974,7 +974,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyToUpdate, UnknownContainer}))
 			{
 				auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
-				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::Action::RESET));
+				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(fb2, false)));
 				MZPortal NewPortal{update.pinId ,MzProperty->Id};
 				NewPortal.DisplayName = FString("");
 				UObject* parent = MzProperty->GetRawObjectContainer();
@@ -1945,7 +1945,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 		
 		Portals.Add({ContainerInfo, portal});
 		graphPins.push_back(*(mz::fb::UUID*)&portal.Id);
-		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal.Id, 0, mz::Action::SET));
+		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal.Id, 0, mz::fb::CreateOrphanStateDirect(mb, true, "Object not found in the world")));
 	}
 
 	if (!MZClient->IsConnected())
@@ -1988,7 +1988,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 			}
 			portal.SourceId = MzProperty->Id;
 			MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, portal.Id);
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, notOrphan ? mz::Action::SET : mz::Action::RESET));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
 		}
 		else
 		{
