@@ -19,6 +19,8 @@
 #include "PacketHandler.h"
 
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
+DEFINE_LOG_CATEGORY(LogMZObjectReplacement);
+
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
 
@@ -184,6 +186,10 @@ void FMZSceneTreeManager::StartupModule()
 				TSharedPtr<TreeNode> TreeNode = SceneTree.NodeMap.FindRef(ActorGuid);
 				ActorNode *ActorNode = TreeNode->GetAsActorNode();
 
+				if(!MZActorManager->ObjectPropertyRelationMap.Contains(ActorNode->ActorReference))
+				{
+					UE_LOG(LogMZObjectReplacement, Warning, TEXT("%s is not included in MZActorManager->ObjectPropertyRelationMap"), *ActorNode->ActorReference->Get()->GetName());
+				}
 				MZActorManager->ObjectPropertyRelationMap.FindOrAdd(ActorNode->ActorReference).Add(MzProperty->Property->GetFName(), MzProperty->Property);
 			}
 		}
@@ -721,8 +727,16 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 {
 	for(auto Replacement : ReplacementMap)
 	{
+		/*
+		 * This nullcheck is added because sometimes .Value part is received as NULL. This might be related with UE's internal mechanism or a bug
+		 * as it is not logical.
+		 * Also, for RE and MZ devs, whenever Replacement.Value part is NULL, everytime it is related with TrackedBillboard component...
+		 * (There might be a problem related with TrackedBillboard component)
+		*/
 		if(!Replacement.Value)
 		{
+			
+			UE_LOG(LogMZObjectReplacement, Warning, TEXT("Replacement.Value is received as NULL: %s"), *Replacement.Key->GetName());
 			continue;	
 		}
 		AActor *OldActor = Cast<AActor>(Replacement.Key);
@@ -732,9 +746,15 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 			OldActor = Component->GetOwner();
 		}
 		if(!OldActor)
+		{
+			UE_LOG(LogMZObjectReplacement, Warning, TEXT("Old actor is NULL for Object: %s"), *Replacement.Key->GetName());
 			continue;
+		}
 		if(!MZActorManager->ActorIds.Contains(OldActor->GetActorGuid()))
+		{
+			UE_LOG(LogMZObjectReplacement, Warning, TEXT("%s is not included in MZActorManager->ActorIds"), *OldActor->GetName());
 			continue;
+		}
 		
 		ReInstanceCache.Add(Replacement);
 		

@@ -14,6 +14,8 @@
 #include "MZAssetManager.h"
 
 DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogMZObjectReplacement, Log, All);
+
 struct MZPortal
 {
 	FGuid Id;
