@@ -313,6 +313,12 @@ bool IsActorDisplayable(const AActor* Actor)
 void FMZSceneTreeManager::OnMZConnectionClosed()
 {
 	MZActorManager->ClearActors();
+	if(ExecutionState == mz::app::ExecutionState::SYNCED)
+	{
+		ExecutionState = mz::app::ExecutionState::IDLE;
+		bool discard;
+		MZTextureShareManager::GetInstance()->ExecutionStateChanged(ExecutionState, discard);
+	}
 }
 
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)

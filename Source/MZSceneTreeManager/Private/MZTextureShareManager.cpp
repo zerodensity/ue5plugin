@@ -605,6 +605,14 @@ void MZTextureShareManager::ExecutionStateChanged(mz::app::ExecutionState newSta
 			outSemaphoresRenewed = true;
 			break;
 		case mz::app::ExecutionState::IDLE:
+			FrameCounter = 0;
+
+			if(InputFence && OutputFence)
+			{
+				InputFence->Signal(UINT64_MAX);
+				OutputFence->Signal(UINT64_MAX);
+			}
+			
 			outSemaphoresRenewed = false;
 			break;
 		}

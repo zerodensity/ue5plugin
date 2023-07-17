@@ -86,7 +86,7 @@ public:
 	void TextureDestroyed(MZProperty* texture);
 	void AllocateCommandLists();
 	CmdStruct* GetNewCommandList();
-void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
+	void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();
