@@ -267,7 +267,7 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		flatbuffers::FlatBufferBuilder fb1;
 		for (auto pin : *appNode.pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
 		}
 		auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb1.Finish(offset);
@@ -282,7 +282,8 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		LOG("Node import request recieved on connection");
 		OnMZNodeImported(appNode);
 	}
-	SendSyncSemaphores(true);
+	else
+		SendSyncSemaphores(true);
 }
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
@@ -802,16 +803,19 @@ void FMZSceneTreeManager::OnObjectsReplaced(const TMap<UObject*, UObject*>& Repl
 					continue;
 				}
 
-				UObject *ObjectPtrOfSceneNode = SceneComponentNode->ComponentReference->GetAsObject();
-				UObject *ObjectBeingReplaced = Replacement.Key;
-
-				if(ObjectPtrOfSceneNode == ObjectBeingReplaced && ObjectPtrOfSceneNode->GetClass() == ObjectBeingReplaced->GetClass())
+				if(SceneComponentNode->ComponentReference) // Filter SceneComponent nodes like 'Loading' node
 				{
-					isUpdated = true;
-					SceneComponentNode->NeedsReload = true;
-					SceneComponentNode->ComponentReference->UpdateObjectPointer(Replacement.Value);
-					UpdatePropertiesOfObject(SceneComponentNode->ComponentReference->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);	
-				}	
+					UObject *ObjectPtrOfSceneNode = SceneComponentNode->ComponentReference->GetAsObject();
+					UObject *ObjectBeingReplaced = Replacement.Key;
+
+					if(ObjectPtrOfSceneNode == ObjectBeingReplaced && ObjectPtrOfSceneNode->GetClass() == ObjectBeingReplaced->GetClass())
+					{
+						isUpdated = true;
+						SceneComponentNode->NeedsReload = true;
+						SceneComponentNode->ComponentReference->UpdateObjectPointer(Replacement.Value);
+						UpdatePropertiesOfObject(SceneComponentNode->ComponentReference->PropertiesMap, OldProperties, NewObjProperties, RemovedProperties);	
+					}	
+				}
 			}
 		}
 		else if(Cast<AActor>(Replacement.Key))
@@ -921,7 +925,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	{
 		for (auto pin : *node->pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::Action::SET));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Object not found in the scene")));
 		}
 	}
 	auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
@@ -1067,7 +1071,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
-	for (auto update : updates)
+	for (auto const& update : updates)
 	{
 		FGuid ActorId = update.actorId;
 		
@@ -1133,8 +1137,9 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
 			memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
 		}
-		delete update.newVal;
-		delete update.defVal;
+
+		delete[] update.newVal;
+		delete[] update.defVal;
 	}
 
 	RescanScene(true);
@@ -1143,7 +1148,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	PinUpdates.clear();
 	flatbuffers::FlatBufferBuilder fb2;
 	std::vector<TSharedPtr<MZPortal>> NewPortals;
-	for (auto update : updates)
+	for (auto const& update : updates)
 	{
 		FGuid ActorId = update.actorId;
 		
@@ -1185,7 +1190,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			if(MZPropertyManager.PropertiesByPointer.Contains(PropertyToUpdate))
 			{
 				auto MzProperty = MZPropertyManager.PropertiesByPointer.FindRef(PropertyToUpdate);
-				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::Action::RESET));
+				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(fb2, false)));
 
 				TSharedPtr<MZPortal> NewPortal = MakeShared<MZPortal>(update.pinId ,MzProperty->Id);
 
@@ -1205,6 +1210,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 				MZPropertyManager.PortalPinsById.Add(NewPortal->Id, NewPortal);
 				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal->Id);
 				NewPortals.push_back(NewPortal);
+				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), update.pinShowAs);
 			}
 			
 		}
@@ -1232,6 +1238,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			MZClient->AppServiceClient->Send(*root4);
 		}
 	}
+	SendSyncSemaphores(true);
 	LOG("Node from MediaZ successfully imported");
 }
 
@@ -2182,7 +2189,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 		
 		Portals.Add({ContainerInfo, *portal});
 		graphPins.push_back(*(mz::fb::UUID*)&portal->Id);
-		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal->Id, 0, mz::Action::SET));
+		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal->Id, 0, mz::fb::CreateOrphanStateDirect(mb, true, "Object not found in the world")));
 	}
 
 	if (!MZClient->IsConnected())
@@ -2225,7 +2232,7 @@ void FMZSceneTreeManager::HandleWorldChange()
 			}
 			portal.SourceId = MzProperty->Id;
 			MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, portal.Id);
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, notOrphan ? mz::Action::SET : mz::Action::RESET));
+			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
 		}
 		else
 		{

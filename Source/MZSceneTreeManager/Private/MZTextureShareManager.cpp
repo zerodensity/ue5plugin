@@ -523,7 +523,9 @@ void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& 
 void MZTextureShareManager::SetupFences(mz::fb::ShowAs CopyShowAs,
 	TMap<ID3D12Fence*, u64>& SignalGroup)
 {
+#if 0
 	if(ExecutionState == mz::app::ExecutionState::SYNCED)
+#endif
 	{
 		if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
 		{
@@ -534,7 +536,6 @@ void MZTextureShareManager::SetupFences(mz::fb::ShowAs CopyShowAs,
 		else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 		{
 			CmdQueue->Wait(OutputFence, (2 * OutputFenceValue));
-			OutputFenceValue++;
 			UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * OutputFenceValue);
 		}
 	}
@@ -587,7 +588,9 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 			if (!events.empty() && MZClient && MZClient->IsConnected())
 			{
 				MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
+				OutputFenceValue++;
 			}
+			
 		});
 }
 
