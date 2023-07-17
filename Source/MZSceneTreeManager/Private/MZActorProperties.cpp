@@ -1276,6 +1276,11 @@ AActor* MZComponentReference::GetOwnerActor()
 
 bool MZComponentReference::UpdateActualComponentPointer()
 {
+	if(!ObjectRef.Get())
+	{
+		InvalidReference = true;
+		return false;	
+	}
 	AActor *Actor = Cast<UActorComponent>(ObjectRef.Get())->GetOwner();
 	
 	if (!Actor  || IsValid(Actor) || PathToComponent.IsEmpty())
