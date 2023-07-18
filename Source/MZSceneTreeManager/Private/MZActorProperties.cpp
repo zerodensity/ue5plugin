@@ -136,6 +136,12 @@ void MZProperty::MarkState()
 
 void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
+	SetPropValue_Internal(val, size, customContainer);
+	CallOnChangedFunction();
+}
+
+void MZProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+{
 	IsChanged = true;
 	CHECK_PROP_SIZE();
 
@@ -152,8 +158,8 @@ void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 	{
 		MarkState();
 	}
-
 }
+
 void* MZProperty::GetRawContainer()
 {
 	if(auto Object = GetRawObjectContainer())
@@ -181,9 +187,35 @@ UObject* MZProperty::GetRawObjectContainer()
 	return nullptr;
 }
 
-void MZProperty::SetProperty_InCont(void* container, void* val) { return; }
+void MZProperty::SetProperty_InCont(void* container, void* val)
+{
+	return;
+}
 
-void MZTrackProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZProperty::CallOnChangedFunction()
+{
+	UClass* OwnerClass = Property->GetOwnerClass();
+	if (!OwnerClass)
+		return;
+
+	UObject* objectPtr = nullptr;
+	if (ComponentContainer) objectPtr = ComponentContainer.Get();
+	else if (ActorContainer) objectPtr = ActorContainer.Get();
+	else objectPtr = ObjectPtr;
+
+	if (objectPtr)
+	{
+		const FString OnChangedFunctionName = TEXT("OnChanged_") + Property->GetName();
+		UFunction* OnChanged = OwnerClass->FindFunctionByName(*OnChangedFunctionName);
+		if (OnChanged)
+		{
+			objectPtr->Modify();
+			objectPtr->ProcessEvent(OnChanged, nullptr);
+		}
+	}
+}
+
+void MZTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -458,7 +490,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 	TypeName = "mz.fb.Void";
 }
 
-void MZStructProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZStructProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	//empty
 }
@@ -585,11 +617,11 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 	}
 }
 
-void MZObjectProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZObjectProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 }
 
-void MZStringProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -633,7 +665,7 @@ std::vector<uint8> MZStringProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
-void MZNameProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -677,7 +709,7 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
-void MZTextProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -734,7 +766,7 @@ flatbuffers::Offset<mz::fb::Pin> MZEnumProperty::Serialize(flatbuffers::FlatBuff
 	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&(MZProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  mz::fb::PinContents::JobPin);
 }
 
-void MZEnumProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void MZEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	//TODO
 	
