@@ -523,29 +523,21 @@ void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& 
 void MZTextureShareManager::SetupFences(mz::fb::ShowAs CopyShowAs,
 	TMap<ID3D12Fence*, u64>& SignalGroup)
 {
-#if 0
 	if(ExecutionState == mz::app::ExecutionState::SYNCED)
-#endif
 	{
 		if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
 		{
-			//CmdQueue->Wait(InputFence, (2 * InputFenceValue) + 1);
-			//InputFenceValue++;
-			UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * InputFenceValue);
+			CmdQueue->Wait(InputFence, (2 * FrameCounter) + 1);
+			SignalGroup.Add(InputFence, (2 * FrameCounter) + 2);
+			UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * FrameCounter + 1);
 		}
 		else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 		{
-			CmdQueue->Wait(OutputFence, (2 * OutputFenceValue));
-			UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * OutputFenceValue);
+			CmdQueue->Wait(OutputFence, (2 * FrameCounter));
+			SignalGroup.Add(OutputFence, (2 * FrameCounter) + 1);
+			UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * FrameCounter);
+			FrameCounter++;
 		}
-	}
-	if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
-	{
-		//SignalGroup.Add(InputFence, (2 * InputFenceValue) + 2);
-	}
-	else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
-	{
-		SignalGroup.Add(OutputFence, (2 * OutputFenceValue) + 1);
 	}
 }
 
@@ -559,8 +551,8 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 	}
 	TMap<UTextureRenderTarget2D*, ResourceInfo> CopiesFiltered;
 	FilterCopies(CopyShowAs, CopyMap, CopiesFiltered);
-	if (CopiesFiltered.IsEmpty())
-		return;
+	// if (CopiesFiltered.IsEmpty())
+	// 	return;
 
 	auto cmdData = GetNewCommandList();
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
@@ -579,7 +571,7 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 					&& CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN
 					&& events.empty())
 				{
-					events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, OutputFenceValue)));
+					//events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, FrameCounter)));
 				}
 			}
 			
@@ -587,10 +579,8 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 			ExecCommands(cmdData, CopyShowAs, SignalGroup);
 			if (!events.empty() && MZClient && MZClient->IsConnected())
 			{
-				MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
-				OutputFenceValue++;
+				//MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
-			
 		});
 }
 
@@ -615,11 +605,23 @@ void MZTextureShareManager::ExecutionStateChanged(mz::app::ExecutionState newSta
 			outSemaphoresRenewed = true;
 			break;
 		case mz::app::ExecutionState::IDLE:
+			FrameCounter = 0;
+
+			if(InputFence && OutputFence)
+			{
+				InputFence->Signal(UINT64_MAX);
+				OutputFence->Signal(UINT64_MAX);
+			}
+			
 			outSemaphoresRenewed = false;
 			break;
 		}
 	}
-	ExecutionState = newState;
+	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+    		[this, newState](FRHICommandListImmediate& RHICmdList)
+    		{
+				ExecutionState = newState;
+    		});
 }
 
 void MZTextureShareManager::Reset()
@@ -663,7 +665,7 @@ void MZTextureShareManager::RenewSemaphores()
 		OutputFence->Release();
 	}
 
-	InputFenceValue = OutputFenceValue = 0;
+	FrameCounter = 0;
 
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&InputFence));
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&OutputFence));

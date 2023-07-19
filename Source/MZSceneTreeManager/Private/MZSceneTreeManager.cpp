@@ -95,6 +95,18 @@ void FMZSceneTreeManager::AddCustomFunction(MZCustomFunction* CustomFunction)
 
 void FMZSceneTreeManager::OnBeginFrame()
 {
+	if(ToggleExecutionState)
+	{
+		ToggleExecutionState = false;
+		ExecutionState = ExecutionState == mz::app::ExecutionState::IDLE ? mz::app::ExecutionState::SYNCED : mz::app::ExecutionState::IDLE;
+		bool SemaphoresRenewed = false;
+		MZTextureShareManager::GetInstance()->ExecutionStateChanged(ExecutionState, SemaphoresRenewed);
+		if(SemaphoresRenewed)
+		{
+			SendSyncSemaphores(false);
+		}
+	}
+	
 	MZPropertyManager.OnBeginFrame();
 	MZTextureShareManager::GetInstance()->OnBeginFrame();
 }
@@ -282,8 +294,8 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 		LOG("Node import request recieved on connection");
 		OnMZNodeImported(appNode);
 	}
-	else
-		SendSyncSemaphores(true);
+	//else
+		//SendSyncSemaphores(true);
 }
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
@@ -293,7 +305,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 		SceneTree.Root->Id = *(FGuid*)appNode.id();
 		RescanScene();
 		SendNodeUpdate(FMZClient::NodeId);
-		SendSyncSemaphores(true);
+		//SendSyncSemaphores(true);
 	}
 	auto texman = MZTextureShareManager::GetInstance();
 	for (auto& [id, pin] : ParsePins(&appNode))
@@ -343,6 +355,12 @@ bool IsActorDisplayable(const AActor* Actor)
 void FMZSceneTreeManager::OnMZConnectionClosed()
 {
 	MZActorManager->ClearActors();
+	if(ExecutionState == mz::app::ExecutionState::SYNCED)
+	{
+		ExecutionState = mz::app::ExecutionState::IDLE;
+		bool discard;
+		MZTextureShareManager::GetInstance()->ExecutionStateChanged(ExecutionState, discard);
+	}
 }
 
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
@@ -565,13 +583,9 @@ void FMZSceneTreeManager::OnMZNodeRemoved()
 
 void FMZSceneTreeManager::OnMZStateChanged(mz::app::ExecutionState newState)
 {
-	ExecutionState = newState;
-	bool SemaphoresRenewed = false;
-	MZTextureShareManager::GetInstance()->ExecutionStateChanged(newState, SemaphoresRenewed);
-
-	if(SemaphoresRenewed)
+	if(ExecutionState != newState)
 	{
-		SendSyncSemaphores(false);
+		ToggleExecutionState = true; 
 	}
 }
 
@@ -1238,7 +1252,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			MZClient->AppServiceClient->Send(*root4);
 		}
 	}
-	SendSyncSemaphores(true);
+	//SendSyncSemaphores(true);
 	LOG("Node from MediaZ successfully imported");
 }
 
@@ -2713,7 +2727,8 @@ void FMZPropertyManager::ActorDeleted(FGuid DeletedActorId)
 flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty)
 {
 	auto SerializedMetadata = SourceProperty->SerializeMetaData(fbb);
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, 0, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
+	bool bLive = (Portal.ShowAs == mz::fb::ShowAs::OUTPUT_PIN); 
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, bLive, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
 }
 
 void FMZPropertyManager::Reset(bool ResetPortals)

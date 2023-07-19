@@ -106,7 +106,7 @@ class MZSCENETREEMANAGER_API MZProperty : public TSharedFromThis<MZProperty>
 public:
 	MZProperty(MZObjectReference* ObjectReference, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, const MZStructProperty* parentProperty = nullptr);
 
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
+	void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 	UObject* GetRawObjectContainer();
 	void* GetRawContainer();
 	void UpdatePropertyReference(FProperty *NewProperty);
@@ -149,7 +149,11 @@ public:
 
 	virtual ~MZProperty() {}
 protected:
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr);
 	virtual void SetProperty_InCont(void* container, void* val);
+
+private:
+	void CallOnChangedFunction();
 
 };
 
@@ -294,7 +298,7 @@ public:
 	
 	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual flatbuffers::Offset<mz::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) override;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override; 
 
 };
@@ -310,7 +314,7 @@ public:
 	}
 
 	FTextProperty* GetTextProperty() const;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
 };
@@ -326,7 +330,7 @@ public:
 	}
 
 	FNameProperty* GetNameProperty() const;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
 };
@@ -342,7 +346,7 @@ public:
 	}
 
 	FStrProperty* GetStringProperty() const;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
 };
@@ -354,7 +358,7 @@ public:
 	
 
 	FObjectProperty* GetObjectProperty() const;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
 
 };
@@ -365,7 +369,7 @@ public:
 	MZStructProperty(MZObjectReference* ObjectReference, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
 
 	FStructProperty* GetStructProperty() const;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
 
 };
@@ -428,7 +432,7 @@ public:
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
 	//virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
-	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 
 protected:
 	FStructProperty* GetStructProperty() const;

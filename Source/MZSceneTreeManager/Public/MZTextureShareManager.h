@@ -86,7 +86,7 @@ public:
 	void TextureDestroyed(MZProperty* texture);
 	void AllocateCommandLists();
 	CmdStruct* GetNewCommandList();
-void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
+	void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();
@@ -107,14 +107,13 @@ void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup
 
 	TMap<MZProperty*, ResourceInfo> Copies;
 
-	uint64_t InputFenceValue = 0;
-	uint64_t OutputFenceValue = 0;
+	uint64_t FrameCounter = 0;
 	ID3D12Fence* InputFence = nullptr;
 	ID3D12Fence* OutputFence= nullptr;
 
 	SyncSemaphoresExport SyncSemaphoresExportHandles;
 	
-	mz::app::ExecutionState ExecutionState;
+	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
 	
 	void RenewSemaphores();
 private:
