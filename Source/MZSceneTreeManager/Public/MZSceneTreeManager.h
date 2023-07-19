@@ -314,6 +314,7 @@ public:
 	static void GetNodeAndDescendantNodesRecursive(TSharedPtr<TreeNode> Node, TArray<TSharedPtr<TreeNode>> &OutNodeList);
 	static UClass* GetRootActorOfNode(TSharedPtr<TreeNode> Node);
 
+	typedef TMap<FProperty*, FProperty*> FPropertyMapping;
 	typedef TMap<UFunction*, UFunction*> FFunctionMapping;
 	typedef TMap<FName, FProperty *>	FPropertiesMap;
 	typedef TMap<FName, UFunction *>	FFunctionsMap;

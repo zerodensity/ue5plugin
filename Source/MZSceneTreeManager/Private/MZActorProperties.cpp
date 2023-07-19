@@ -212,8 +212,8 @@ void MZProperty::CallOnChangedFunction()
 		return;
 
 	UObject* objectPtr = nullptr;
-	if (ComponentContainer) objectPtr = ComponentContainer.Get();
-	else if (ActorContainer) objectPtr = ActorContainer.Get();
+	if (ComponentContainer) objectPtr = ComponentContainer->Get();
+	else if (ActorContainer) objectPtr = ActorContainer->Get();
 	else objectPtr = ObjectPtr;
 
 	if (objectPtr)
