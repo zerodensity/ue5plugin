@@ -258,6 +258,9 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 
 void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 {
+	FString NodeName(appNode.name()->c_str());
+	LOGF("On MZ Node updated for %s", *NodeName);
+	
 	if (FMZClient::NodeId != SceneTree.Root->Id)
 	{
 		SceneTree.Root->Id = *(FGuid*)appNode.id();
@@ -717,8 +720,8 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 {
-	MZActorManager->ClearActors();
-	
+	//MZActorManager->ClearActors();
+	FMZClient::NodeId = *(FGuid*)appNode.id();
 	SceneTree.Root->Id = FMZClient::NodeId;
 
 	auto node = &appNode;
@@ -1882,6 +1885,10 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 
 void FMZSceneTreeManager::SendSyncSemaphores(bool RenewSemaphores)
 {
+	if(!FMZClient::NodeId.IsValid())
+	{
+		UE_LOG(LogMZSceneTreeManager, Error, TEXT("Sending sync semaphores with non-valid node Id, a deadlock might happen!"));
+	}
 	auto TextureShareManager = MZTextureShareManager::GetInstance();
 	if(RenewSemaphores)
 	{
@@ -2252,6 +2259,7 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 
 void FMZActorManager::ClearActors()
 {
+	LOG("Clearing all actors");
 	//
 	// Remove/destroy actors from Editor and PIE worlds.
 	//

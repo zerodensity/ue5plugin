@@ -180,7 +180,7 @@ void MZEventDelegates::OnConnectionClosed()
 
 void MZEventDelegates::OnStateChanged(mz::app::ExecutionState newState)
 {
-	LOG("Execution state is changed from mediaz");
+	LOGF("Execution state is changed from mediaz to %s", *FString(newState == mz::app::ExecutionState::SYNCED ? "synced" : "idle"));
 	if (!PluginClient)
 	{
 		return;
@@ -195,7 +195,6 @@ void MZEventDelegates::OnStateChanged(mz::app::ExecutionState newState)
 void MZEventDelegates::OnNodeRemoved()
 {
 	LOG("Plugin node removed from mediaz");
-	FMZClient::NodeId = {};
 	if (!PluginClient)
 	{
 		return;
@@ -208,6 +207,7 @@ void MZEventDelegates::OnNodeRemoved()
 
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
 		{
+			FMZClient::NodeId = {};
 			MZClient->OnMZNodeRemoved.Broadcast();
 		});
 }
@@ -353,7 +353,6 @@ void MZEventDelegates::OnNodeImported(mz::fb::Node const& appNode)
 		return;
 	}
 
-	FMZClient::NodeId = *(FGuid*)appNode.id();
 
 	mz::fb::TNode copy;
 	appNode.UnPackTo(&copy);
@@ -363,6 +362,7 @@ void MZEventDelegates::OnNodeImported(mz::fb::Node const& appNode)
 			auto offset = mz::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
+			FMZClient::NodeId = *(FGuid*)&copy.id;
 			MZClient->OnMZNodeImported.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
 
 			auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);

@@ -423,7 +423,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			continue;
 		}
 
-		UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
+		//UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
 		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
 		if (mzprop)
 		{
@@ -1081,7 +1081,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 	
 	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
-	UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
+	//UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
 	return prop;
 }
 
