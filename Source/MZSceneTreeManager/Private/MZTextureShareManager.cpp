@@ -24,10 +24,13 @@
 
 #include <Builtins_generated.h>
 
+#include "MZGPUFailSafe.h"
 
 
 MZTextureShareManager* MZTextureShareManager::singleton;
 
+#define FAIL_SAFE_THREAD
+//#define DEBUG_FRAME_SYNC_LOG
 
 mzTextureInfo GetResourceInfo(MZProperty* mzprop)
 {
@@ -529,13 +532,17 @@ void MZTextureShareManager::SetupFences(mz::fb::ShowAs CopyShowAs,
 		{
 			CmdQueue->Wait(InputFence, (2 * FrameCounter) + 1);
 			SignalGroup.Add(InputFence, (2 * FrameCounter) + 2);
-			UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * FrameCounter + 1);
+#ifdef DEBUG_FRAME_SYNC_LOG
+			// UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * FrameCounter + 1);
+#endif
 		}
 		else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 		{
 			CmdQueue->Wait(OutputFence, (2 * FrameCounter));
 			SignalGroup.Add(OutputFence, (2 * FrameCounter) + 1);
-			UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * FrameCounter);
+#ifdef DEBUG_FRAME_SYNC_LOG
+			// UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * FrameCounter);
+#endif
 			FrameCounter++;
 		}
 	}
@@ -612,7 +619,6 @@ void MZTextureShareManager::ExecutionStateChanged(mz::app::ExecutionState newSta
 				InputFence->Signal(UINT64_MAX);
 				OutputFence->Signal(UINT64_MAX);
 			}
-			
 			outSemaphoresRenewed = false;
 			break;
 		}
@@ -648,6 +654,21 @@ void MZTextureShareManager::Initiate()
 	
 	AllocateCommandLists();
 
+	
+#ifdef FAIL_SAFE_THREAD 
+			FailSafeRunnable = new MZGPUFailSafeRunnable(CmdQueue, Dev);
+			FailSafeThread = FRunnableThread::Create(FailSafeRunnable, TEXT("MZGPUFailSafeThread"));
+
+			FCoreDelegates::OnEnginePreExit.AddLambda([this]()
+			{
+				if(FailSafeRunnable && FailSafeThread)
+				{
+					FailSafeRunnable->Stop();
+					FailSafeThread->WaitForCompletion();
+				}
+			});
+#endif
+	
 	RenewSemaphores();
 }
 

@@ -118,5 +118,7 @@ public:
 	void RenewSemaphores();
 private:
 	void Initiate();
+	class MZGPUFailSafeRunnable* FailSafeRunnable = nullptr;
+	FRunnableThread* FailSafeThread = nullptr;
 };
 
