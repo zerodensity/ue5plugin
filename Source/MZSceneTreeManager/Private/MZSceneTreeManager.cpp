@@ -1002,7 +1002,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 					parent = parent->GetTypedOuter<AActor>();
 				}
 
-				NewPortal.DisplayName += MzProperty->DisplayName + "(Portal)";
+				NewPortal.DisplayName += MzProperty->DisplayName;
 				NewPortal.TypeName = FString(MzProperty->TypeName.c_str());
 				NewPortal.CategoryName = MzProperty->CategoryName;
 				NewPortal.ShowAs = update.pinShowAs;
@@ -2391,7 +2391,7 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 		parent = parent->GetTypedOuter<AActor>();
 	}
 
-	NewPortal.DisplayName += MZProperty->DisplayName + "(Portal)";
+	NewPortal.DisplayName += MZProperty->DisplayName;
 	NewPortal.TypeName = FString(MZProperty->TypeName.c_str());
 	NewPortal.CategoryName = MZProperty->CategoryName;
 	NewPortal.ShowAs = ShowAs;
@@ -2471,7 +2471,7 @@ flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers
 {
 	auto SerializedMetadata = SourceProperty->SerializeMetaData(fbb);
 	bool bLive = (Portal.ShowAs == mz::fb::ShowAs::OUTPUT_PIN); 
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, bLive, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union());
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, bLive, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union(), 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, TCHAR_TO_UTF8(*Portal.DisplayName));
 }
 
 void FMZPropertyManager::Reset(bool ResetPortals)
