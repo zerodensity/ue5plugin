@@ -27,6 +27,7 @@ IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
 UWorld* FMZSceneTreeManager::daWorld = nullptr;
 
+//#define MZ_POPULATE_UNREAL_FUNCTIONS uncomment if you want to see functions 
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
@@ -1214,6 +1215,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		auto Components = actorNode->actor->GetComponents();
 		//ITERATE PROPERTIES END
 
+#ifdef MZ_POPULATE_UNREAL_FUNCTIONS 
 		//ITERATE FUNCTIONS BEGIN
 		auto ActorComponent = actorNode->actor->GetRootComponent();
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
@@ -1267,7 +1269,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			}
 		}
 		//ITERATE FUNCTIONS END
-
+#endif
 		//ITERATE CHILD COMPONENTS TO SHOW BEGIN
 		actorNode->Children.clear();
 
