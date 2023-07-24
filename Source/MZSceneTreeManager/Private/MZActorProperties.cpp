@@ -260,26 +260,13 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	{
 		TrackData->focus_distance = track->focus_distance();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_CENTER_SHIFT))
-	{
-		TrackData->center_shift = FVector2D(track->center_shift()->x(), track->center_shift()->y());
-	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ZOOM))
 	{
 		TrackData->zoom = track->zoom();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_K1K2))
-	{
-		TrackData->k1 = track->k1k2()->x();
-		TrackData->k2 = track->k1k2()->y();
-	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_RENDER_RATIO))
 	{
 		TrackData->render_ratio = track->render_ratio();
-	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_DISTORTION_SCALE))
-	{
-		TrackData->distortion_scale = track->distortion_scale();
 	}
 	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_SENSOR_SIZE))
 	{
@@ -293,7 +280,15 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	{
 		TrackData->nodal_offset = track->nodal_offset();
 	}
-	
+	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LENS_DISTORTION))
+	{
+		auto distortion = track->lens_distortion();
+		TrackData->distortion_scale = distortion->distortion_scale();
+		auto& k1k2 = distortion->k1k2();
+		TrackData->k1 = k1k2.x();
+		TrackData->k2 = k1k2.y();
+		TrackData->center_shift = FVector2D(distortion->center_shift().x(), distortion->center_shift().y());
+	}
 	//structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &TrackData); 
 	//FRealityTrack newTrack = *(FRealityTrack*)val;
 
@@ -321,18 +316,19 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 		
 		flatbuffers::FlatBufferBuilder fb;
 		mz::fb::TTrack TempTrack;
-		TempTrack.location = mz::fb::vec3d(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
-		TempTrack.rotation = mz::fb::vec3d(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
+		TempTrack.location = mz::fb::vec3(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
+		TempTrack.rotation = mz::fb::vec3(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
 		TempTrack.fov = TrackData.fov;
 		TempTrack.focus = TrackData.focus_distance;
-		TempTrack.center_shift = mz::fb::vec2d(TrackData.center_shift.X, TrackData.center_shift.Y);
 		TempTrack.zoom = TrackData.zoom;
-		TempTrack.k1k2 = mz::fb::vec2d(TrackData.k1, TrackData.k2);
 		TempTrack.render_ratio = TrackData.render_ratio;
-		TempTrack.distortion_scale = TrackData.distortion_scale;
-		TempTrack.sensor_size = mz::fb::vec2d(TrackData.sensor_size.X, TrackData.sensor_size.Y);
+		TempTrack.sensor_size = mz::fb::vec2(TrackData.sensor_size.X, TrackData.sensor_size.Y);
 		TempTrack.pixel_aspect_ratio = TrackData.pixel_aspect_ratio;
 		TempTrack.nodal_offset = TrackData.nodal_offset;
+		auto& Distortion = TempTrack.lens_distortion;
+		Distortion.mutable_k1k2() = mz::fb::vec2(TrackData.k1, TrackData.k2);
+		Distortion.mutable_center_shift() = mz::fb::vec2(TrackData.center_shift.X, TrackData.center_shift.Y);
+		Distortion.mutate_distortion_scale(TrackData.distortion_scale);
 		
 		auto offset = mz::fb::CreateTrack(fb, &TempTrack);
 		fb.Finish(offset);
