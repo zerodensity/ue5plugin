@@ -291,6 +291,10 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
 {
 	TSoftClassPtr<AActor> ActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(*AssetPath.ToString()));
 	UClass* LoadedAsset = ActorClass.LoadSynchronous();
+	if(!LoadedAsset)
+	{
+		return nullptr;
+	}
 
 	FActorSpawnParameters sp;
 	sp.bHideFromSceneOutliner = HideFromOutliner();
