@@ -238,6 +238,7 @@ void FMZAssetManager::SetupCustomSpawns()
 			sp.bHideFromSceneOutliner = true;
 			AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(AActor::StaticClass(), 0, sp);
 			SpawnedActor->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("Reality Parent Transform Actor")).ToString());
+			SpawnedActor->SetActorLabel("Reality Parent Transform Actor");
 			auto RootComponent = NewObject<USceneComponent>(SpawnedActor, FName("DefaultSceneRoot"));
 			SpawnedActor->SetRootComponent(RootComponent);
 			RootComponent->CreationMethod = EComponentCreationMethod::Instance;
@@ -289,7 +290,6 @@ AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape)
 AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath)
 {
 	TSoftClassPtr<AActor> ActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(*AssetPath.ToString()));
-
 	UClass* LoadedAsset = ActorClass.LoadSynchronous();
 
 	FActorSpawnParameters sp;

@@ -2385,11 +2385,18 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 	MZPortal NewPortal{FGuid::NewGuid() ,PropertyId};
 	NewPortal.DisplayName = FString("");
 	UObject* parent = MZProperty->GetRawObjectContainer();
+	FString parentName = "";
 	while (parent)
 	{
-		NewPortal.DisplayName = parent->GetFName().ToString() + FString(".") + NewPortal.DisplayName;
+		parentName = parent->GetFName().ToString();
+		if(auto actor = Cast<AActor>(parent))
+			parentName = actor->GetActorLabel();
+		if(auto component = Cast<USceneComponent>(parent))
+			parentName = component->GetName();
+		parentName += ".";
 		parent = parent->GetTypedOuter<AActor>();
 	}
+	NewPortal.DisplayName =  parentName + NewPortal.DisplayName;
 
 	NewPortal.DisplayName += MZProperty->DisplayName;
 	NewPortal.TypeName = FString(MZProperty->TypeName.c_str());
