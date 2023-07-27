@@ -2508,16 +2508,16 @@ void FMZPropertyManager::OnBeginFrame()
 		
 		auto MzProperty = PropertiesById.FindRef(portal.SourceId);
 
-		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id));
+		if (portal.TypeName == "mz.fb.Texture")
+		{
+			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs);
+			continue;
+		}
 
+		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id));
 		if (!buffer.IsEmpty())
 		{
 			MzProperty->SetPropValue(buffer.data(), buffer.size());
-		}
-
-		if(portal.TypeName == "mz.fb.Texture")
-		{
-			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs);
 		}
 	}
 }
