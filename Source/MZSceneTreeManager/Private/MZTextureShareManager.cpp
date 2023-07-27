@@ -29,7 +29,7 @@
 
 MZTextureShareManager* MZTextureShareManager::singleton;
 
-#define FAIL_SAFE_THREAD
+//#define FAIL_SAFE_THREAD
 //#define DEBUG_FRAME_SYNC_LOG
 
 mzTextureInfo GetResourceInfo(MZProperty* mzprop)
