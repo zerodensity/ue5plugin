@@ -29,9 +29,8 @@ FGuid FMZClient::NodeId = {};
 FString FMZClient::AppKey = "";
 
 void* FMediaZ::LibHandle = nullptr;
-PFN_MakeAppServiceClient FMediaZ::MakeAppServiceClient = nullptr;
-PFN_ShutdownClient FMediaZ::ShutdownClient = nullptr;
-PFN_mzGetD3D12Resources FMediaZ::GetD3D12Resources = nullptr;
+mz::app::FN_MakeAppServiceClient* FMediaZ::MakeAppServiceClient = nullptr;
+mz::app::FN_ShutdownClient* FMediaZ::ShutdownClient = nullptr;
 
 bool FMediaZ::Initialize()
 {
@@ -54,11 +53,18 @@ bool FMediaZ::Initialize()
 		return false;
 	}
 
-	MakeAppServiceClient = (PFN_MakeAppServiceClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
-	ShutdownClient = (PFN_ShutdownClient)FPlatformProcess::GetDllExport(LibHandle, TEXT("ShutdownClient"));
-	GetD3D12Resources = (PFN_mzGetD3D12Resources)FPlatformProcess::GetDllExport(LibHandle, TEXT("mzGetD3D12Resources"));
+	auto CheckCompatible = (mz::app::FN_CheckSDKCompatibility*)FPlatformProcess::GetDllExport(LibHandle, TEXT("CheckSDKCompatibility"));
+	bool IsCompatible = CheckCompatible && CheckCompatible(MZ_APPLICATION_SDK_VERSION_MAJOR, MZ_APPLICATION_SDK_VERSION_MINOR, MZ_APPLICATION_SDK_VERSION_PATCH);
+	if (!IsCompatible)
+	{
+		UE_LOG(LogMZClient, Error, TEXT("MediaZ SDK is incompatible with the plugin. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
+		return false;
+	}
+
+	MakeAppServiceClient = (mz::app::FN_MakeAppServiceClient*)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
+	ShutdownClient = (mz::app::FN_ShutdownClient*)FPlatformProcess::GetDllExport(LibHandle, TEXT("ShutdownClient"));
 	
-	if (!MakeAppServiceClient || !ShutdownClient || !GetD3D12Resources)
+	if (!MakeAppServiceClient || !ShutdownClient)
 	{
 		UE_LOG(LogMZClient, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
 		return false;
@@ -75,7 +81,6 @@ void FMediaZ::Shutdown()
 		LibHandle = nullptr;
 		MakeAppServiceClient = nullptr;
 		ShutdownClient = nullptr;
-		GetD3D12Resources = nullptr;
 		LOG("Unloaded MediaZ SDK dll successfully.");
 	}
 }
@@ -429,7 +434,11 @@ void FMZClient::TryConnect()
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
-		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", TCHAR_TO_ANSI(*FMZClient::AppKey), "UE5", TCHAR_TO_ANSI(*LaunchCommand));
+		mz::app::ApplicationInfo info{};
+		info.AppKey = TCHAR_TO_ANSI(*FMZClient::AppKey);
+		info.AppName = "UE5";
+		info.LaunchCommand = TCHAR_TO_ANSI(*LaunchCommand);
+		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", &info);
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);

@@ -65,11 +65,7 @@ public:
 	virtual void OnConnectionClosed() override;
 	virtual void OnStateChanged(mz::app::ExecutionState newState) override;
 
-
 	FMZClient* PluginClient;
-	// (Samil:) Will every app client have one node attached to it?
-	// If so we can move this node ID to mediaZ SDK.
-	//std::atomic_bool IsChannelReady = false;
 };
 
 
@@ -98,18 +94,13 @@ private:
 	float FramesPerSecond = 0;
 };
 
-using PFN_MakeAppServiceClient = decltype(&mz::app::MakeAppServiceClient);
-using PFN_ShutdownClient = decltype(&mz::app::ShutdownClient);
-using PFN_mzGetD3D12Resources = decltype(&mzGetD3D12Resources);
-
 class MZCLIENT_API FMediaZ
 {
 public:
 	static bool Initialize();
 	static void Shutdown();
-	static PFN_MakeAppServiceClient MakeAppServiceClient;
-	static PFN_ShutdownClient ShutdownClient;
-	static PFN_mzGetD3D12Resources GetD3D12Resources;
+	static mz::app::FN_MakeAppServiceClient* MakeAppServiceClient;
+	static mz::app::FN_ShutdownClient* ShutdownClient;
 private:
 	// MediaZ SDK DLL handle
 	static void* LibHandle;
