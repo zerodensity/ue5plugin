@@ -434,11 +434,11 @@ void FMZClient::TryConnect()
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
-		mz::app::ApplicationInfo info{};
-		info.AppKey = TCHAR_TO_ANSI(*FMZClient::AppKey);
-		info.AppName = "UE5";
-		info.LaunchCommand = TCHAR_TO_ANSI(*LaunchCommand);
-		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", &info);
+		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", mz::app::ApplicationInfo {
+			.AppKey = TCHAR_TO_UTF8(*FMZClient::AppKey),
+			.AppName = "UE5",
+			.LaunchCommand = TCHAR_TO_UTF8(*LaunchCommand)
+		});
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);

@@ -370,13 +370,7 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 			if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
 			{
 				auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
-				flatbuffers::FlatBufferBuilder mb;
-				auto offset = mz::CreateAppEventOffset(mb ,mz::CreatePinShowAsChanged(mb, (mz::fb::UUID*)&PortalId, newShowAs));
-				mb.Finish(offset);
-				auto buf = mb.Release();
-				auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
-				MZClient->AppServiceClient->Send(*root);
-				
+				MZClient->AppServiceClient->SendPinShowAsChange(reinterpret_cast<mz::fb::UUID&>(PortalId), newShowAs);
 				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
 			}
 		}
@@ -389,6 +383,12 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 		if(MZPropertyManager.PropertiesById.Contains(Portal->SourceId))
 		{
 			auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal->SourceId);
+			flatbuffers::FlatBufferBuilder mb;
+			auto offset = mz::CreateAppEventOffset(mb ,mz::CreatePinShowAsChanged(mb, (mz::fb::UUID*)&Portal->SourceId, newShowAs));
+			mb.Finish(offset);
+			auto buf = mb.Release();
+			auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
+			MZClient->AppServiceClient->Send(*root);
 			MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
 		}
 	}
@@ -811,7 +811,6 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 				bool IsPortal = prop->contents_type() == mz::fb::PinContents::PortalPin;
 				
-
 				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal});
 			}
 
@@ -1011,6 +1010,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
 				NewPortals.push_back(NewPortal);
 				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), update.pinShowAs);
+				MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MzProperty->Id, update.pinShowAs);
 			}
 			
 		}
@@ -2381,6 +2381,7 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 	auto MZProperty = PropertiesById.FindRef(PropertyId);
 
 	MZTextureShareManager::GetInstance()->UpdatePinShowAs(MZProperty.Get(), ShowAs);
+	MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MZProperty->Id, ShowAs);
 	
 	MZPortal NewPortal{FGuid::NewGuid() ,PropertyId};
 	NewPortal.DisplayName = FString("");
