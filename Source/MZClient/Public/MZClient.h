@@ -13,12 +13,61 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "Mediaz/PinDataQueues.h"
 #include "MediaZ/AppAPI.h"
-//#include "MediaZ/MediaZ.h"
+#include <uuid.h>
+#include "mzFlatBuffersCommon.h"
 #include "AppEvents_generated.h"
 #include <mzFlatBuffersCommon.h>
 #include <functional> 
+
+class PinDataQueue : public TQueue<mz::Buffer>
+{
+};
+
+class PinDataQueues : public mz::app::IEventDelegates
+{
+public:
+	virtual ~PinDataQueues() {}
+
+	PinDataQueue* GetAddQueue(mz::fb::UUID const& pinId)
+	{
+		uuids::uuid id(pinId.bytes()->begin(), pinId.bytes()->end());
+
+		std::scoped_lock<std::mutex> lock(Guard);
+		return &Queues[id];
+	}
+
+	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset) override
+	{
+		auto queue = GetAddQueue(pinId);
+		if (reset)
+			queue->Empty();
+		else
+			queue->Enqueue(mz::Buffer(data, size));
+	}
+
+	mz::Buffer Pop(mz::fb::UUID const& pinId)
+	{
+		auto queue = GetAddQueue(pinId);
+
+		u32 tryCount = 0;
+		FPlatformProcess::ConditionalSleep(
+			[&](){ return !queue->IsEmpty() || tryCount++ > 10; },
+			.001f);
+
+		if (queue->IsEmpty())
+			return mz::Buffer();
+
+		mz::Buffer result;
+		queue->Dequeue(result);
+
+		return result;
+	}
+
+	std::mutex Guard;
+	std::unordered_map<uuids::uuid, PinDataQueue> Queues;
+};
+
 
 class UMZCustomTimeStep;
 typedef std::function<void()> Task;
@@ -46,7 +95,7 @@ DECLARE_EVENT(FMZClient, FMZConnectionClosed);
  */
 class FMZClient;
 
-class MZCLIENT_API MZEventDelegates : public mz::app::PinDataQueues
+class MZCLIENT_API MZEventDelegates : public PinDataQueues
 {
 public:
 	~MZEventDelegates() {}

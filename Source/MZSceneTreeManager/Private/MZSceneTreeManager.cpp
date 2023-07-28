@@ -328,12 +328,6 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
-	if(MZPropertyManager.PropertiesById.Contains(Id) && MZPropertyManager.PropertyToPortalPin.Contains(Id))
-	{
-		MZClient->EventDelegates->PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
-		return;
-	}
-	
 	if (CustomProperties.Contains(Id))
 	{
 		auto mzprop = CustomProperties.FindRef(Id);
@@ -1055,13 +1049,7 @@ void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t siz
 	{
 		return;
 	}
-	std::vector<uint8_t> copy(size, 0);
-	memcpy(copy.data(), newval, size);
-
-	
-	bool isChangedBefore = mzprop->IsChanged;
-	mzprop->SetPropValue((void*)copy.data(), size);
-	if (!isChangedBefore && mzprop->IsChanged && !MZPropertyManager.PropertyToPortalPin.Contains(pinId))
+	if (!MZPropertyManager.PropertyToPortalPin.Contains(pinId))
 	{
 		MZPropertyManager.CreatePortal(pinId, mz::fb::ShowAs::PROPERTY);
 	}	

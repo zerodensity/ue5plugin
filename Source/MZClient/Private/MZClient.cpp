@@ -223,6 +223,7 @@ void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t cons
 	{
 		return;
 	}
+	PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
 	
 	std::vector<uint8_t> copy(size, 0);
 	memcpy(copy.data(), data, size);
