@@ -2502,7 +2502,8 @@ void FMZPropertyManager::OnBeginFrame()
 			continue;
 		}
 
-		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id));
+		auto shouldWait = portal.ShowAs == mz::fb::ShowAs::INPUT_PIN && portal.TypeName == "mz.fb.Track";
+		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id), shouldWait);
 		if (!buffer.IsEmpty())
 		{
 			MzProperty->SetPropValue(buffer.data(), buffer.size());

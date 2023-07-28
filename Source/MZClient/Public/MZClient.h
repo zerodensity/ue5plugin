@@ -46,14 +46,17 @@ public:
 			queue->Enqueue(mz::Buffer(data, size));
 	}
 
-	mz::Buffer Pop(mz::fb::UUID const& pinId)
+	mz::Buffer Pop(mz::fb::UUID const& pinId, bool wait)
 	{
 		auto queue = GetAddQueue(pinId);
 
-		u32 tryCount = 0;
-		FPlatformProcess::ConditionalSleep(
-			[&](){ return !queue->IsEmpty() || tryCount++ > 10; },
-			.001f);
+		if (wait)
+		{
+			u32 tryCount = 0;
+			FPlatformProcess::ConditionalSleep(
+				[&](){ return !queue->IsEmpty() || tryCount++ > 10; },
+				.001f);
+		}
 
 		if (queue->IsEmpty())
 			return mz::Buffer();
