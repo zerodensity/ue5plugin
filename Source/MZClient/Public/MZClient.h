@@ -54,12 +54,19 @@ public:
 		{
 			u32 tryCount = 0;
 			FPlatformProcess::ConditionalSleep(
-				[&](){ return !queue->IsEmpty() || tryCount++ > 10; },
+				[&](){ return !queue->IsEmpty() || tryCount++ > 20; },
 				.001f);
 		}
 
 		if (queue->IsEmpty())
+		{
+			if (wait)
+			{
+				// TODO: port this to mz log
+				UE_LOG(LogCore, Warning, TEXT("Rendering with repeating track data"));
+			}
 			return mz::Buffer();
+		}
 
 		mz::Buffer result;
 		queue->Dequeue(result);
