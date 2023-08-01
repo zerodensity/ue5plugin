@@ -896,18 +896,24 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		TSharedPtr<MZProperty> mzprop = nullptr;
 
 		FProperty* PropertyToUpdate = FindFProperty<FProperty>(*update.PropertyPath);
-		if(!PropertyToUpdate)
+		if(!PropertyToUpdate->IsValidLowLevel())
 		{
 			continue;
 		}
 		if(!update.ContainerPath.IsEmpty())
 		{
-			void* UnknownContainer = FindContainerFromContainerPath(Container, update.ContainerPath);
-			if(UObject* Object  = PropertyToUpdate->Owner.ToUObject())
+			bool IsResultUObject;
+			void* UnknownContainer = FindContainerFromContainerPath(Container, update.ContainerPath, IsResultUObject);
+			if(!UnknownContainer)
+			{
+				LOGF("No container is found from the saved properties path : %s", *update.ContainerPath)
+				continue;
+			}
+			if(IsResultUObject)
 			{
 				mzprop = MZPropertyFactory::CreateProperty((UObject*) UnknownContainer, PropertyToUpdate);
 			}
-			else if(FField* StructField = PropertyToUpdate->Owner.ToField())
+			else
 			{
 				mzprop = MZPropertyFactory::CreateProperty(nullptr, PropertyToUpdate, nullptr, nullptr, FString(), (uint8*)UnknownContainer);
 			}
@@ -976,7 +982,8 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			void* UnknownContainer = Container;
 			if(!update.ContainerPath.IsEmpty())
 			{
-				UnknownContainer = FindContainerFromContainerPath(Container, update.ContainerPath);
+				bool discard;
+				UnknownContainer = FindContainerFromContainerPath(Container, update.ContainerPath, discard);
 			}
 			if(!UnknownContainer)
 			{
@@ -1986,7 +1993,8 @@ void FMZSceneTreeManager::HandleWorldChange()
 	for (auto& [containerInfo, portal] : Portals)
 	{
 		UObject* ObjectContainer = FindContainer(containerInfo.ActorId, containerInfo.ComponentName);
-		void* UnknownContainer = FindContainerFromContainerPath(ObjectContainer, containerInfo.ContainerPath);
+		bool discard;
+		void* UnknownContainer = FindContainerFromContainerPath(ObjectContainer, containerInfo.ContainerPath, discard);
 		UnknownContainer = UnknownContainer ? UnknownContainer : ObjectContainer;
 		if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({containerInfo.Property,UnknownContainer}))
 		{
@@ -2049,10 +2057,11 @@ UObject* FMZSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName
 	return Container;	
 }
 
-void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath)
+void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath, bool& IsResultUObject)
 {
 	if(!BaseContainer)
 	{
+		IsResultUObject = false;
 		return nullptr;
 	}
 	TArray<FString> ChildContainerNames;
@@ -2060,6 +2069,7 @@ void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer
 	FProperty* Property = nullptr; 
 	UClass* ContainerClass = BaseContainer->GetClass();
 	void* Container = BaseContainer;
+	IsResultUObject = true;
 	for(auto ChildContainerName : ChildContainerNames)
 	{
 		if(!Container)
@@ -2072,12 +2082,14 @@ void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer
 			UObject* Object = ObjectProperty->GetObjectPropertyValue(ObjectProperty->ContainerPtrToValuePtr<UObject>(Container));
 			ContainerClass = Object->GetClass();
 			Container = Object;
+			IsResultUObject = true;
 		}
 		else if (FStructProperty* StructProperty = CastField<FStructProperty>(Property))
 		{
 			uint8* StructInstance = StructProperty->ContainerPtrToValuePtr<uint8>(Container);
 			ContainerClass = StructProperty->Struct->GetClass();
 			Container = StructInstance;
+			IsResultUObject = false;
 		}
 		else
 		{

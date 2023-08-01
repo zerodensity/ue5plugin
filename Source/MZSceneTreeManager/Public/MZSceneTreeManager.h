@@ -230,7 +230,7 @@ public:
 
 	UObject* FindContainer(FGuid ActorId, FString ComponentName);
 
-	void* FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
+	void* FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath, bool& IsResultUObject);
 
 	// UObject* FMZSceneTreeManager::FindObjectContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
 	//Remove properties of tree node from registered properties and pins
