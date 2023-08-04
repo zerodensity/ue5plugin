@@ -104,6 +104,8 @@ public:
 	FString CategoryName;
 	FString UIMaxString;
 	FString UIMinString;
+	FString EditConditionPropertyName;
+	FProperty* EditConditionProperty;
 	bool IsAdvanced = false;
 	bool ReadOnly = false;
 	std::string TypeName;
@@ -315,6 +317,7 @@ protected:
 using MZVec2Property = MZCustomStructProperty<FVector2D, "mz.fb.vec2d">;
 using MZVec3Property = MZCustomStructProperty<FVector, "mz.fb.vec3d">;
 using MZVec4Property = MZCustomStructProperty < FVector4, "mz.fb.vec4d">;
+using MZVec4FProperty = MZCustomStructProperty < FVector4f, "mz.fb.vec4">;
 
 class MZRotatorProperty : public MZProperty
 {

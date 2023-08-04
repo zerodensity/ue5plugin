@@ -60,12 +60,29 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		static const FName NAME_Category(TEXT("Category"));
 		static const FName NAME_UIMin(TEXT("UIMin"));
 		static const FName NAME_UIMax(TEXT("UIMax"));
+		static const FName NAME_EditCondition(TEXT("editcondition"));
+		static const FName NAME_HiddenByDefault(TEXT("PinHiddenByDefault"));
 
 		const auto& metaData = *metaDataMap;
 		DisplayName = metaData.Contains(NAME_DisplayName) ? metaData[NAME_DisplayName] : uproperty->GetFName().ToString();
 		CategoryName = (metaData.Contains(NAME_Category) ? metaData[NAME_Category] : "Default");
 		UIMinString = metaData.Contains(NAME_UIMin) ? metaData[NAME_UIMin] : "";
 		UIMaxString = metaData.Contains(NAME_UIMax) ? metaData[NAME_UIMax] : "";
+		EditConditionPropertyName = metaData.Contains(NAME_EditCondition) ? metaData[NAME_EditCondition] : "";
+		if(!EditConditionPropertyName.IsEmpty())
+		{
+			auto OwnerVariant = Property->GetOwnerVariant();
+			auto OwnerStruct = Property->GetOwnerStruct();
+			if(!OwnerStruct && OwnerVariant)
+			{
+				OwnerStruct = OwnerVariant.IsUObject() ? (UStruct*)OwnerVariant.ToUObject() : nullptr;
+			}
+			EditConditionProperty = FindField<FProperty>(OwnerStruct, FName(EditConditionPropertyName));
+		}
+		if(metaData.Contains(NAME_HiddenByDefault))
+		{
+			mzMetaDataMap.Add("PinHidden", " ");
+		}
 	}
 	else
 	{
@@ -948,7 +965,10 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 		else if (structprop->Struct == TBaseStructure<FVector4>::Get() || structprop->Struct == TBaseStructure<FQuat>::Get()) //vec4
 		{
 			prop = TSharedPtr<MZProperty>(new MZVec4Property(container, structprop, parentCategory, StructPtr, parentProperty));
-
+		}
+		else if (structprop->Struct == TBaseStructure<FLinearColor>::Get()) //vec4f
+		{
+			prop = TSharedPtr<MZProperty>(new MZVec4FProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == FMZTrack::StaticStruct()) //track
 		{

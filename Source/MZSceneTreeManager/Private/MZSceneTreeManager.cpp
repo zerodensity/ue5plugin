@@ -1150,6 +1150,26 @@ bool PropertyVisible(FProperty* ueproperty)
 		ueproperty->HasAllFlags(RF_Public);
 }
 
+uint32_t SwapEndian(uint32_t num)
+{
+	return ((num >> 24) & 0xff) | // move byte 3 to byte 0
+		((num << 8) & 0xff0000) | // move byte 1 to byte 2
+		((num >> 8) & 0xff00) | // move byte 2 to byte 1
+		((num << 24) & 0xff000000); // byte 0 to byte 3
+}
+
+FString UEIdToMZIDString(FGuid Guid)
+{
+
+	uint32 A = SwapEndian(Guid.A);
+	uint32 B = SwapEndian(Guid.B);
+	uint32 C = SwapEndian(Guid.C);
+	uint32 D = SwapEndian(Guid.D);
+	FString result = "";
+	result.Appendf(TEXT("%08x-%04x-%04x-%04x-%04x%08x"), A, B >> 16, B & 0xFFFF, C >> 16, C & 0xFFFF, D);
+	return result;
+}
+
 bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 {
 	auto val = SceneTree.NodeMap.Find(nodeId);
@@ -1177,7 +1197,6 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 
 		//ITERATE PROPERTIES BEGIN
 		class FProperty* AProperty = ActorClass->PropertyLink;
-
 		while (AProperty != nullptr)
 		{
 			FName CategoryName = FObjectEditorUtils::GetCategoryFName(AProperty);
@@ -1208,6 +1227,25 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		}
 
 		auto Components = actorNode->actor->GetComponents();
+
+		for(auto MzProp : actorNode->Properties)
+		{
+			if(MzProp->EditConditionProperty)
+			{
+				for(auto prop : actorNode->Properties)
+				{
+					if(prop->Property == MzProp->EditConditionProperty)
+					{
+						
+						MzProp->mzMetaDataMap.Add("EditConditionPropertyId", UEIdToMZIDString(prop->Id));
+						
+						UE_LOG(LogMZSceneTreeManager, Warning, TEXT("%s has edit condition named %s with pind id %s"), *MzProp->DisplayName, *prop->DisplayName, *MzProp->mzMetaDataMap["EditConditionPropertyId"]);
+					}
+				}
+			}
+		}
+
+		
 		//ITERATE PROPERTIES END
 
 #ifdef MZ_POPULATE_UNREAL_FUNCTIONS 
@@ -1390,7 +1428,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 	{
 		auto Component = treeNode->GetAsSceneComponentNode()->sceneComponent;
 		auto Actor = Component->GetOwner();
-
+		auto ComponentNode = treeNode->GetAsSceneComponentNode();
 		auto ComponentClass = Component->GetClass();
 
 		for (FProperty* Property = ComponentClass->PropertyLink; Property; Property = Property->PropertyLinkNext)
@@ -1408,14 +1446,29 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			if (mzprop)
 			{
 				//RegisteredProperties.Add(mzprop->Id, mzprop);
-				treeNode->GetAsSceneComponentNode()->Properties.push_back(mzprop);
+				ComponentNode->Properties.push_back(mzprop);
 
 				for (auto it : mzprop->childProperties)
 				{
 					//RegisteredProperties.Add(it->Id, it);
-					treeNode->GetAsSceneComponentNode()->Properties.push_back(it);
+					ComponentNode->Properties.push_back(it);
 				}
 
+			}
+		}
+		
+		for(auto MzProp : ComponentNode->Properties)
+		{
+			if(MzProp->EditConditionProperty)
+			{
+				for(auto prop : ComponentNode->Properties)
+				{
+					if(prop->Property == MzProp->EditConditionProperty)
+					{
+						MzProp->mzMetaDataMap.Add("EditConditionPropertyId", UEIdToMZIDString(prop->Id));
+						UE_LOG(LogMZSceneTreeManager, Warning, TEXT("%s has edit condition named %s with pind id %s"), *MzProp->DisplayName, *prop->DisplayName, *MzProp->mzMetaDataMap["EditConditionPropertyId"]);
+					}
+				}
 			}
 		}
 		treeNode->NeedsReload = false;
