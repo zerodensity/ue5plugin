@@ -27,7 +27,7 @@ IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
 UWorld* FMZSceneTreeManager::daWorld = nullptr;
 
-//#define MZ_POPULATE_UNREAL_FUNCTIONS uncomment if you want to see functions 
+#define MZ_POPULATE_UNREAL_FUNCTIONS //uncomment if you want to see functions 
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 {
@@ -1265,11 +1265,11 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 					continue; // do not export user's changed handler functions
 				}
 
-				//auto OwnerClass = UEFunction->GetOwnerClass();
-				//if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
-				//{
-				//	//continue; // export only BP functions //? what we will show in mediaz
-				//}
+				auto OwnerClass = UEFunction->GetOwnerClass();
+				if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
+				{
+					continue; // export only BP functions //? what we will show in mediaz
+				}
 
 				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor.Get(), UEFunction));
 
