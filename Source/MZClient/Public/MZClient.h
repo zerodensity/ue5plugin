@@ -20,8 +20,37 @@
 #include <mzFlatBuffersCommon.h>
 #include <functional> 
 
-class PinDataQueue : public TQueue<mz::Buffer>
+struct PinDataQueue : public TQueue<mz::Buffer>
 {
+	u32 DropCount = 0;
+	u32 FramesSinceLastDrop = 0;
+
+	void Reset()
+	{
+		Empty();
+		DropCount = FramesSinceLastDrop = 0;
+	}
+
+	void OnDrop()
+	{
+		DropCount++;
+		FramesSinceLastDrop = 0;
+	}
+
+	void DiscardExcessThenDequeue(mz::Buffer& result)
+	{
+		FramesSinceLastDrop++;
+		if (DropCount && FramesSinceLastDrop == 50)
+		{
+			UE_LOG(LogCore, Warning, TEXT("Discarding next %d track data"), DropCount);
+
+			while (DropCount-- && !IsEmpty())
+				Dequeue(result);
+		}
+
+		if (!IsEmpty())
+			Dequeue(result);
+	}
 };
 
 class PinDataQueues : public mz::app::IEventDelegates
@@ -41,7 +70,7 @@ public:
 	{
 		auto queue = GetAddQueue(pinId);
 		if (reset)
-			queue->Empty();
+			queue->Reset();
 		else
 			queue->Enqueue(mz::Buffer(data, size));
 	}
@@ -58,18 +87,17 @@ public:
 				.001f);
 		}
 
+		mz::Buffer result;
 		if (queue->IsEmpty())
 		{
 			if (wait)
 			{
-				// TODO: port this to mz log
+				queue->OnDrop();
 				UE_LOG(LogCore, Warning, TEXT("Rendering with repeating track data"));
 			}
-			return mz::Buffer();
 		}
-
-		mz::Buffer result;
-		queue->Dequeue(result);
+		else
+			queue->DiscardExcessThenDequeue(result);
 
 		return result;
 	}
