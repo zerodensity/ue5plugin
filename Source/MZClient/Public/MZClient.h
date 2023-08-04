@@ -123,6 +123,7 @@ public:
 	virtual void OnNodeImported(mz::fb::Node const& appNode) override;
 	virtual void OnConnectionClosed() override;
 	virtual void OnStateChanged(mz::app::ExecutionState newState) override;
+	virtual void OnCloseApp() override;
 
 	FMZClient* PluginClient;
 };

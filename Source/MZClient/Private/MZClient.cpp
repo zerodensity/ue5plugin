@@ -197,6 +197,16 @@ void MZEventDelegates::OnStateChanged(mz::app::ExecutionState newState)
 	
 }
 
+void MZEventDelegates::OnCloseApp()
+{
+	LOG("Closing UE per mediaz request.");
+	if (!PluginClient)
+	{
+		return;
+	}
+	FGenericPlatformMisc::RequestExit(false);
+}
+
 void MZEventDelegates::OnNodeRemoved()
 {
 	LOG("Plugin node removed from mediaz");
