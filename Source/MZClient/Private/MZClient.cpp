@@ -444,11 +444,9 @@ void FMZClient::TryConnect()
 		}
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
-		auto LaunchCommand = "\"\"" + ExePath + "\"" + " \"" + ProjectPath + "\" -game\"";
 		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", mz::app::ApplicationInfo {
 			.AppKey = TCHAR_TO_UTF8(*FMZClient::AppKey),
-			.AppName = "UE5",
-			.LaunchCommand = TCHAR_TO_UTF8(*LaunchCommand)
+			.AppName = "UE5"
 		});
 		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
 		EventDelegates->PluginClient = this;
