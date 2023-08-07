@@ -62,12 +62,14 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		static const FName NAME_UIMax(TEXT("UIMax"));
 		static const FName NAME_EditCondition(TEXT("editcondition"));
 		static const FName NAME_HiddenByDefault(TEXT("PinHiddenByDefault"));
+		static const FName NAME_ToolTip(TEXT("ToolTip"));
 
 		const auto& metaData = *metaDataMap;
 		DisplayName = metaData.Contains(NAME_DisplayName) ? metaData[NAME_DisplayName] : uproperty->GetFName().ToString();
 		CategoryName = (metaData.Contains(NAME_Category) ? metaData[NAME_Category] : "Default");
 		UIMinString = metaData.Contains(NAME_UIMin) ? metaData[NAME_UIMin] : "";
 		UIMaxString = metaData.Contains(NAME_UIMax) ? metaData[NAME_UIMax] : "";
+		ToolTipText = metaData.Contains(NAME_ToolTip) ? metaData[NAME_ToolTip] : "";
 		EditConditionPropertyName = metaData.Contains(NAME_EditCondition) ? metaData[NAME_EditCondition] : "";
 		if(!EditConditionPropertyName.IsEmpty())
 		{
@@ -395,9 +397,9 @@ flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBu
 	auto displayName = Property->GetDisplayNameText().ToString();
 	if (TypeName == "mz.fb.Void" || TypeName.size() < 1)
 	{
-		return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "mz.fb.Void", mz::fb::ShowAs::NONE, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, TCHAR_TO_UTF8(*displayName));
+		return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "mz.fb.Void", mz::fb::ShowAs::NONE, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
 	}
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, TCHAR_TO_UTF8(*displayName));
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
 }
 
 std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> MZProperty::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
@@ -776,7 +778,7 @@ flatbuffers::Offset<mz::fb::Visualizer> MZEnumProperty::SerializeVisualizer(flat
 flatbuffers::Offset<mz::fb::Pin> MZEnumProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&(MZProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, TCHAR_TO_UTF8(*Property->GetDisplayNameText().ToString()));
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&(MZProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*Property->GetDisplayNameText().ToString()));
 }
 
 void MZEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)

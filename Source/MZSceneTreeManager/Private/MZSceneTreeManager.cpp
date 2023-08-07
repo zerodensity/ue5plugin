@@ -2537,7 +2537,7 @@ flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers
 {
 	auto SerializedMetadata = SourceProperty->SerializeMetaData(fbb);
 	bool bLive = (Portal.ShowAs == mz::fb::ShowAs::OUTPUT_PIN); 
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, bLive, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union(), 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, TCHAR_TO_UTF8(*Portal.DisplayName));
+	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, 0, 0, false, &SerializedMetadata, bLive, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union(), 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*SourceProperty->ToolTipText), TCHAR_TO_UTF8(*Portal.DisplayName));
 }
 
 void FMZPropertyManager::Reset(bool ResetPortals)

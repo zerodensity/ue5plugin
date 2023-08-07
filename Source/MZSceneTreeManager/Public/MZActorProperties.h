@@ -102,6 +102,7 @@ public:
 	FString PropertyName;
 	FString DisplayName;
 	FString CategoryName;
+	FString ToolTipText;
 	FString UIMaxString;
 	FString UIMinString;
 	FString EditConditionPropertyName;
