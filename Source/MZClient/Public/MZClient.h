@@ -81,10 +81,10 @@ public:
 
 		if (wait)
 		{
-			u32 tryCount = 0;
+			u32 trial = 0;
+			const u32 tryCount = 4000;
 			FPlatformProcess::ConditionalSleep(
-				[&](){ return !queue->IsEmpty() || tryCount++ > 20; },
-				.001f);
+				[&]() { return !queue->IsEmpty() || trial++ > tryCount; });
 		}
 
 		mz::Buffer result;
