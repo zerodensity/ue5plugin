@@ -115,9 +115,13 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
+void MZEventDelegates::OnAppConnected(mz::fb::Node const* appNode)
 {
-	FMZClient::NodeId = *(FGuid*)appNode.id();
+	if (appNode)
+	{
+		FMZClient::NodeId = *(FGuid*)appNode->id();
+	}
+	
 	if (!PluginClient)
 	{
 		return;
@@ -127,14 +131,24 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const& appNode)
 	PluginClient->Connected();
 
 	mz::fb::TNode copy;
-	appNode.UnPackTo(&copy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	bool NodeIsPresent = false;
+	if(appNode)
+	{
+		NodeIsPresent = true;
+		appNode->UnPackTo(&copy);
+	}
+	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, NodeIsPresent]()
 		{
+			if(!NodeIsPresent)
+			{
+				MZClient->OnMZConnected.Broadcast(nullptr);
+				return;
+			}
 			flatbuffers::FlatBufferBuilder fbb;
 			auto offset = mz::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZConnected.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			MZClient->OnMZConnected.Broadcast(flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
 		});
 
     

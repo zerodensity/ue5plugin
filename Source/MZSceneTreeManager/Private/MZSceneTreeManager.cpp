@@ -228,15 +228,20 @@ bool FMZSceneTreeManager::Tick(float dt)
 	return true;
 }
 
-void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
+void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const* appNode)
 {
-	SceneTree.Root->Id = *(FGuid*)appNode.id();
+	if(!appNode)
+	{
+		return;
+	}
+		
+	SceneTree.Root->Id = *(FGuid*)appNode->id();
 	//add executable path
-	if(appNode.pins() && appNode.pins()->size() > 0)
+	if(appNode->pins() && appNode->pins()->size() > 0)
 	{
 		std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
 		flatbuffers::FlatBufferBuilder fb1;
-		for (auto pin : *appNode.pins())
+		for (auto pin : *appNode->pins())
 		{
 			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
 		}
@@ -248,10 +253,10 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const& appNode)
 	}
 	RescanScene();
 	SendNodeUpdate(FMZClient::NodeId, false);
-	if((appNode.pins() && appNode.pins()->size() > 0 )|| (appNode.contents_as_Graph()->nodes() && appNode.contents_as_Graph()->nodes()->size() > 0))
+	if((appNode->pins() && appNode->pins()->size() > 0 )|| (appNode->contents_as_Graph()->nodes() && appNode->contents_as_Graph()->nodes()->size() > 0))
 	{
 		LOG("Node import request recieved on connection");
-		OnMZNodeImported(appNode);
+		OnMZNodeImported(*appNode);
 	}
 	//else
 		//SendSyncSemaphores(true);

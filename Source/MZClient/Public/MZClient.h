@@ -113,7 +113,7 @@ typedef std::function<void()> Task;
 DECLARE_LOG_CATEGORY_EXTERN(LogMZClient, Log, All);
 
 //events coming from mediaz
-DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const&);
+DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const*);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeUpdated, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuRequested, mz::ContextMenuRequest const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAction const&);
@@ -138,7 +138,7 @@ class MZCLIENT_API MZEventDelegates : public PinDataQueues
 public:
 	~MZEventDelegates() {}
 
-	virtual void OnAppConnected(mz::fb::Node const& appNode) override;
+	virtual void OnAppConnected(mz::fb::Node const* appNode) override;
 	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;

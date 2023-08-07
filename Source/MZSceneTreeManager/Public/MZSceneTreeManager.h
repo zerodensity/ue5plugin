@@ -121,7 +121,7 @@ public:
 	void OnBeginFrame();
 	void OnEndFrame();
 
-	void OnMZConnected(mz::fb::Node const& appNode);
+	void OnMZConnected(mz::fb::Node const* appNode);
 
 	void OnMZNodeUpdated(mz::fb::Node const& appNode);
 
