@@ -881,10 +881,6 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	{
 		FGuid ActorId = update.actorId;
 		
-		if (update.IsPortal)
-		{
-			continue;
-		}
 		UObject* Container = nullptr;
 		if (sceneActorMap.Contains(ActorId))
 		{
@@ -927,8 +923,12 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		{
 			mzprop = MZPropertyFactory::CreateProperty(Container, PropertyToUpdate);
 		}
-
-		if (mzprop && update.newValSize > 0)
+		if(!mzprop)
+		{
+			continue;
+		}
+		
+		if (update.newValSize > 0)
 		{
 			mzprop->SetPropValue(update.newVal, update.newValSize);
 		}
@@ -943,9 +943,6 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
 			memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
 		}
-
-		delete[] update.newVal;
-		delete[] update.defVal;
 	}
 
 	RescanScene(true);
@@ -1021,6 +1018,17 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			
 		}
 
+	}
+	for (auto const& update : updates)
+	{
+		if(update.defVal)
+		{
+			delete[] update.defVal;
+		}
+		if(update.newVal)
+		{
+			delete[] update.newVal;
+		}
 	}
 	if (!PinUpdates.empty())
 	{

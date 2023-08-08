@@ -162,7 +162,6 @@ void MZEventDelegates::OnNodeUpdated(mz::fb::Node const& appNode)
 	{
 		return;
 	}
-
 	if (!FMZClient::NodeId.IsValid())
 	{
 		FMZClient::NodeId = *(FGuid*)appNode.id();
