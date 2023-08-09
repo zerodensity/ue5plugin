@@ -81,7 +81,7 @@ public:
 	{
 		auto queue = GetAddQueue(pinId);
 
-		if (wait && queue->SeemsAlive()) 
+		if (wait /*&& queue->SeemsAlive()*/) 
 		{
 			u32 tryCount = 0;
 			FPlatformProcess::ConditionalSleep(
