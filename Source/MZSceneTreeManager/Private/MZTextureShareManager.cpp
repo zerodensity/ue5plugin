@@ -127,8 +127,22 @@ MZTextureShareManager::~MZTextureShareManager()
 
 mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 {
-	mzTextureInfo info = GetResourceInfo(mzprop);
+	ResourceInfo copyInfo;
+	mz::fb::TTexture texture;
 	
+	CreateTextureResource(mzprop, texture, copyInfo);
+
+	{
+		//start property pins as output pins
+		Copies.Add(mzprop, copyInfo);
+	}
+	return texture;
+}
+
+void MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TTexture& Texture, ResourceInfo& Resource)
+	{
+	mzTextureInfo info = GetResourceInfo(mzprop);
+
 	UObject* obj = mzprop->GetRawObjectContainer();
 	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
 	UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
@@ -154,32 +168,25 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
 	//res->Release();
 
-	mz::fb::TTexture tex;
-	tex.size = mz::fb::SizePreset::CUSTOM;
-	tex.width = info.Width;
-	tex.height = info.Height;
-	tex.format = mz::fb::Format(info.Format);
-	tex.usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
-	tex.type = 0x00000040;
-	tex.memory = (u64)handle;
-	tex.pid = FPlatformProcess::GetCurrentProcessId();
-	tex.unmanaged = true;
-	tex.offset = 0;
-	tex.handle = 0;
-	tex.semaphore = 0;
-	
-	ResourceInfo copyInfo = {
-		.SrcMzp = mzprop,
-		.DstResource = res,
-		.ShowAs = mzprop->PinShowAs,
-	};
-	
-	{
-		//start property pins as output pins
-		Copies.Add(mzprop, copyInfo);
-	}
-	return tex;
+	// mz::fb::TTexture tex;
+	Texture.size = mz::fb::SizePreset::CUSTOM;
+	Texture.width = info.Width;
+	Texture.height = info.Height;
+	Texture.format = mz::fb::Format(info.Format);
+	Texture.usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
+	Texture.type = 0x00000040;
+	Texture.memory = (u64)handle;
+	Texture.pid = FPlatformProcess::GetCurrentProcessId();
+	Texture.unmanaged = true;
+	Texture.offset = 0;
+	Texture.handle = 0;
+	Texture.semaphore = 0;
+
+	Resource.SrcMzp = mzprop;
+	Resource.DstResource = res;
+	Resource.ShowAs = mzprop->PinShowAs;
 }
+
 
 void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs)
 {
@@ -251,6 +258,39 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 		}
 	}
 #endif
+}
+
+bool MZTextureShareManager::UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTexture& Texture)
+{
+	mzTextureInfo info = GetResourceInfo(MzProperty);
+
+	auto resourceInfo = Copies.Find(MzProperty);
+	if (resourceInfo == nullptr)
+		return false;
+
+	if (Texture.pid != (uint64_t)FPlatformProcess::GetCurrentProcessId())
+		return false;
+
+	bool changed = false;
+
+	mz::fb::Format fmt = mz::fb::Format(info.Format);
+	mz::fb::ImageUsage usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
+
+	if (Texture.width != info.Width ||
+		Texture.height != info.Height ||
+		Texture.format != fmt ||
+		Texture.usage != usage)
+	{
+		changed = true;
+		// the old resource should be released, but releasing it here crashes UE and ResourcesToDelete is not handled at all
+		ResourcesToDelete.Enqueue({resourceInfo->DstResource, GFrameCounter});
+		mz::fb::ShowAs tmp = resourceInfo->ShowAs;
+		CreateTextureResource(MzProperty, Texture, *resourceInfo);
+		resourceInfo->ShowAs = tmp;
+		Copies[MzProperty] = *resourceInfo;
+	}
+
+	return changed;
 }
 
 void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
@@ -599,6 +639,25 @@ void MZTextureShareManager::OnBeginFrame()
 void MZTextureShareManager::OnEndFrame()
 {
 	ProcessCopies(mz::fb::ShowAs::OUTPUT_PIN, Copies);
+	
+	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+		[this, FrameCount = GFrameCounter](FRHICommandListImmediate& RHICmdList)
+		{
+			while(!ResourcesToDelete.IsEmpty())
+			{
+				TPair<ID3D12Resource*, uint32_t> resource;
+				ResourcesToDelete.Peek(resource);
+				if(resource.Value + 5 <= FrameCount) // resources are deleted after 5 frames, because we need to make sure that they are no longer in use
+				{
+					resource.Key->Release();
+					ResourcesToDelete.Pop();
+				}
+				else
+				{
+					break;
+				}
+			}
+		});
 }
 
 void MZTextureShareManager::ExecutionStateChanged(mz::app::ExecutionState newState, bool& outSemaphoresRenewed)

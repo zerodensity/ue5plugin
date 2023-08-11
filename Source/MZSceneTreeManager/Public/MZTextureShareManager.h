@@ -79,6 +79,7 @@ public:
 	
 	mz::fb::TTexture AddTexturePin(MZProperty*);
 	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs);
+	bool UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTexture& Texture);
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void WaitCommands();
@@ -101,7 +102,7 @@ public:
 
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
-	TSet<ID3D12Resource*> ResourcesToDelete;
+	TQueue<TPair<ID3D12Resource*, uint32_t>> ResourcesToDelete;
 	
 	TMap<MZProperty*, ResourceInfo> CopyOnTick;
 
@@ -116,6 +117,10 @@ public:
 	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
 	
 	void RenewSemaphores();
+private:
+
+	void CreateTextureResource(MZProperty*, mz::fb::TTexture& Texture, ResourceInfo& Resource);
+
 private:
 	void Initiate();
 	class MZGPUFailSafeRunnable* FailSafeRunnable = nullptr;
