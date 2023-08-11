@@ -530,7 +530,8 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 {
 	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 	{
-		TypeName = "mz.fb.Texture"; 
+		TypeName = "mz.fb.Texture";
+		ReadOnly = true;
 		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(this);
 		data = mz::Buffer::From(tex);
 	}
