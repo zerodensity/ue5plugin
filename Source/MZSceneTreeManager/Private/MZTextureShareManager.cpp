@@ -129,8 +129,12 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 {
 	ResourceInfo copyInfo;
 	mz::fb::TTexture texture;
+
+	if(!CreateTextureResource(mzprop, texture, copyInfo))
+	{
+		return texture;
+	}
 	
-	CreateTextureResource(mzprop, texture, copyInfo);
 
 	{
 		//start property pins as output pins
@@ -139,13 +143,19 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 	return texture;
 }
 
-void MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TTexture& Texture, ResourceInfo& Resource)
+bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TTexture& Texture, ResourceInfo& Resource)
 	{
 	mzTextureInfo info = GetResourceInfo(mzprop);
 
 	UObject* obj = mzprop->GetRawObjectContainer();
 	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
 	UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
+	if(!trt2d)
+	{
+		mzprop->IsOrphan = true;
+		mzprop->OrphanMessage = "No texture resource bound to property!";
+		return false;
+	}
 	auto TargetFormat = static_cast<DXGI_FORMAT>(GPixelFormats[trt2d->GetFormat()].PlatformFormat);
 	// Shared heaps are not supported on CPU-accessible heaps
 	D3D12_RESOURCE_DESC desc{};
@@ -185,6 +195,7 @@ void MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TT
 	Resource.SrcMzp = mzprop;
 	Resource.DstResource = res;
 	Resource.ShowAs = mzprop->PinShowAs;
+	return true;
 }
 
 
@@ -282,10 +293,14 @@ bool MZTextureShareManager::UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTe
 		Texture.usage != usage)
 	{
 		changed = true;
-		// the old resource should be released, but releasing it here crashes UE and ResourcesToDelete is not handled at all
+		
 		ResourcesToDelete.Enqueue({resourceInfo->DstResource, GFrameCounter});
 		mz::fb::ShowAs tmp = resourceInfo->ShowAs;
-		CreateTextureResource(MzProperty, Texture, *resourceInfo);
+		if(!CreateTextureResource(MzProperty, Texture, *resourceInfo))
+		{
+			return changed;
+		}
+		
 		resourceInfo->ShowAs = tmp;
 		Copies[MzProperty] = *resourceInfo;
 	}

@@ -118,8 +118,7 @@ public:
 	
 	void RenewSemaphores();
 private:
-
-	void CreateTextureResource(MZProperty*, mz::fb::TTexture& Texture, ResourceInfo& Resource);
+bool CreateTextureResource(MZProperty*, mz::fb::TTexture& Texture, ResourceInfo& Resource);
 
 private:
 	void Initiate();

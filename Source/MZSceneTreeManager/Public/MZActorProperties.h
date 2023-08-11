@@ -109,6 +109,8 @@ public:
 	FProperty* EditConditionProperty;
 	bool IsAdvanced = false;
 	bool ReadOnly = false;
+	bool IsOrphan = false;
+	FString OrphanMessage = " ";
 	std::string TypeName;
 	FGuid Id;
 	std::vector<uint8_t> data; //wrt mediaZ standarts
