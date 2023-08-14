@@ -178,7 +178,6 @@ bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TT
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
 	//res->Release();
 
-	// mz::fb::TTexture tex;
 	Texture.size = mz::fb::SizePreset::CUSTOM;
 	Texture.width = info.Width;
 	Texture.height = info.Height;
@@ -188,6 +187,7 @@ bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TT
 	Texture.memory = (u64)handle;
 	Texture.pid = FPlatformProcess::GetCurrentProcessId();
 	Texture.unmanaged = true;
+	Texture.unscaled = true;
 	Texture.offset = 0;
 	Texture.handle = 0;
 	Texture.semaphore = 0;
@@ -208,7 +208,6 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	// this part assuming it's a fb::TTexture is obsolete
 
 
-
 	//TODO better update handling (texture size etc.)
 	mz::fb::Texture const* tex = flatbuffers::GetRoot<mz::fb::Texture>(data);
 	auto curtex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
@@ -217,7 +216,6 @@ void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs 
 	{
 		return;
 	}
-	
 
 	mzprop->data.resize(size);
 	memcpy(mzprop->data.data(), data, size);
@@ -535,28 +533,6 @@ bool MZCopyTexture_RenderThread(mz::fb::ShowAs CopyShowAs, UTextureRenderTarget2
 		
 		CmdList->ResourceBarrier(1, &barrier3);
 	}
-	// D3D12_RESOURCE_BARRIER barrier = {
-	// 	.Type = D3D12_RESOURCE_BARRIER_TYPE_TRANSITION,
-	// 	.Transition = {
-	// 		.pResource = SrcResource,
-	// 		.Subresource = D3D12_RESOURCE_BARRIER_ALL_SUBRESOURCES,
-	// 		.StateBefore = D3D12_RESOURCE_STATE_RENDER_TARGET,
-	// 		.StateAfter = D3D12_RESOURCE_STATE_COPY_SOURCE,
-	// 	}
-	// };
-	//
-	//
-	//
-	// if (bIsInputPin)
-	// {
-	// 	Swap(SrcResource, DstResource);
-	// 	barrier.Transition.StateAfter = D3D12_RESOURCE_STATE_COPY_DEST;
-	// }
-	// CmdList->ResourceBarrier(1, &barrier);
-	// CmdList->CopyResource(DstResource, SrcResource);
-	// Swap(barrier.Transition.StateBefore, barrier.Transition.StateAfter);
-	// Barriers.Add(barrier);
-
 	return true;
 }
 
@@ -570,7 +546,40 @@ void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& 
 		if (!prop) continue;
 		auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 		if (!URT) continue;
+		
+		 auto SharedTextureDesc = info.DstResource->GetDesc();
+		 if(SharedTextureDesc.Width != URT->SizeX || SharedTextureDesc.Height != URT->SizeY)
+		 {
+		 	//todo texture is changed update it
+		 	
+			const mz::fb::Texture* tex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
+			mz::fb::TTexture texture;
+			tex->UnPackTo(&texture);
 
+		 	auto TextureShareManager = MZTextureShareManager::GetInstance();
+			if (TextureShareManager->UpdateTexturePin(mzprop, texture))
+			{
+				// data = mz::Buffer::From(texture);
+				flatbuffers::FlatBufferBuilder fb;
+				auto offset = mz::fb::CreateTexture(fb, &texture);
+				fb.Finish(offset);
+				mz::Buffer buffer = fb.Release();
+				mzprop->data = buffer;
+				
+				if (!TextureShareManager->MZClient->IsConnected() || mzprop->data.empty())
+				{
+					return;
+				}
+				
+				flatbuffers::FlatBufferBuilder mb;
+				auto offset2 = mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&mzprop->Id, &mzprop->data);
+				mb.Finish(offset2);
+				auto buf = mb.Release();
+				auto root = flatbuffers::GetRoot<mz::PinValueChanged>(buf.data());
+				TextureShareManager->MZClient->AppServiceClient->NotifyPinValueChanged(*root);
+			}
+		 }
+			
 		if(info.ShowAs == FilterShowAs)
 		{
 			FilteredCopies.Add(URT, info);
@@ -613,8 +622,6 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 	}
 	TMap<UTextureRenderTarget2D*, ResourceInfo> CopiesFiltered;
 	FilterCopies(CopyShowAs, CopyMap, CopiesFiltered);
-	// if (CopiesFiltered.IsEmpty())
-	// 	return;
 
 	auto cmdData = GetNewCommandList();
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
