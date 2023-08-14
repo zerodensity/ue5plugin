@@ -22,10 +22,9 @@
 
 struct PinDataQueue : public TQueue<mz::Buffer>
 {
+	std::atomic<bool> LiveNow = true;
 	std::atomic<u32> DropCount = 0;
 	std::atomic<u32> FramesSinceLastDrop = 0;
-
-	bool SeemsAlive() { return FramesSinceLastDrop || !DropCount;	}
 
 	void Reset()
 	{
@@ -35,6 +34,7 @@ struct PinDataQueue : public TQueue<mz::Buffer>
 
 	void OnDrop()
 	{
+		LiveNow = false;
 		DropCount++;
 		FramesSinceLastDrop = 0;
 	}
@@ -49,8 +49,10 @@ struct PinDataQueue : public TQueue<mz::Buffer>
 			while (DropCount-- && !IsEmpty())
 				Dequeue(result);
 		}
+		else
+			LiveNow = !IsEmpty();
 
-		if (!IsEmpty())
+		if (LiveNow)
 			Dequeue(result);
 	}
 };
@@ -74,14 +76,17 @@ public:
 		if (reset)
 			queue->Reset();
 		else
+		{
+			queue->LiveNow = true;
 			queue->Enqueue(mz::Buffer(data, size));
+		}
 	}
 
 	mz::Buffer Pop(mz::fb::UUID const& pinId, bool wait)
 	{
 		auto queue = GetAddQueue(pinId);
 
-		if (wait /*&& queue->SeemsAlive()*/) 
+		if (wait && queue->LiveNow) 
 		{
 			u32 tryCount = 0;
 			FPlatformProcess::ConditionalSleep(
