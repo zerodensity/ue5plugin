@@ -713,7 +713,7 @@ void MZTextureShareManager::ExecutionStateChanged(mz::app::ExecutionState newSta
 
 void MZTextureShareManager::Reset()
 {
-	CopyOnTick.Empty();
+	Copies.Empty();
 	PendingCopyQueue.Empty();
 }
 
