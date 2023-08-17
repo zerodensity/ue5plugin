@@ -72,14 +72,18 @@ public:
 
 	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset) override
 	{
-		auto queue = GetAddQueue(pinId);
 		if (reset)
-			queue->Reset();
-		else
 		{
-			queue->LiveNow = true;
-			queue->Enqueue(mz::Buffer(data, size));
+			std::scoped_lock<std::mutex> lock(Guard);
+			for (auto& [_, queue] : Queues)
+				queue.Reset();
+
+			return;
 		}
+
+		auto queue = GetAddQueue(pinId);
+		queue->LiveNow = true;
+		queue->Enqueue(mz::Buffer(data, size));
 	}
 
 	mz::Buffer Pop(mz::fb::UUID const& pinId, bool wait)
