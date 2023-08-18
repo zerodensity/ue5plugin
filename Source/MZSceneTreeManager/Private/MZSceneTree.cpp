@@ -96,7 +96,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	newChild->Parent = ptr.Get();
 	//todo fix display names newChild->Name = actor->GetActorLabel();
 	newChild->Name = actor->GetFName().ToString();
-	newChild->Id = ForcedGuid.IsValid() ? ForcedGuid : FGuid::NewGuid();
+	newChild->Id = ForcedGuid.IsValid() ? ForcedGuid : actor->GetActorGuid();
 	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
@@ -132,7 +132,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
 	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = parent;
 	newChild->Name = actor->GetActorLabel();
-	newChild->Id = FGuid::NewGuid();
+	newChild->Id =  actor->GetActorGuid();
 	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
