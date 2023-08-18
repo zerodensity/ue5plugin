@@ -81,7 +81,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 			{
 				OwnerStruct = OwnerVariant.IsUObject() ? (UStruct*)OwnerVariant.ToUObject() : nullptr;
 			}
-			EditConditionProperty = FindField<FProperty>(OwnerStruct, FName(EditConditionPropertyName));
+			EditConditionProperty = FindFProperty<FProperty>(OwnerStruct, FName(EditConditionPropertyName));
 		}
 		if(metaData.Contains(NAME_HiddenByDefault))
 		{
