@@ -106,7 +106,7 @@ public:
 	FString UIMaxString;
 	FString UIMinString;
 	FString EditConditionPropertyName;
-	FProperty* EditConditionProperty;
+	FProperty* EditConditionProperty = nullptr;
 	bool IsAdvanced = false;
 	bool ReadOnly = false;
 	bool IsOrphan = false;
