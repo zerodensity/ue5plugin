@@ -198,7 +198,7 @@ public:
 
 	void OnMZNodeRemoved();
 
-	void OnMZStateChanged(mz::app::ExecutionState);
+	void OnMZStateChanged_GRPCThread(mz::app::ExecutionState);
 	//END OF MediaZ DELEGATES
 	 
 
@@ -343,6 +343,6 @@ public:
 
 	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
 
-	bool ToggleExecutionState = false;
+	bool ToggleExecutionStateToSynced = false;
 };
 
