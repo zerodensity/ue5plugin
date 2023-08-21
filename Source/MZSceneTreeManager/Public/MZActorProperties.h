@@ -121,7 +121,7 @@ public:
 	mz::fb::CanShowAs PinCanShowAs = mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY;
 	std::vector<TSharedPtr<MZProperty>> childProperties;
 	TMap<FString, FString> mzMetaDataMap;
-	bool transient = true;
+	bool transient = false;
 	bool IsChanged = false;
 
 	virtual ~MZProperty() {}
@@ -366,8 +366,6 @@ class  MZSCENETREEMANAGER_API  MZPropertyFactory
 public:
 	static TSharedPtr<MZProperty> CreateProperty(UObject* Container, 
 		FProperty* UProperty, 
-		TMap<FGuid, TSharedPtr<MZProperty>>* RegisteredProperties = nullptr,
-		TMap<FProperty*, TSharedPtr<MZProperty>>* PropertiesMap = nullptr,
 		FString ParentCategory = FString(), 
 		uint8* StructPtr = nullptr, 
 		MZStructProperty* ParentProperty = nullptr);

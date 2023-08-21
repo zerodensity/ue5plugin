@@ -452,7 +452,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 		}
 
 		//UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, nullptr, nullptr, CategoryName + "|" + DisplayName, StructInst, this);
+		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, CategoryName + "|" + DisplayName, StructInst, this);
 		if (mzprop)
 		{
 			if(mzprop->mzMetaDataMap.Contains("ContainerPath"))
@@ -566,7 +566,7 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 				WProperty = WProperty->PropertyLinkNext;
 				continue;
 			}
-			TSharedPtr<MZProperty> mzprop = MZPropertyFactory::CreateProperty(Widget, WProperty, 0, 0, parentCategory);
+			TSharedPtr<MZProperty> mzprop = MZPropertyFactory::CreateProperty(Widget, WProperty, parentCategory);
 
 			if(mzprop->mzMetaDataMap.Contains("ContainerPath"))
 			{
@@ -894,8 +894,6 @@ std::vector<uint8> MZEnumProperty::UpdatePinValue(uint8* customContainer)
 
 TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
                                                          FProperty* uproperty, 
-                                                         TMap<FGuid, TSharedPtr<MZProperty>>* registeredProperties, 
-                                                         TMap<FProperty*, TSharedPtr<MZProperty>>* propertiesMap,
                                                          FString parentCategory, 
                                                          uint8* StructPtr, 
                                                          MZStructProperty* parentProperty)
@@ -1027,22 +1025,6 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 
 	prop->UpdatePinValue();
 	prop->default_val = prop->data;
-	if (registeredProperties)
-	{
-		registeredProperties->Add(prop->Id, prop);
-		for (auto& it : prop->childProperties)
-		{
-			registeredProperties->Add(it->Id, it);
-		}
-	}
-	if (propertiesMap)
-	{
-		propertiesMap->Add(prop->Property, prop);
-		for (auto& it : prop->childProperties)
-		{
-			propertiesMap->Add(it->Property, it);
-		}
-	}
 	if (prop->TypeName == "mz.fb.Void")
 	{
 		prop->data.clear();
