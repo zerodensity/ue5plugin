@@ -177,6 +177,7 @@ bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TT
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateCommittedResource(&props, D3D12_HEAP_FLAG_SHARED, &desc, state, 0, IID_PPV_ARGS(&res)));
 	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(res, 0, GENERIC_ALL, 0, &handle));
 	//res->Release();
+	res->SetName(*mzprop->DisplayName);
 
 	Texture.size = mz::fb::SizePreset::CUSTOM;
 	Texture.width = info.Width;
@@ -627,6 +628,21 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this, CopyShowAs, CopiesFiltered, cmdData](FRHICommandListImmediate& RHICmdList)
 		{
+			std::wstring eventLabel;
+			if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
+			{
+				cmdData->CmdList->SetName(L"MediaZ Output Copy CmdList");
+
+				eventLabel = L"MediaZ Output Copies";
+			}
+			else
+			{
+				cmdData->CmdList->SetName(L"MediaZ Input Copy CmdList");
+				eventLabel = L"MediaZ Input Copies";
+			}
+			UINT size = UINT(eventLabel.length() * sizeof(wchar_t));
+			cmdData->CmdList->BeginEvent(0, eventLabel.c_str(), size);
+
 			TArray<D3D12_RESOURCE_BARRIER> barriers;
 			std::vector<flatbuffers::Offset<mz::app::AppEvent>> events;
 			TMap<ID3D12Fence*, u64> SignalGroup;
@@ -643,6 +659,7 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 					//events.push_back(mz::CreateAppEventOffset(fbb, mz::app::CreatePinDirtied(fbb, (mz::fb::UUID*)&pin.SrcMzp->Id, FrameCounter)));
 				}
 			}
+			cmdData->CmdList->EndEvent();
 			
 			cmdData->CmdList->ResourceBarrier(barriers.Num(), barriers.GetData());
 			ExecCommands(cmdData, CopyShowAs, SignalGroup);
@@ -650,6 +667,7 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 			{
 				//MZClient->AppServiceClient->Send(mz::CreateAppEvent(fbb, mz::app::CreateBatchAppEventDirect(fbb, &events)));
 			}
+
 		});
 }
 

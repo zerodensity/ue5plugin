@@ -198,7 +198,7 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
 		{
-			FString SpawnTag((char*)properties.FindRef(actorPinId).data());
+			FString SpawnTag((char*)properties.FindChecked(actorPinId).data());
 			if(SpawnTag.IsEmpty())
 			{
 				return;
@@ -286,7 +286,7 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 				auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id); 
 				if(MZPropertyManager.PortalPinsById.Contains(PortalId))
 				{
-					auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
+					auto& Portal = MZPropertyManager.PortalPinsById.FindChecked(PortalId);
 					ShowAs = Portal.ShowAs;
 				}
 			}
@@ -360,21 +360,24 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Property with given id is not found."));
 	}
-	if(MZPropertyManager.PropertyToPortalPin.Contains(pinId))
+
+
+	if (MZPropertyManager.PropertiesById.Contains(pinId))
 	{
-		auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(pinId);
-		if(MZPropertyManager.PortalPinsById.Contains(PortalId))
+		auto& MzProperty = MZPropertyManager.PropertiesById.FindChecked(pinId);
+		MzProperty->PinShowAs = newShowAs;
+		if (MZPropertyManager.PropertyToPortalPin.Contains(pinId))
 		{
-			auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
-			if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+			auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(pinId);
+			if (MZPropertyManager.PortalPinsById.Contains(PortalId))
 			{
-				auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+				auto& Portal = MZPropertyManager.PortalPinsById.FindChecked(PortalId);
+				Portal.ShowAs = newShowAs;
 				MZClient->AppServiceClient->SendPinShowAsChange(reinterpret_cast<mz::fb::UUID&>(PortalId), newShowAs);
 				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
 			}
 		}
 	}
-		
 	if(MZPropertyManager.PortalPinsById.Contains(pinId))
 	{
 		auto Portal = MZPropertyManager.PortalPinsById.Find(pinId);
@@ -463,7 +466,7 @@ void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
 					auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id); 
 					if(MZPropertyManager.PortalPinsById.Contains(PortalId))
 					{
-						auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
+						auto& Portal = MZPropertyManager.PortalPinsById.FindChecked(PortalId);
 						ShowAs = Portal.ShowAs;
 					}
 				}
@@ -1077,7 +1080,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		auto root3 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf3.data());
 		MZClient->AppServiceClient->SendPartialNodeUpdate(*root3);
 	}
-	for (auto Portal : NewPortals)
+	for (auto& Portal : NewPortals)
 	{
 		if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
 		{
@@ -1865,8 +1868,7 @@ void FMZSceneTreeManager::SendActorDeleted(AActor* Actor, TSet<UObject*>& Remove
 			{
 				continue;
 			}
-			auto portal = MZPropertyManager.PortalPinsById.FindRef(portalId);
-			PortalsToRemove.Add(portal.Id);
+			PortalsToRemove.Add(portalId);
 		}
 		for (auto PropertyId : PropertiesWithPortals)
 		{
