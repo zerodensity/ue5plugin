@@ -1531,7 +1531,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId, TMap<MZPropertyIdentifier, 
 void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 {
 	LOGF("Sending node update to MediaZ with id %s", *nodeId.ToString());
-	if (!MZClient->IsConnected())
+	if (!MZClient->IsConnected() || !nodeId.IsValid())
 	{
 		return;
 	}

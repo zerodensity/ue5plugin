@@ -773,7 +773,7 @@ void UENodeStatusHandler::Update()
 
 void UENodeStatusHandler::SendStatus()
 {
-	if (!PluginClient || !PluginClient->IsConnected())
+	if (!PluginClient || !PluginClient->IsConnected() || !FMZClient::NodeId.IsValid())
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
 	mz::TPartialNodeUpdate UpdateRequest;
