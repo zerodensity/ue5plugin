@@ -38,7 +38,8 @@ void MemoryBarrier();
 struct ResourceInfo
 {
 	MZProperty* SrcMzp = 0;
-	ID3D12Resource* DstResource = 0;
+	UPROPERTY()
+	TObjectPtr<UTextureRenderTarget2D> DstResource = 0;
 	mz::fb::ShowAs ShowAs;
 };
 
@@ -82,12 +83,8 @@ public:
 	bool UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTexture& Texture);
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
-	void WaitCommands();
-	void ExecCommands(CmdStruct* cmdData, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void TextureDestroyed(MZProperty* texture);
-	void AllocateCommandLists();
-	CmdStruct* GetNewCommandList();
-	void SetupFences(mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
+	void SetupFences(FRHICommandListImmediate& RHICmdList, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
 	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();
@@ -102,10 +99,10 @@ public:
 
 	TMap<FGuid, MZProperty*> PendingCopyQueue;
 
-	TQueue<TPair<ID3D12Resource*, uint32_t>> ResourcesToDelete;
+	TQueue<TPair<TObjectPtr<UTextureRenderTarget2D>, uint32_t>> ResourcesToDelete;
 	
 	TMap<MZProperty*, ResourceInfo> CopyOnTick;
-
+	UPROPERTY()
 	TMap<MZProperty*, ResourceInfo> Copies;
 
 	uint64_t FrameCounter = 0;
