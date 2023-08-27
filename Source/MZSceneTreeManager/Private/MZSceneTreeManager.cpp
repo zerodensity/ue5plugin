@@ -1729,6 +1729,10 @@ void FMZSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> cons
 
 void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 {
+	if(!FMZClient::NodeId.IsValid())
+	{
+		return;
+	}
 	TSharedPtr<ActorNode> newNode = nullptr;
 	if (auto sceneParent = actor->GetSceneOutlinerParent())
 	{
