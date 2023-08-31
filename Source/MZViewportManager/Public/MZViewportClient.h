@@ -30,7 +30,13 @@ private:
 #endif
 
 protected:
-	virtual bool ShouldDisableWorldRendering() const { return true; }
+	enum MZViewportRenderingState
+	{
+		RENDERING_DISABLED_COMPLETELY,
+		WORLD_RENDERING_DISABLED,
+		RENDER_DEFAULT_VIEWPORT
+	};
+	virtual MZViewportRenderingState GetViewportRenderingState() const;
 
 public:
 	// it's not inside #ifdef VIEWPORT_TEXTURE, because of "UPROPERTY must not be inside preprocessor blocks" error

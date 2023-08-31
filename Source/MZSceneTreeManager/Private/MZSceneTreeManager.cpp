@@ -18,6 +18,12 @@
 #include "LevelSequence.h"
 #include "PacketHandler.h"
 
+static TAutoConsoleVariable<bool> CVarMediazLiveMode(
+	TEXT("mediaz.livemode"),
+	false,
+	TEXT("Disables viewport rendering and sending unnecessary events for live mode."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
@@ -713,6 +719,8 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 
 void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
 {
+	if(CVarMediazLiveMode.GetValueOnAnyThread())
+		return;
 	if (IsActorDisplayable(InActor))
 	{
 		LOGF("%s is spawned", *(InActor->GetFName().ToString()));
@@ -726,6 +734,8 @@ void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
 
 void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 {
+	if(CVarMediazLiveMode.GetValueOnAnyThread())
+		return;
 	LOGF("%s is destroyed.", *(InActor->GetFName().ToString()));
 	auto id = InActor->GetActorGuid();
 	TSet<UObject*> RemovedItems;
