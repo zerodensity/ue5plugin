@@ -2229,11 +2229,15 @@ void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	WorldName = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->GetMapName();
 	FMZSceneTreeManager::daWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	
 	HandleWorldChange();
+
+	OnPostWorldInit(FMZSceneTreeManager::daWorld, {});
 }
 
 void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 {
+	OnPreWorldFinishDestroy(daWorld);
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 	HandleWorldChange();
