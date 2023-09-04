@@ -2400,7 +2400,12 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 void FMZActorManager::ClearActors()
 {
 	LOG("Clearing all actors");
-	//
+
+	if(MZClient)
+	{
+		MZClient->ExecuteConsoleCommand(TEXT("mediaz.livemode 0"));
+	}
+	
 	// Remove/destroy actors from Editor and PIE worlds.
 	//
 	// Remove from current (Editor or PIE) world.
