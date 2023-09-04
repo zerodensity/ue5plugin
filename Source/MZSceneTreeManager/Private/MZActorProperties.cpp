@@ -257,7 +257,11 @@ void MZTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 	else if (ActorContainer) container = ActorContainer.Get();
 	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
-
+	if(!container)
+	{
+		return;
+	}
+	
 	SetProperty_InCont(container, val);
 
 	if (!customContainer && container)
