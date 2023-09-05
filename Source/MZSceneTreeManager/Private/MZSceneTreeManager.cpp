@@ -2232,15 +2232,22 @@ void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 	
 	HandleWorldChange();
 
-	OnPostWorldInit(FMZSceneTreeManager::daWorld, {});
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
+	FMZSceneTreeManager::daWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	FMZSceneTreeManager::daWorld->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 }
 
 void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 {
-	OnPreWorldFinishDestroy(daWorld);
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 	HandleWorldChange();
+
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
+	FMZSceneTreeManager::daWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	FMZSceneTreeManager::daWorld->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 }
 
 
