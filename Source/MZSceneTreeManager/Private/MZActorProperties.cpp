@@ -184,6 +184,12 @@ void MZProperty::SetPropValue_Internal(void* val, size_t size, uint8* customCont
 	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
+	if (!container)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
+		return; //TODO investigate why container is null
+	}
+	
 	SetProperty_InCont(container, val);
 	
 	if (!customContainer && container)
@@ -257,9 +263,10 @@ void MZTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 	else if (ActorContainer) container = ActorContainer.Get();
 	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
-	if(!container)
+	if (!container)
 	{
-		return;
+		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
+		return; //TODO investigate why container is null
 	}
 	
 	SetProperty_InCont(container, val);
@@ -689,11 +696,13 @@ void MZStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* cust
 	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
-	if (container)
+	if (!container)
 	{
-		FString newval((char*)val);
-		stringprop->SetPropertyValue_InContainer(container, newval);
+		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
+		return; //TODO investigate why container is null
 	}
+	FString newval((char*)val);
+	stringprop->SetPropertyValue_InContainer(container, newval);
 	if (!customContainer && container)
 	{
 		MarkState();
@@ -733,12 +742,14 @@ void MZNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* custom
 	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
 
-	if (container)
+	if (!container)
 	{
-		FString newval((char*)val);
-		nameprop->SetPropertyValue_InContainer(container, FName(newval));
+		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
+		return; //TODO investigate why container is null
 	}
-	if (!customContainer && container)
+	FString newval((char*)val);
+	nameprop->SetPropertyValue_InContainer(container, FName(newval));
+	if (!customContainer)
 	{
 		MarkState();
 	}
@@ -776,14 +787,16 @@ void MZTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* custom
 	else if (ActorContainer) container = ActorContainer.Get();
 	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
 	else if (StructPtr) container = StructPtr;
-
-	if (container)
+	
+	if (!container)
 	{
-		FString newval((char*)val);
-		textprop->SetPropertyValue_InContainer(container, FText::FromString(newval));
+		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
+		return; //TODO investigate why container is null
 	}
+	FString newval((char*)val);
+	textprop->SetPropertyValue_InContainer(container, FText::FromString(newval));
 
-	if (!customContainer && container)
+	if (!customContainer)
 	{
 		MarkState();
 	}
