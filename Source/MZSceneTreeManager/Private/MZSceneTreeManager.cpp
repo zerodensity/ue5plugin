@@ -2270,7 +2270,7 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid)
 	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
 	if(!bIsSpawningParentTransform)
 	{
-		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
+		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);	
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
@@ -2316,7 +2316,7 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	{
 		return nullptr;
 	}
-	UMGManager->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
+	UMGManager->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);	
 	UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName(umgTag)).ToString());
 
 //	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
@@ -2368,7 +2368,7 @@ AActor* FMZActorManager::SpawnActor(UClass* ClassToSpawn)
 	{
 		return nullptr;
 	}
-	SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepWorldTransform);	
+	SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);	
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
