@@ -2131,6 +2131,9 @@ void FMZSceneTreeManager::HandleWorldChange()
 				pPortal->SourceId = MzProperty->Id;
 			}
 			portal.SourceId = MzProperty->Id;
+			MzProperty->PinShowAs = portal.ShowAs;
+			MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), MzProperty->PinShowAs);
+			MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MzProperty->Id, MzProperty->PinShowAs);
 			MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, portal.Id);
 			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
 		}
