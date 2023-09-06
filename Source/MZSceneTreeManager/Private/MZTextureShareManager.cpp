@@ -468,13 +468,17 @@ bool MZTextureShareManager::SwitchStateToSynced()
 
 void MZTextureShareManager::SwitchStateToIdle_GRPCThread(u64 LastFrameNumber)
 {
-	if (InputFence && OutputFence)
+	ExecutionState = mz::app::ExecutionState::IDLE;
+	for(int i = 0; i < 2; i++)
 	{
-		InputFence->Signal(UINT64_MAX);
-		OutputFence->Signal(UINT64_MAX);
+		if (InputFence && OutputFence)
+		{
+			InputFence->Signal(UINT64_MAX);
+			OutputFence->Signal(UINT64_MAX);
+		}
+		FPlatformProcess::Sleep(0.2);
 	}
 	FrameCounter = 0;
-	ExecutionState = mz::app::ExecutionState::IDLE;
 }
 
 void MZTextureShareManager::SwitchStateToIdle()
