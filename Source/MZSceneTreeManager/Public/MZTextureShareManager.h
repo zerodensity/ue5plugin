@@ -111,6 +111,8 @@ public:
 	ID3D12Fence* InputFence = nullptr;
 	ID3D12Fence* OutputFence= nullptr;
 
+	mutable FCriticalSection CriticalSectionState;
+	
 	SyncSemaphoresExport SyncSemaphoresExportHandles;
 	
 	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;

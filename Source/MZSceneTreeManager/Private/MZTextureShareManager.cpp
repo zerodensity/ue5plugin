@@ -456,6 +456,7 @@ void MZTextureShareManager::OnEndFrame()
 
 bool MZTextureShareManager::SwitchStateToSynced()
 {
+	FScopeLock Lock(&CriticalSectionState);
 	RenewSemaphores();
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
 		[this](FRHICommandListImmediate& RHICmdList)
@@ -468,6 +469,7 @@ bool MZTextureShareManager::SwitchStateToSynced()
 
 void MZTextureShareManager::SwitchStateToIdle_GRPCThread(u64 LastFrameNumber)
 {
+	FScopeLock Lock(&CriticalSectionState);
 	ExecutionState = mz::app::ExecutionState::IDLE;
 	for(int i = 0; i < 2; i++)
 	{
