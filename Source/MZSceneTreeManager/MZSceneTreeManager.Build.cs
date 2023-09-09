@@ -32,6 +32,8 @@ public class MZSceneTreeManager : ModuleRules
 				PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 				PublicIncludePaths.Add(SDKIncludeDir);
 
+				PublicIncludePathModuleNames.Add("MZDataStructures");
+
 				PublicDependencyModuleNames.AddRange(
 					new string[]
 					{

@@ -8,7 +8,7 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 #include "AppEvents_generated.h"
-#include "MZDataStructures/Public/MZTrack.h"
+#include "MZTrack.h"
 #include "MZClient.h"
 
 class MZStructProperty;
