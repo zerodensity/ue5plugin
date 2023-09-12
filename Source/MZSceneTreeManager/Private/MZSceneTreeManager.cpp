@@ -2503,7 +2503,7 @@ void FMZActorManager::PreSave(UWorld* World, FObjectPreSaveContext Context)
 			continue;
 		}
 
-		actor->SetFlags(actor->GetFlags() | RF_Transient);
+		actor->SetFlags(RF_Transient);
 	}
 }
 
@@ -2516,8 +2516,7 @@ void FMZActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
 		{
 			continue;
 		}
-
-		actor->SetFlags(actor->GetFlags() & ~RF_Transient);
+		actor->ClearFlags(RF_Transient);
 	}
 }
 
