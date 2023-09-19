@@ -1010,12 +1010,6 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 		else if (structprop->Struct == TBaseStructure<FRotator>::Get())
 		{
 			prop = TSharedPtr<MZProperty>(new MZRotatorProperty(container, structprop, parentCategory, StructPtr, parentProperty));
-			FVector min(0, 0, 0);
-			FVector max(359.999, 359.999, 359.999);
-			prop->min_val = prop->data;
-			prop->max_val = prop->data;
-			memcpy(prop->min_val.data(), &min, sizeof(FVector));
-			memcpy(prop->max_val.data(), &max, sizeof(FVector));
 		}
 		else if (structprop->Struct == TBaseStructure<FVector4>::Get() || structprop->Struct == TBaseStructure<FQuat>::Get()) //vec4
 		{
