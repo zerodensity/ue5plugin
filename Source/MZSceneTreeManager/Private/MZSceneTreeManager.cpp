@@ -70,43 +70,6 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-struct SpawnActorFunctionPinIds
-{
-	FGuid ActorPinId = FGuid::NewGuid();
-	FGuid SpawnToWorldCoordsPinId = FGuid::NewGuid();
-	FGuid SpawnLocationPinId = FGuid::NewGuid();
-	FGuid SpawnRotationPinId = FGuid::NewGuid();
-	FGuid SpawnScalePinId = FGuid::NewGuid();
-};
-
-void FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
-	std::vector<flatbuffers::Offset<mz::fb::Pin>>& SpawnPins,
-	SpawnActorFunctionPinIds const& PinIds)
-{
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnToWorldCoordsPinId,
-	                                            TCHAR_TO_ANSI(TEXT("Spawn To World Coordinates")),
-	                                            TCHAR_TO_ANSI(TEXT("bool")), mz::fb::ShowAs::PROPERTY,
-	                                            mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-	                                            0, 0, 0, 0, mz::fb::PinContents::JobPin, 0, 0, false,
-	                                            mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
-	                                            "Set actor spawn transform with respect to the world transform. If set to false, it keeps the relative transform with respect to the parent actor."));
-
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnLocationPinId,
-												TCHAR_TO_ANSI(TEXT("Spawn Location")),
-												TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-												0, 0, 0, 0, mz::fb::PinContents::JobPin));
-	
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnRotationPinId,
-													TCHAR_TO_ANSI(TEXT("Spawn Rotation")),
-													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-													0, 0, 0, 0, mz::fb::PinContents::JobPin));
-	FVector3d SpawnScale = FVector3d(1, 1, 1);
-	std::vector<uint8_t> SpawnScaleData((uint8_t*)&SpawnScale, (uint8_t*)&SpawnScale + sizeof(FVector3d));
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnScalePinId,
-													TCHAR_TO_ANSI(TEXT("Spawn Scale")),
-													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &SpawnScaleData, 0, 0, 0, 0, 0, 0,
-													0, 0, 0, 0, mz::fb::PinContents::JobPin));
-}
 
 FMZSceneTreeManager::FMZSceneTreeManager()
 {
@@ -225,7 +188,7 @@ void FMZSceneTreeManager::StartupModule()
 	{
 		MZCustomFunction* mzcf = new MZCustomFunction;
 		mzcf->Id = FGuid::NewGuid();
-		SpawnActorFunctionPinIds PinIds;
+		MZSpawnActorFunctionPinIds PinIds;
 		mzcf->Params.Add(PinIds.ActorPinId, "Spawn Actor");
 		mzcf->Serialize = [funcid = mzcf->Id, PinIds](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
@@ -242,16 +205,11 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Function = [this, PinIds](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString SpawnTag((char*)properties.FindChecked(PinIds.ActorPinId).data());
-			bool SpawnToWorldCoords = *(bool*)properties.FindChecked(PinIds.SpawnToWorldCoordsPinId).data();
 			if(SpawnTag.IsEmpty())
 			{
 				return;
 			}
-			FTransform SpawnTransform = FTransform::Identity;
-			SpawnTransform.SetLocation(*(FVector*)properties.FindChecked(PinIds.SpawnLocationPinId).data());
-			SpawnTransform.SetRotation(FQuat::MakeFromEuler(*(FVector*)properties.FindChecked(PinIds.SpawnRotationPinId).data()));
-			SpawnTransform.SetScale3D(*(FVector*)properties.FindChecked(PinIds.SpawnScalePinId).data());
-			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag, {}, SpawnToWorldCoords, SpawnTransform);
+			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag, GetSpawnActorParameters(properties, PinIds));
 			LOGF("Actor with tag %s is spawned", *SpawnTag);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -941,7 +899,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		if (!sceneActorMap.Contains(oldGuid.Key))
 		{
 			///spawn
-			AActor* spawnedActor = MZActorManager->SpawnActor(spawnTag, oldGuid.Value);
+			AActor* spawnedActor = MZActorManager->SpawnActor(spawnTag, {.ForcedGuid = oldGuid.Value});
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -2309,7 +2267,7 @@ AActor* FMZActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid, bool SpawnToWorldCoords, FTransform SpawnTransform)
+AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Params)
 {
 	if (!MZAssetManager)
 	{
@@ -2321,12 +2279,12 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid, bool Spa
 	{
 		return nullptr;
 	}
-	SpawnedActor->SetActorTransform(SpawnTransform);
+	SpawnedActor->SetActorTransform(Params.SpawnTransform);
 	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
 	if(!bIsSpawningParentTransform)
 	{
 		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(),
-			!SpawnToWorldCoords ? FAttachmentTransformRules::KeepRelativeTransform : FAttachmentTransformRules::KeepWorldTransform);
+			!Params.SpawnActorToWorldCoords ? FAttachmentTransformRules::KeepRelativeTransform : FAttachmentTransformRules::KeepWorldTransform);
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
@@ -2334,10 +2292,10 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid, bool Spa
 	savedMetadata.Add({"spawnTag", SpawnTag});
 	savedMetadata.Add({"NodeColor", HEXCOLOR_Reality_Node});
 	savedMetadata.Add({"ActorGuid", SpawnedActor->GetActorGuid().ToString()});
-	SavedActorData savedData = {savedMetadata, ForcedGuid.IsValid() ? ForcedGuid : SpawnedActor->GetActorGuid()};
+	SavedActorData savedData = {savedMetadata, Params.ForcedGuid.IsValid() ? Params.ForcedGuid : SpawnedActor->GetActorGuid()};
 	Actors.Add({ MZActorReference(SpawnedActor), savedData});
 	TSharedPtr<TreeNode> mostRecentParent;
-	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent, ForcedGuid);
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent, Params.ForcedGuid);
 	ActorNode->mzMetaData.Add("spawnTag", SpawnTag);
 	ActorNode->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
 	ActorNode->mzMetaData.Add({"ActorGuid", SpawnedActor->GetActorGuid().ToString()});

@@ -32,3 +32,42 @@ void MZFunction::Invoke() // runs in game thread
 	Container->Modify();
 	Container->ProcessEvent(Function, Parameters);
 }
+
+void FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
+	std::vector<flatbuffers::Offset<mz::fb::Pin>>& SpawnPins,
+	MZSpawnActorFunctionPinIds const& PinIds)
+{
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnToWorldCoordsPinId,
+	                                            TCHAR_TO_ANSI(TEXT("Spawn To World Coordinates")),
+	                                            TCHAR_TO_ANSI(TEXT("bool")), mz::fb::ShowAs::PROPERTY,
+	                                            mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+	                                            0, 0, 0, 0, mz::fb::PinContents::JobPin, 0, 0, false,
+	                                            mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
+	                                            "Set actor spawn transform with respect to the world transform. If set to false, it keeps the relative transform with respect to the parent actor."));
+
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnLocationPinId,
+												TCHAR_TO_ANSI(TEXT("Spawn Location")),
+												TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+												0, 0, 0, 0, mz::fb::PinContents::JobPin));
+	
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnRotationPinId,
+													TCHAR_TO_ANSI(TEXT("Spawn Rotation")),
+													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+													0, 0, 0, 0, mz::fb::PinContents::JobPin));
+	FVector3d SpawnScale = FVector3d(1, 1, 1);
+	std::vector<uint8_t> SpawnScaleData((uint8_t*)&SpawnScale, (uint8_t*)&SpawnScale + sizeof(FVector3d));
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnScalePinId,
+													TCHAR_TO_ANSI(TEXT("Spawn Scale")),
+													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &SpawnScaleData, 0, 0, 0, 0, 0, 0,
+													0, 0, 0, 0, mz::fb::PinContents::JobPin));
+}
+
+MZSpawnActorParameters GetSpawnActorParameters(TMap<FGuid, std::vector<uint8>> const& Pins, MZSpawnActorFunctionPinIds const& PinIds)
+{
+	bool SpawnToWorldCoords = *(bool*)Pins.FindChecked(PinIds.SpawnToWorldCoordsPinId).data();
+	FTransform SpawnTransform = FTransform::Identity;
+	SpawnTransform.SetLocation(*(FVector*)Pins.FindChecked(PinIds.SpawnLocationPinId).data());
+	SpawnTransform.SetRotation(FQuat::MakeFromEuler(*(FVector*)Pins.FindChecked(PinIds.SpawnRotationPinId).data()));
+	SpawnTransform.SetScale3D(*(FVector*)Pins.FindChecked(PinIds.SpawnScalePinId).data());
+	return { {}, SpawnToWorldCoords, SpawnTransform };
+}
