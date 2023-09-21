@@ -70,6 +70,43 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
+struct SpawnActorFunctionPinIds
+{
+	FGuid ActorPinId = FGuid::NewGuid();
+	FGuid SpawnToWorldCoordsPinId = FGuid::NewGuid();
+	FGuid SpawnLocationPinId = FGuid::NewGuid();
+	FGuid SpawnRotationPinId = FGuid::NewGuid();
+	FGuid SpawnScalePinId = FGuid::NewGuid();
+};
+
+void FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
+	std::vector<flatbuffers::Offset<mz::fb::Pin>>& SpawnPins,
+	SpawnActorFunctionPinIds const& PinIds)
+{
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnToWorldCoordsPinId,
+	                                            TCHAR_TO_ANSI(TEXT("Spawn To World Coordinates")),
+	                                            TCHAR_TO_ANSI(TEXT("bool")), mz::fb::ShowAs::PROPERTY,
+	                                            mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+	                                            0, 0, 0, 0, mz::fb::PinContents::JobPin, 0, 0, false,
+	                                            mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
+	                                            "Set actor spawn transform with respect to the world transform. If set to false, it keeps the relative transform with respect to the parent actor."));
+
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnLocationPinId,
+												TCHAR_TO_ANSI(TEXT("Spawn Location")),
+												TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+												0, 0, 0, 0, mz::fb::PinContents::JobPin));
+	
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnRotationPinId,
+													TCHAR_TO_ANSI(TEXT("Spawn Rotation")),
+													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+													0, 0, 0, 0, mz::fb::PinContents::JobPin));
+	FVector3d SpawnScale = FVector3d(1, 1, 1);
+	std::vector<uint8_t> SpawnScaleData((uint8_t*)&SpawnScale, (uint8_t*)&SpawnScale + sizeof(FVector3d));
+	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnScalePinId,
+													TCHAR_TO_ANSI(TEXT("Spawn Scale")),
+													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &SpawnScaleData, 0, 0, 0, 0, 0, 0,
+													0, 0, 0, 0, mz::fb::PinContents::JobPin));
+}
 
 FMZSceneTreeManager::FMZSceneTreeManager()
 {
@@ -188,26 +225,33 @@ void FMZSceneTreeManager::StartupModule()
 	{
 		MZCustomFunction* mzcf = new MZCustomFunction;
 		mzcf->Id = FGuid::NewGuid();
-		FGuid actorPinId = FGuid::NewGuid();
-		mzcf->Params.Add(actorPinId, "Spawn Actor");
-		mzcf->Serialize = [funcid = mzcf->Id, actorPinId](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		SpawnActorFunctionPinIds PinIds;
+		mzcf->Params.Add(PinIds.ActorPinId, "Spawn Actor");
+		mzcf->Serialize = [funcid = mzcf->Id, PinIds](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
 			std::string empty = "None";
 			auto data = std::vector<uint8_t>(empty.begin(), empty.end());
 			data.push_back(0);
+			
 			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&actorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
+				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&PinIds.ActorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
 			};
+			FillSpawnActorFunctionTransformPins(fbb, spawnPins, PinIds);
 			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
 		};
-		mzcf->Function = [this, actorPinId](TMap<FGuid, std::vector<uint8>> properties)
+		mzcf->Function = [this, PinIds](TMap<FGuid, std::vector<uint8>> properties)
 		{
-			FString SpawnTag((char*)properties.FindChecked(actorPinId).data());
+			FString SpawnTag((char*)properties.FindChecked(PinIds.ActorPinId).data());
+			bool SpawnToWorldCoords = *(bool*)properties.FindChecked(PinIds.SpawnToWorldCoordsPinId).data();
 			if(SpawnTag.IsEmpty())
 			{
 				return;
 			}
-			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag);
+			FTransform SpawnTransform = FTransform::Identity;
+			SpawnTransform.SetLocation(*(FVector*)properties.FindChecked(PinIds.SpawnLocationPinId).data());
+			SpawnTransform.SetRotation(FQuat::MakeFromEuler(*(FVector*)properties.FindChecked(PinIds.SpawnRotationPinId).data()));
+			SpawnTransform.SetScale3D(*(FVector*)properties.FindChecked(PinIds.SpawnScalePinId).data());
+			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag, {}, SpawnToWorldCoords, SpawnTransform);
 			LOGF("Actor with tag %s is spawned", *SpawnTag);
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
@@ -2265,7 +2309,7 @@ AActor* FMZActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid)
+AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid, bool SpawnToWorldCoords, FTransform SpawnTransform)
 {
 	if (!MZAssetManager)
 	{
@@ -2277,10 +2321,12 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, FGuid ForcedGuid)
 	{
 		return nullptr;
 	}
+	SpawnedActor->SetActorTransform(SpawnTransform);
 	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
 	if(!bIsSpawningParentTransform)
 	{
-		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);	
+		SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(),
+			!SpawnToWorldCoords ? FAttachmentTransformRules::KeepRelativeTransform : FAttachmentTransformRules::KeepWorldTransform);
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
