@@ -18,12 +18,6 @@
 #include "LevelSequence.h"
 #include "PacketHandler.h"
 
-static TAutoConsoleVariable<bool> CVarMediazLiveMode(
-	TEXT("mediaz.livemode"),
-	false,
-	TEXT("Disables viewport rendering and sending unnecessary events for live mode."),
-	ECVF_Scalability | ECVF_RenderThreadSafe);
-
 DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
 #define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
 #define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
@@ -95,6 +89,17 @@ void FMZSceneTreeManager::AddCustomFunction(MZCustomFunction* CustomFunction)
 	SendEngineFunctionUpdate();
 }
 
+void FMZSceneTreeManager::AddToBeAddedActors()
+{
+	for (auto weakActorPtr : ActorsToBeAdded)
+	{
+		if (!weakActorPtr.IsValid())
+			continue;
+		SendActorAdded(weakActorPtr.Get());
+	}
+	ActorsToBeAdded.Empty();
+}
+
 void FMZSceneTreeManager::OnBeginFrame()
 {
 	if(ToggleExecutionStateToSynced)
@@ -113,7 +118,7 @@ void FMZSceneTreeManager::OnBeginFrame()
 
 void FMZSceneTreeManager::OnEndFrame()
 {
-	 MZPropertyManager.OnEndFrame();
+	MZPropertyManager.OnEndFrame();
 	MZTextureShareManager::GetInstance()->OnEndFrame();
 }
 
@@ -185,6 +190,29 @@ void FMZSceneTreeManager::StartupModule()
 #endif
 
 	//custom functions 
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		mzcf->Id = FGuid::NewGuid();
+		FGuid alwaysUpdateId = FGuid::NewGuid();
+		mzcf->Params.Add(alwaysUpdateId, "Always Update Scene Outliner");
+		mzcf->Serialize = [funcid = mzcf->Id, alwaysUpdateId, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+			{
+				std::vector<uint8_t> data;
+				data.push_back(AlwaysUpdateOnActorSpawns ? 1 : 0);
+				std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
+					mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&alwaysUpdateId, TCHAR_TO_ANSI(TEXT("Always Update Scene Outliner")), TCHAR_TO_ANSI(TEXT("bool")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
+					"Update scene outliner when an actor is spawned instead of waiting for refreshing.\nDecreases performance for dynamic scenes."),
+				};
+				return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Refresh Scene Outliner", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control"
+				, 0, false, nullptr, 0, "Add actors spawned since last refresh to the scene outliner.");
+			};
+		mzcf->Function = [this, alwaysUpdateId = alwaysUpdateId](TMap<FGuid, std::vector<uint8>> properties)
+			{
+				AddToBeAddedActors();
+				AlwaysUpdateOnActorSpawns = static_cast<bool>(properties[alwaysUpdateId][0]);
+			};
+		CustomFunctions.Add(mzcf->Id, mzcf);
+	}
 	{
 		MZCustomFunction* mzcf = new MZCustomFunction;
 		mzcf->Id = FGuid::NewGuid();
@@ -721,8 +749,6 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 
 void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
 {
-	if(CVarMediazLiveMode.GetValueOnAnyThread())
-		return;
 	if (IsActorDisplayable(InActor))
 	{
 		LOGF("%s is spawned", *(InActor->GetFName().ToString()));
@@ -730,24 +756,18 @@ void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
 		{
 			return;
 		}
-		SendActorAdded(InActor);
+		SendActorAddedOnUpdate(InActor);
 	}
 }
 
 void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 {
-	if(CVarMediazLiveMode.GetValueOnAnyThread())
-		return;
 	LOGF("%s is destroyed.", *(InActor->GetFName().ToString()));
-	auto id = InActor->GetActorGuid();
-	TSet<UObject*> RemovedItems;
-	RemovedItems.Add(InActor);
-	auto Components = InActor->GetComponents();
-	for (auto comp : Components)
-	{
-		RemovedItems.Add(comp);
-	}
-	SendActorDeleted(InActor, RemovedItems);
+	SendActorDeleted(InActor);
+	ActorsToBeAdded.RemoveAll([&](TWeakObjectPtr<AActor> const& actor)
+		{
+			return actor.Get() == actor;
+		});
 }
 
 void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
@@ -1744,12 +1764,23 @@ void FMZSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> cons
 	return;
 }
 
+void FMZSceneTreeManager::SendActorAddedOnUpdate(AActor* actor, FString spawnTag)
+{
+	if (AlwaysUpdateOnActorSpawns)
+	{
+		SendActorAdded(actor, spawnTag);
+		return;
+	}
+	ActorsToBeAdded.Add(TWeakObjectPtr<AActor>(actor));
+}
+
 void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 {
 	if(!FMZClient::NodeId.IsValid())
 	{
 		return;
 	}
+
 	TSharedPtr<ActorNode> newNode = nullptr;
 	if (auto sceneParent = actor->GetSceneOutlinerParent())
 	{
@@ -1856,13 +1887,14 @@ void FMZSceneTreeManager::CheckPins(TSet<UObject*>& RemovedObjects,
 void FMZSceneTreeManager::Reset()
 {
 	MZTextureShareManager::GetInstance()->Reset();
+	ActorsToBeAdded.Empty();
 	SceneTree.Clear();
 	Pins.Empty();
 	MZPropertyManager.Reset();
 	MZActorManager->ReAddActorsToSceneTree();
 }
 
-void FMZSceneTreeManager::SendActorDeleted(AActor* Actor, TSet<UObject*>& RemovedObjects)
+void FMZSceneTreeManager::SendActorDeleted(AActor* Actor)
 {
 	if (auto node = SceneTree.GetNode(Actor))
 	{
@@ -2417,7 +2449,7 @@ void FMZActorManager::ClearActors()
 
 	if(MZClient)
 	{
-		MZClient->ExecuteConsoleCommand(TEXT("mediaz.livemode 0"));
+		MZClient->ExecuteConsoleCommand(TEXT("mediaz.viewport.disableViewport 0"));
 	}
 	
 	// Remove/destroy actors from Editor and PIE worlds.
