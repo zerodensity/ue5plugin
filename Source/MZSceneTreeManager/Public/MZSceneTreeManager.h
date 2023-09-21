@@ -115,7 +115,7 @@ public:
 	};
 
 	AActor* GetParentTransformActor();
-	AActor* SpawnActor(FString SpawnTag, FGuid ForcedGuid = {}, bool SpawnToWorldCoords = false, FTransform SpawnTransform = FTransform::Identity);
+	AActor* SpawnActor(FString SpawnTag, MZSpawnActorParameters Params = {});
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget, FGuid ForcedGuid = {});
 	AActor* SpawnActor(UClass* ClassToSpawn);
 	void ClearActors();
