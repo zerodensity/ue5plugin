@@ -4,6 +4,13 @@
 #include "CanvasTypes.h"
 #include "UObject/ObjectPtr.h"
 
+static TAutoConsoleVariable<bool> CVarMediazDisableViewport = TAutoConsoleVariable<bool>(
+	TEXT("mediaz.viewport.disableViewport"),
+	false,
+	TEXT("Disables viewport rendering completely.\n")
+	TEXT("Also disables debug and console rendering."),
+	ECVF_Scalability | ECVF_RenderThreadSafe);
+
 #ifdef VIEWPORT_TEXTURE
 FSimpleMulticastDelegate UMZViewportClient::MZViewportDestroyedDelegate;
 
@@ -37,8 +44,7 @@ UMZViewportClient::~UMZViewportClient()
 }
 UMZViewportClient::MZViewportRenderingState UMZViewportClient::GetViewportRenderingState() const
 {
-	static const auto CVarMediazLiveMode = IConsoleManager::Get().FindConsoleVariable(TEXT("mediaz.liveMode")); 
-	return CVarMediazLiveMode->GetBool() ? MZViewportRenderingState::RENDERING_DISABLED_COMPLETELY : MZViewportRenderingState::WORLD_RENDERING_DISABLED;
+	return CVarMediazDisableViewport.GetValueOnGameThread() ? MZViewportRenderingState::RENDERING_DISABLED_COMPLETELY : MZViewportRenderingState::WORLD_RENDERING_DISABLED;
 }
 #ifdef VIEWPORT_TEXTURE
 void UMZViewportClient::OnViewportCreated()

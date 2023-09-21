@@ -260,11 +260,14 @@ public:
 	//Sends pin to add to a node
 	void SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop);
 
+	//Add to to-be-added actors list or send directly if always updating
+	void SendActorAddedOnUpdate(AActor* actor, FString spawnTag = FString());
+
 	//Adds the node to scene tree and sends it to mediaZ
 	void SendActorAdded(AActor* actor, FString spawnTag = FString());
 
 	//Deletes the node from scene tree and sends it to mediaZ
-	void SendActorDeleted(AActor* Actor, TSet<UObject*>& RemovedObjects);
+	void SendActorDeleted(AActor* Actor);
 	
 	void PopulateAllChildsOfActor(AActor* actor, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids = TMap<MZPropertyIdentifier, FGuid>());
 
@@ -296,6 +299,8 @@ public:
 
 	void AddCustomFunction(MZCustomFunction* CustomFunction);
 	
+	void AddToBeAddedActors();
+
 	//the world we interested in
 	static UWorld* daWorld;
 
@@ -344,5 +349,8 @@ public:
 	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
 
 	bool ToggleExecutionStateToSynced = false;
+
+	bool AlwaysUpdateOnActorSpawns = false;
+	TArray<TWeakObjectPtr<AActor>> ActorsToBeAdded;
 };
 
