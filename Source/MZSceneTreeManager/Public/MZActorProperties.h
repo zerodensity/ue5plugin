@@ -11,6 +11,23 @@
 #include "MZDataStructures/Public/MZTrack.h"
 #include "MZClient.h"
 
+namespace MzMetadataKeys
+{
+#define MZ_METADATA_KEY(key) const char* key = #key;
+		MZ_METADATA_KEY(DoNotAttachToRealityParent);
+		MZ_METADATA_KEY(spawnTag);
+		MZ_METADATA_KEY(ActorGuid);
+		MZ_METADATA_KEY(umgTag);
+		MZ_METADATA_KEY(PropertyPath);
+		MZ_METADATA_KEY(ContainerPath);
+		MZ_METADATA_KEY(component);
+		MZ_METADATA_KEY(actorId);
+		MZ_METADATA_KEY(EditConditionPropertyId);
+		MZ_METADATA_KEY(PinHidden);
+		MZ_METADATA_KEY(PinnedCategories);
+		MZ_METADATA_KEY(NodeColor);
+};
+
 class MZStructProperty;
 
 class MZSCENETREEMANAGER_API MZActorReference

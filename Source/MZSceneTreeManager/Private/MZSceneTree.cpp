@@ -154,7 +154,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
 TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(ActorNode* parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
-	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
+	newComponentNode->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
 	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
@@ -175,7 +175,7 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(ActorNode* parent,
 TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
-	newComponentNode->mzMetaData.Add("PinnedCategories", "Transform");
+	newComponentNode->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
 	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
 	newComponentNode->Id = FGuid::NewGuid();
 	newComponentNode->Name = sceneComponent->GetFName().ToString();

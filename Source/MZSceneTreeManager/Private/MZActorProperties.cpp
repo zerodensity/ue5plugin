@@ -85,7 +85,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		}
 		if(metaData.Contains(NAME_HiddenByDefault))
 		{
-			mzMetaDataMap.Add("PinHidden", " ");
+			mzMetaDataMap.Add(MzMetadataKeys::PinHidden, " ");
 		}
 
 		if(!metaData.Contains(NAME_MZCanShowAsInput) && metaData.Contains(NAME_MZCanShowAsOutput))
@@ -466,57 +466,57 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, CategoryName + "|" + DisplayName, StructInst, this);
 		if (mzprop)
 		{
-			if(mzprop->mzMetaDataMap.Contains("ContainerPath"))
+			if(mzprop->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
 			{
-				auto ContainerPath = mzprop->mzMetaDataMap.Find("ContainerPath");
+				auto ContainerPath = mzprop->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
 				ContainerPath->InsertAt(0, structprop->GetNameCPP() + FString("/") );
 			}
 			else
 			{
-				mzprop->mzMetaDataMap.Add("ContainerPath", structprop->GetNameCPP());	
+				mzprop->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, structprop->GetNameCPP());
 			}
 			
-			mzprop->mzMetaDataMap.Remove("component");
-			mzprop->mzMetaDataMap.Remove("actorId");
+			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::component);
+			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
 			if (auto component = Cast<USceneComponent>(container))
 			{
-				mzprop->mzMetaDataMap.Add("component", component->GetFName().ToString());
+				mzprop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 				if (auto actor = component->GetOwner())
 				{
-					mzprop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+					mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 			}
 			else if (auto actor = Cast<AActor>(container))
 			{
-				mzprop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+				mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 			}
 
 			childProperties.push_back(mzprop);
 			
 			for (auto it : mzprop->childProperties)
 			{
-				if(it->mzMetaDataMap.Contains("ContainerPath"))
+				if(it->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
 				{
-					auto ContainerPath = it->mzMetaDataMap.Find("ContainerPath");
+					auto ContainerPath = it->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
 					ContainerPath->InsertAt(0, structprop->GetNameCPP() + FString("/") );
 				}
 				else
 				{
-					it->mzMetaDataMap.Add("ContainerPath", structprop->GetNameCPP());	
+					it->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, structprop->GetNameCPP());
 				}
-				it->mzMetaDataMap.Remove("component");
-				it->mzMetaDataMap.Remove("actorId");
+				it->mzMetaDataMap.Remove(MzMetadataKeys::component);
+				it->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
 				if (auto component = Cast<USceneComponent>(container))
 				{
-					it->mzMetaDataMap.Add("component", component->GetFName().ToString());
+					it->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 					if (auto actor = component->GetOwner())
 					{
-						it->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+						it->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 					}
 				}
 				else if (auto actor = Cast<AActor>(container))
 				{
-					it->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+					it->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 				childProperties.push_back(it);
 			}
@@ -579,30 +579,30 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 			}
 			TSharedPtr<MZProperty> mzprop = MZPropertyFactory::CreateProperty(Widget, WProperty, parentCategory);
 
-			if(mzprop->mzMetaDataMap.Contains("ContainerPath"))
+			if(mzprop->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
 			{
-				auto propPath = mzprop->mzMetaDataMap.Find("ContainerPath");
+				auto propPath = mzprop->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
 				propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
 			}
 			else
 			{
-				mzprop->mzMetaDataMap.Add("ContainerPath", objectprop->GetFName().ToString());
+				mzprop->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, objectprop->GetFName().ToString());
 			}
 			
 			
-			mzprop->mzMetaDataMap.Remove("component");
-			mzprop->mzMetaDataMap.Remove("actorId");
+			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::component);
+			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
 			if (auto component = Cast<USceneComponent>(container))
 			{
-				mzprop->mzMetaDataMap.Add("component", component->GetFName().ToString());
+				mzprop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 				if (auto actor = component->GetOwner())
 				{
-					mzprop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+					mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 			}
 			else if (auto actor = Cast<AActor>(container))
 			{
-				mzprop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+				mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 			}
 
 			
@@ -617,29 +617,29 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 			for (auto It : mzprop->childProperties)
 			{
 				
-				if(It->mzMetaDataMap.Contains("ContainerPath"))
+				if(It->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
 				{
-					auto propPath = It->mzMetaDataMap.Find("ContainerPath");
+					auto propPath = It->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
 					propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
 				}
 				else
 				{
-					It->mzMetaDataMap.Add("ContainerPath", objectprop->GetFName().ToString());
+					It->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, objectprop->GetFName().ToString());
 				}
 				//RegisteredProperties.Add(it->Id, it);
-				It->mzMetaDataMap.Remove("component");
-				It->mzMetaDataMap.Remove("actorId");
+				It->mzMetaDataMap.Remove(MzMetadataKeys::component);
+				It->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
 				if (auto component = Cast<USceneComponent>(container))
 				{
-					It->mzMetaDataMap.Add("component", component->GetFName().ToString());
+					It->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 					if (auto actor = component->GetOwner())
 					{
-						It->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+						It->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 					}
 				}
 				else if (auto actor = Cast<AActor>(container))
 				{
-					It->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+					It->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 				childProperties.push_back(It);
 			}
@@ -1115,18 +1115,18 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 
 	//update metadata
 	// prop->mzMetaDataMap.Add("property", uproperty->GetFName().ToString());
-	prop->mzMetaDataMap.Add("PropertyPath", uproperty->GetPathName());
+	prop->mzMetaDataMap.Add(MzMetadataKeys::PropertyPath, uproperty->GetPathName());
 	if (auto component = Cast<USceneComponent>(container))
 	{
-		prop->mzMetaDataMap.Add("component", component->GetFName().ToString());
+		prop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 		if (auto actor = component->GetOwner())
 		{
-			prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+			prop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 		}
 	}
 	else if (auto actor = Cast<AActor>(container))
 	{
-		prop->mzMetaDataMap.Add("actorId", actor->GetActorGuid().ToString());
+		prop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 	}
 	
 	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
