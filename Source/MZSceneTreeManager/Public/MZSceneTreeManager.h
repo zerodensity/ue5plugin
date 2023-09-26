@@ -31,17 +31,17 @@ struct MZPropertyIdentifier
 	MZPropertyIdentifier() {}
 	MZPropertyIdentifier(TSharedPtr<MZProperty> MzProperty)
 	{
-		if(MzProperty->mzMetaDataMap.Contains("PropertyPath"))
+		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::PropertyPath))
 		{
-			PropertyPath = MzProperty->mzMetaDataMap.FindRef("PropertyPath");
+			PropertyPath = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
 		}
-		if(MzProperty->mzMetaDataMap.Contains("component"))
+		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::component))
 		{
-			ComponentName = MzProperty->mzMetaDataMap.FindRef("component");
+			ComponentName = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::component);
 		}
-		if(MzProperty->mzMetaDataMap.Contains("ContainerPath"))
+		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
 		{
-			ContainerPath = MzProperty->mzMetaDataMap.FindRef("ContainerPath");
+			ContainerPath = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::ContainerPath);
 		}
 	}
 	
@@ -117,7 +117,6 @@ public:
 	AActor* GetParentTransformActor();
 	AActor* SpawnActor(FString SpawnTag, MZSpawnActorParameters Params = {});
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget, FGuid ForcedGuid = {});
-	AActor* SpawnActor(UClass* ClassToSpawn);
 	void ClearActors();
 	
 	void ReAddActorsToSceneTree();
