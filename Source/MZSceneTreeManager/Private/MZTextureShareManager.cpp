@@ -483,16 +483,6 @@ void MZTextureShareManager::SwitchStateToIdle_GRPCThread(u64 LastFrameNumber)
 	FrameCounter = 0;
 }
 
-void MZTextureShareManager::SwitchStateToIdle()
-{
-	if (InputFence && OutputFence)
-	{
-		InputFence->Signal(UINT64_MAX);
-		OutputFence->Signal(UINT64_MAX);
-	}
-	FrameCounter = 0;
-}
-
 void MZTextureShareManager::Reset()
 {
 	Copies.Empty();
@@ -538,12 +528,14 @@ void MZTextureShareManager::RenewSemaphores()
 	{
 		::CloseHandle(SyncSemaphoresExportHandles.InputSemaphore);
 		InputFence->Release();
+		InputFence = nullptr;
 
 	}
 	if (OutputFence)
 	{
 		::CloseHandle(SyncSemaphoresExportHandles.OutputSemaphore);
 		OutputFence->Release();
+		OutputFence = nullptr;
 	}
 
 	FrameCounter = 0;

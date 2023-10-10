@@ -359,7 +359,7 @@ void FMZSceneTreeManager::OnMZConnectionClosed()
 	if(ExecutionState == mz::app::ExecutionState::SYNCED)
 	{
 		ExecutionState = mz::app::ExecutionState::IDLE;
-		MZTextureShareManager::GetInstance()->SwitchStateToIdle();
+		MZTextureShareManager::GetInstance()->SwitchStateToIdle_GRPCThread(0);
 	}
 }
 

@@ -90,7 +90,6 @@ public:
 	void OnEndFrame();
 	bool SwitchStateToSynced();
 	void SwitchStateToIdle_GRPCThread(u64 LastFrameNumber);
-	void SwitchStateToIdle();
 
 	class FMZClient* MZClient;
 	
