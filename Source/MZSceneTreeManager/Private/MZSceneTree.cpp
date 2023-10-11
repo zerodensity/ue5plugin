@@ -102,7 +102,8 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	ptr->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
 	ActorIdToNodeId.Add(actor->GetActorGuid(), newChild->Id);
-
+	newChild->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
+	
 	if (actor->GetRootComponent())
 	{
 		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
@@ -138,6 +139,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
 	parent->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
 	ActorIdToNodeId.Add(actor->GetActorGuid(), newChild->Id);
+	newChild->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
 	
 	if (actor->GetRootComponent())
 	{

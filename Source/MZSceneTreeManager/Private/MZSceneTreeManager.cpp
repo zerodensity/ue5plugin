@@ -332,9 +332,17 @@ void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
 void FMZSceneTreeManager::OnMZNodeSelected(mz::fb::UUID const& nodeId)
 {
 	FGuid id = *(FGuid*)&nodeId;
-	if (PopulateNode(id))
+	if(auto node = SceneTree.GetNode(id))
 	{
-		SendNodeUpdate(id);
+		if(auto actorNode = node->GetAsActorNode())
+		{
+			PopulateAllChildsOfActor(actorNode->actor.Get());
+		}
+		
+		else if (PopulateNode(id))
+		{
+			SendNodeUpdate(id);
+		}
 	}
 }
 
@@ -1501,6 +1509,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId, TMap<MZPropertyIdentifier, 
 				{
 					RootHandle->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
 				}
+				actorNode->mzMetaData.FindOrAdd("ViewPinsOf") = UEIdToMZIDString(RootHandle->Id); 
 				// Clear the loading child
 				RootHandle->Children.clear();
 				OutArray.Add(RootHandle);

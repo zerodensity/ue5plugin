@@ -8,6 +8,7 @@
 #include "EngineUtils.h"
 #include "Blueprint/UserWidget.h"
 #include "MZSceneTreeManager.h"
+#include "PropertyEditorModule.h"
 
 #define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMZSceneTreeManager, Error, TEXT("Property size mismatch with mediaZ"));return;}}
 
@@ -133,6 +134,25 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 	if (parentProperty)
 	{
 		DisplayName = parentProperty->DisplayName + "_" + DisplayName;
+	}
+
+	if(container)
+	{
+		static const FName PropertyEditor("PropertyEditor");
+		FPropertyEditorModule& PropertyModule = FModuleManager::GetModuleChecked<FPropertyEditorModule>(PropertyEditor);
+		TArray<TSharedPtr<FPropertySection>> Sections;
+		Sections = PropertyModule.FindSectionsForCategory(container->GetClass(), PropertyCategoryName);
+		for(auto section : Sections)
+		{
+			FString tag = section->GetDisplayName().ToString();
+			auto& tagMetadataEntry = mzMetaDataMap.FindOrAdd("Tags");
+			tagMetadataEntry += tag + ",";
+			// UE_LOG(LogTemp, Warning, TEXT("The property %s is in section %s"), *DisplayName, *section->GetDisplayName().ToString());
+		}
+		if(!Sections.IsEmpty())
+		{
+			mzMetaDataMap.FindOrAdd("Tags").LeftChopInline(1);
+		}
 	}
 
 }

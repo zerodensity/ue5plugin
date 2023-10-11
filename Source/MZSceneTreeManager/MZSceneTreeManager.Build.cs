@@ -58,6 +58,7 @@ public class MZSceneTreeManager : ModuleRules
 					"MZDataStructures",
 					"LevelSequence",
 					"PropertyPath",
+					"PropertyEditor",
 					}
 					);
 
@@ -87,6 +88,7 @@ public class MZSceneTreeManager : ModuleRules
 					"MZDataStructures",
 					"LevelSequence",
 					"PropertyPath",
+					"PropertyEditor",
 					}
 					);
 
