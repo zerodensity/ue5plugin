@@ -7,7 +7,11 @@ MZFunction::MZFunction(UObject* container, UFunction* function)
 {
 	Function = function;
 	Container = container;
-	Id = FGuid::NewGuid();
+	FString ContainerUniqueName;
+	if(container)
+		ContainerUniqueName = container->GetFName().ToString();
+	
+	Id = StringToFGuid(ContainerUniqueName + function->GetFName().ToString());
 
 	static const FName NAME_DisplayName("DisplayName");
 	static const FName NAME_Category("Category");
@@ -69,5 +73,5 @@ MZSpawnActorParameters GetSpawnActorParameters(TMap<FGuid, std::vector<uint8>> c
 	SpawnTransform.SetLocation(*(FVector*)Pins.FindChecked(PinIds.SpawnLocationPinId).data());
 	SpawnTransform.SetRotation(FQuat::MakeFromEuler(*(FVector*)Pins.FindChecked(PinIds.SpawnRotationPinId).data()));
 	SpawnTransform.SetScale3D(*(FVector*)Pins.FindChecked(PinIds.SpawnScalePinId).data());
-	return { {}, SpawnToWorldCoords, SpawnTransform };
+	return {SpawnToWorldCoords, SpawnTransform };
 }

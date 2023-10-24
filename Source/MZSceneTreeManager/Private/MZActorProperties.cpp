@@ -47,7 +47,6 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 	}
 
 	
-	Id = FGuid::NewGuid();
 	PropertyName = uproperty->GetFName().ToString();
 	if (container && container->IsA<UActorComponent>())
 	{
@@ -155,6 +154,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		}
 	}
 
+	Id = FGuid::NewGuid();
 }
 
 
@@ -1133,6 +1133,7 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 #endif
 
+	FString ActorUniqueName;
 	//update metadata
 	// prop->mzMetaDataMap.Add("property", uproperty->GetFName().ToString());
 	prop->mzMetaDataMap.Add(MzMetadataKeys::PropertyPath, uproperty->GetPathName());
@@ -1142,15 +1143,22 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 		if (auto actor = component->GetOwner())
 		{
 			prop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+			ActorUniqueName = actor->GetFName().ToString();
 		}
 	}
 	else if (auto actor = Cast<AActor>(container))
 	{
 		prop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+		ActorUniqueName = actor->GetFName().ToString();
 	}
 	
-	FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
+	// FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
 	//UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
+
+	FString PropertyPath = prop->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
+	FString ComponentPath = prop->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+	FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath;
+	prop->Id = StringToFGuid(IdStringKey);
 	return prop;
 }
 

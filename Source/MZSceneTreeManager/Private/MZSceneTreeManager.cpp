@@ -192,8 +192,11 @@ void FMZSceneTreeManager::StartupModule()
 	//custom functions 
 	{
 		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		FGuid alwaysUpdateId = FGuid::NewGuid();
+		FString UniqueFunctionName("Refresh Scene Outliner");
+		mzcf->Id = StringToFGuid(UniqueFunctionName);
+
+		FString AlwaysUpdatePinName("Always Update Scene Outliner");
+		FGuid alwaysUpdateId = StringToFGuid(UniqueFunctionName + AlwaysUpdatePinName);
 		mzcf->Params.Add(alwaysUpdateId, "Always Update Scene Outliner");
 		mzcf->Serialize = [funcid = mzcf->Id, alwaysUpdateId, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 			{
@@ -215,8 +218,9 @@ void FMZSceneTreeManager::StartupModule()
 	}
 	{
 		MZCustomFunction* mzcf = new MZCustomFunction;
-		mzcf->Id = FGuid::NewGuid();
-		MZSpawnActorFunctionPinIds PinIds;
+		FString UniqueFunctionName("Spawn Actor");
+		MZSpawnActorFunctionPinIds PinIds(UniqueFunctionName);
+		mzcf->Id = StringToFGuid(UniqueFunctionName);
 		mzcf->Params.Add(PinIds.ActorPinId, "Spawn Actor");
 		mzcf->Serialize = [funcid = mzcf->Id, PinIds](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 		{
@@ -939,7 +943,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		if (!sceneActorMap.Contains(oldGuid.Key))
 		{
 			///spawn
-			AActor* spawnedActor = MZActorManager->SpawnActor(spawnInfo.SpawnTag, {.ForcedGuid = oldGuid.Value, .SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent});
+			AActor* spawnedActor = MZActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent});
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -953,7 +957,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		{
 			////
 			UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgTag);
-			AActor* spawnedActor = MZActorManager->SpawnUMGRenderManager(umgTag, newWidget, oldGuid.Value);
+			AActor* spawnedActor = MZActorManager->SpawnUMGRenderManager(umgTag, newWidget);
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -1032,20 +1036,6 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	RescanScene(true);
 	SendNodeUpdate(FMZClient::NodeId, false);
 
-	TMap<FGuid, TMap<MZPropertyIdentifier, FGuid>> ForcedPropertyGuidsPerActor;
-	for(auto const& update : updates)
-	{
-		if(update.IsPortal) continue;
-		
-		auto& ActorProps = ForcedPropertyGuidsPerActor.FindOrAdd(update.actorId);
-		MZPropertyIdentifier MZPID;
-		MZPID.ComponentName = update.componentName;
-		MZPID.ContainerPath = update.ContainerPath;
-		MZPID.PropertyPath = update.PropertyPath;
-		ActorProps.Add(MZPID, update.pinId);
-	}
-	
-
 	PinUpdates.clear();
 	flatbuffers::FlatBufferBuilder fb2;
 	std::vector<MZPortal> NewPortals;
@@ -1059,8 +1049,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			if (sceneActorMap.Contains(ActorId))
 			{
 				Container = sceneActorMap.FindRef(ActorId);
-				auto ForcedPropertyGuids = ForcedPropertyGuidsPerActor.FindRef(ActorId);
-				PopulateAllChildsOfActor(Cast<AActor>(Container), ForcedPropertyGuids);
+				PopulateAllChildsOfActor(Cast<AActor>(Container));
 			}
 			else
 			{
@@ -1282,7 +1271,7 @@ FString UEIdToMZIDString(FGuid Guid)
 	return result;
 }
 
-bool FMZSceneTreeManager::PopulateNode(FGuid nodeId, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids)
+bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 {
 	auto treeNode = SceneTree.GetNode(nodeId);
 
@@ -1318,7 +1307,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId, TMap<MZPropertyIdentifier, 
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty, FString(""), ForcedPropertyGuids);
+			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty, FString(""));
 			if (!mzprop)
 			{
 				AProperty = AProperty->PropertyLinkNext;
@@ -1554,7 +1543,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId, TMap<MZPropertyIdentifier, 
 				continue;
 			}
 
-			auto mzprop = MZPropertyManager.CreateProperty(Component.Get(), Property, FString(""), ForcedPropertyGuids);
+			auto mzprop = MZPropertyManager.CreateProperty(Component.Get(), Property, FString(""));
 			if (mzprop)
 			{
 				//RegisteredProperties.Add(mzprop->Id, mzprop);
@@ -2006,16 +1995,16 @@ void FMZSceneTreeManager::SendActorDeleted(AActor* Actor)
 	}
 }
 
-void FMZSceneTreeManager::PopulateAllChildsOfActor(AActor* actor, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids)
+void FMZSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
 {
 	LOGF("Populating all childs of %s", *actor->GetFName().ToString());
 	FGuid ActorId = actor->GetActorGuid();
-	PopulateAllChildsOfActor(ActorId, ForcedPropertyGuids);
+	PopulateAllChildsOfActor(ActorId);
 }
-void FMZSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids)
+void FMZSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId)
 {
 	LOGF("Populating all childs of actor with id %s", *ActorId.ToString());
-	if (PopulateNode(SceneTree.GetNodeIdActorId(ActorId),ForcedPropertyGuids))
+	if (PopulateNode(SceneTree.GetNodeIdActorId(ActorId)))
 	{
 		SendNodeUpdate(SceneTree.GetNodeIdActorId(ActorId));
 	}
@@ -2026,25 +2015,25 @@ void FMZSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId, TMap<MZPropert
 		{
 			if (ChildNode->GetAsActorNode())
 			{
-				PopulateAllChildsOfActor(ChildNode->GetAsActorNode()->actor.Get(), ForcedPropertyGuids);
+				PopulateAllChildsOfActor(ChildNode->GetAsActorNode()->actor.Get());
 			}
 			else if (ChildNode->GetAsSceneComponentNode())
 			{
-				PopulateAllChildsOfSceneComponentNode(ChildNode->GetAsSceneComponentNode(), ForcedPropertyGuids);
+				PopulateAllChildsOfSceneComponentNode(ChildNode->GetAsSceneComponentNode());
 			}
 		}
 
 	}
 }
 
-void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids)
+void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode)
 {
 	if (!SceneComponentNode)
 	{
 		return;
 	}
 
-	if (PopulateNode(SceneComponentNode->Id, ForcedPropertyGuids))
+	if (PopulateNode(SceneComponentNode->Id))
 	{
 		SendNodeUpdate(SceneComponentNode->Id);
 	}
@@ -2348,10 +2337,10 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Par
 	savedMetadata.Add({ MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
 	savedMetadata.Add({ MzMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
 	savedMetadata.Add(MzMetadataKeys::DoNotAttachToRealityParent, FString(Params.SpawnActorToWorldCoords ? "true" : "false"));
-	SavedActorData savedData = {savedMetadata, Params.ForcedGuid.IsValid() ? Params.ForcedGuid : SpawnedActor->GetActorGuid()};
+	SavedActorData savedData = {savedMetadata};
 	Actors.Add({ MZActorReference(SpawnedActor), savedData});
 	TSharedPtr<TreeNode> mostRecentParent;
-	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent, Params.ForcedGuid);
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
 	ActorNode->mzMetaData.Add(MzMetadataKeys::spawnTag, SpawnTag);
 	ActorNode->mzMetaData.Add(MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
 	ActorNode->mzMetaData.Add({ MzMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
@@ -2373,7 +2362,7 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Par
 	return SpawnedActor;
 }
 
-AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget, FGuid ForcedGuid)
+AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)
 {
 
 	if (!MZAssetManager)
@@ -2400,10 +2389,10 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	savedMetadata.Add({ MzMetadataKeys::umgTag, umgTag});
 	savedMetadata.Add({ MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
 	savedMetadata.Add({ MzMetadataKeys::ActorGuid, UMGManager->GetActorGuid().ToString()});
-	SavedActorData savedData = {savedMetadata, ForcedGuid.IsValid() ? ForcedGuid : UMGManager->GetActorGuid()};
+	SavedActorData savedData = {savedMetadata};
 	Actors.Add({ MZActorReference(UMGManager), savedData});
 	TSharedPtr<TreeNode> mostRecentParent;
-	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), UMGManager, mostRecentParent, ForcedGuid);
+	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), UMGManager, mostRecentParent);
 	ActorNode->mzMetaData.Add(MzMetadataKeys::umgTag, umgTag);
 	ActorNode->mzMetaData.Add(MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
 	ActorNode->mzMetaData.Add({ MzMetadataKeys::ActorGuid, UMGManager->GetActorGuid().ToString()});
@@ -2488,7 +2477,7 @@ void FMZActorManager::ReAddActorsToSceneTree()
 				continue;
 			}
 
-			auto ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), actor, SavedData.ForcedGuid);
+			auto ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), actor);
 			for(auto [key, value] : SavedData.Metadata)
 			{
 				ActorNode->mzMetaData.Add(key, value);
@@ -2558,7 +2547,7 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 	MZTextureShareManager::GetInstance()->UpdatePinShowAs(MZProperty.Get(), ShowAs);
 	MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MZProperty->Id, ShowAs);
 	
-	MZPortal NewPortal{FGuid::NewGuid() ,PropertyId};
+	MZPortal NewPortal{StringToFGuid(MZProperty->Id.ToString()) ,PropertyId};
 	NewPortal.DisplayName = FString("");
 	UObject* parent = MZProperty->GetRawObjectContainer();
 	FString parentName = "";
@@ -2609,20 +2598,13 @@ void FMZPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container, 
 	}
 }
 
-TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids)
+TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
 {
 	TSharedPtr<MZProperty> MzProperty = MZPropertyFactory::CreateProperty(container, uproperty, parentCategory);
 	if (!MzProperty)
 	{
 		return nullptr;
 	}
-	MZPropertyIdentifier MZPID(MzProperty);
-	if(ForcedPropertyGuids.Contains(MZPID))
-	{
-		auto ForcedID = ForcedPropertyGuids.FindRef(MZPID);
-		MzProperty->Id = ForcedID;
-	}
-
 	PropertiesById.Add(MzProperty->Id, MzProperty);
 	PropertiesByPropertyAndContainer.Add({MzProperty->Property, container}, MzProperty);
 
@@ -2637,13 +2619,6 @@ TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FP
 
 	for (auto Child : MzProperty->childProperties)
 	{
-		
-		MZPropertyIdentifier MZPIDC(Child);
-		if(ForcedPropertyGuids.Contains(MZPIDC))
-		{
-			auto ForcedID = ForcedPropertyGuids.FindRef(MZPIDC);
-			Child->Id = ForcedID;
-		}
 		PropertiesById.Add(Child->Id, Child);
 		PropertiesByPropertyAndContainer.Add({Child->Property, Child->GetRawContainer()}, Child);
 		

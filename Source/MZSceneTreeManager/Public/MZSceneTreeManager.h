@@ -26,45 +26,6 @@ struct MZPortal
 	mz::fb::ShowAs ShowAs;
 };
 
-struct MZPropertyIdentifier
-{
-	MZPropertyIdentifier() {}
-	MZPropertyIdentifier(TSharedPtr<MZProperty> MzProperty)
-	{
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::PropertyPath))
-		{
-			PropertyPath = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
-		}
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::component))
-		{
-			ComponentName = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::component);
-		}
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
-		{
-			ContainerPath = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::ContainerPath);
-		}
-	}
-	
-	FString PropertyPath;
-	FString ComponentName;
-	FString ContainerPath;
-	
-	bool operator==(const MZPropertyIdentifier& b) const
-	{
-		return PropertyPath.Equals(b.PropertyPath)
-		    && ComponentName.Equals(b.ComponentName)
-		    && ContainerPath.Equals(b.ContainerPath);
-	}
-	
-	friend uint32 GetTypeHash(const MZPropertyIdentifier& Key)
-	{
-		uint32 Hash = 0;
-		Hash = HashCombine(Hash, GetTypeHash(Key.PropertyPath));
-		Hash = HashCombine(Hash, GetTypeHash(Key.ComponentName));
-		Hash = HashCombine(Hash, GetTypeHash(Key.ContainerPath));
-		return Hash;
-	}
-};
 //This class holds the list of all properties and pins 
 class MZSCENETREEMANAGER_API FMZPropertyManager
 {
@@ -73,8 +34,7 @@ public:
 
 	TSharedPtr<MZProperty> CreateProperty(UObject* container,
 		FProperty* uproperty,
-		FString parentCategory = FString(""),
-		TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids = TMap<MZPropertyIdentifier, FGuid>());
+		FString parentCategory = FString(""));
 
 	void SetPropertyValue();
 	bool CheckPinShowAs(mz::fb::CanShowAs CanShowAs, mz::fb::ShowAs ShowAs);
@@ -101,7 +61,6 @@ public:
 struct SavedActorData
 {
 	TMap<FString, FString> Metadata;
-	FGuid ForcedGuid = {};
 };
 
 class MZSCENETREEMANAGER_API FMZActorManager
@@ -116,7 +75,7 @@ public:
 
 	AActor* GetParentTransformActor();
 	AActor* SpawnActor(FString SpawnTag, MZSpawnActorParameters Params = {});
-	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget, FGuid ForcedGuid = {});
+	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	void ClearActors();
 	
 	void ReAddActorsToSceneTree();
@@ -201,9 +160,9 @@ public:
 	//END OF MediaZ DELEGATES
 	 
 
-	void PopulateAllChildsOfActor(FGuid ActorId, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids = TMap<MZPropertyIdentifier, FGuid>());
+	void PopulateAllChildsOfActor(FGuid ActorId);
 	
-	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids = TMap<MZPropertyIdentifier, FGuid>());
+	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
 
 	void SendSyncSemaphores(bool RenewSemaphores);
 	
@@ -241,7 +200,7 @@ public:
 	void RescanScene(bool reset = true);
 
 	//Populates node with child actors/components, functions and properties
-	bool PopulateNode(FGuid id, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids = TMap<MZPropertyIdentifier, FGuid>());
+	bool PopulateNode(FGuid id);
 
 	//Sends node updates to the MediaZ
 	void SendNodeUpdate(FGuid NodeId, bool bResetRootPins = true);
@@ -268,7 +227,7 @@ public:
 	//Deletes the node from scene tree and sends it to mediaZ
 	void SendActorDeleted(AActor* Actor);
 	
-	void PopulateAllChildsOfActor(AActor* actor, TMap<MZPropertyIdentifier, FGuid> ForcedPropertyGuids = TMap<MZPropertyIdentifier, FGuid>());
+	void PopulateAllChildsOfActor(AActor* actor);
 
 	//Called when pie is started
 	void HandleBeginPIE(bool bIsSimulating);

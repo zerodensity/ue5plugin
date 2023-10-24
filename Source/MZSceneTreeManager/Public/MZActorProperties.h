@@ -13,7 +13,7 @@
 
 namespace MzMetadataKeys
 {
-#define MZ_METADATA_KEY(key) const char* key = #key;
+#define MZ_METADATA_KEY(key) inline const char* key = #key;
 		MZ_METADATA_KEY(DoNotAttachToRealityParent);
 		MZ_METADATA_KEY(spawnTag);
 		MZ_METADATA_KEY(ActorGuid);
@@ -27,6 +27,21 @@ namespace MzMetadataKeys
 		MZ_METADATA_KEY(PinnedCategories);
 		MZ_METADATA_KEY(NodeColor);
 };
+
+inline FGuid StringToFGuid(FString string)
+{
+	string = FMZClient::AppKey + string;
+	FString HexHash = FMD5::HashAnsiString(*string);
+	TArray<uint8> BinKey;
+	BinKey.AddUninitialized(HexHash.Len() / 2);
+	HexToBytes(HexHash, BinKey.GetData());
+	FGuid id;
+	id.A = *(uint32*)(BinKey.GetData());
+	id.B = *(uint32*)(BinKey.GetData() + 4);
+	id.C = *(uint32*)(BinKey.GetData() + 8);
+	id.D = *(uint32*)(BinKey.GetData() + 12);
+	return id;
+}
 
 class MZStructProperty;
 

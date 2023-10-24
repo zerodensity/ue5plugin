@@ -139,7 +139,6 @@ DECLARE_EVENT_OneParam(FMZClient, FMZStateChanged_GRPCThread, mz::app::Execution
 DECLARE_EVENT(FMZClient, FMZConnectionClosed);
 // DECLARE_EVENT_OneParam(FMZClient, FMZConsoleCommandExecuted, FString);
 
-
 /**
  * Implements communication with the MediaZ Engine
  */

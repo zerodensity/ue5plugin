@@ -68,13 +68,13 @@ void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 	}
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, FGuid ForcedGuid)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
 {
 	TSharedPtr<TreeNode> mostRecentParent;
-	return AddActor(folderPath, actor, mostRecentParent, ForcedGuid);
+	return AddActor(folderPath, actor, mostRecentParent);
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent, FGuid ForcedGuid)
+TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent)
 {
 	if (!actor)
 	{
@@ -96,7 +96,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	newChild->Parent = ptr.Get();
 	//todo fix display names newChild->Name = actor->GetActorLabel();
 	newChild->Name = actor->GetFName().ToString();
-	newChild->Id = ForcedGuid.IsValid() ? ForcedGuid : actor->GetActorGuid();
+	newChild->Id = StringToFGuid(actor->GetFName().ToString());
 	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
@@ -133,7 +133,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
 	TSharedPtr<ActorNode> newChild(new ActorNode);
 	newChild->Parent = parent;
 	newChild->Name = actor->GetActorLabel();
-	newChild->Id =  actor->GetActorGuid();
+	newChild->Id = StringToFGuid(actor->GetFName().ToString());
 	newChild->actor = MZActorReference(actor);
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
@@ -158,7 +158,9 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(ActorNode* parent,
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
 	newComponentNode->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
 	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
-	newComponentNode->Id = FGuid::NewGuid();
+	FString ActorUniqueName = parent->actor->GetFName().ToString();
+	FString ComponentName = sceneComponent->GetFName().ToString();
+	newComponentNode->Id = StringToFGuid(ActorUniqueName + ComponentName);
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
 	newComponentNode->Parent = parent;
 	newComponentNode->NeedsReload = true;
@@ -179,7 +181,13 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneCo
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
 	newComponentNode->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
 	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
-	newComponentNode->Id = FGuid::NewGuid();
+	FString ActorUniqueName;
+	if(auto actor = sceneComponent->GetAttachParentActor())
+	{
+		ActorUniqueName = actor->GetFName().ToString();
+	}
+	FString ComponentName = sceneComponent->GetFName().ToString();
+	newComponentNode->Id = StringToFGuid(ActorUniqueName + ComponentName);
 	newComponentNode->Name = sceneComponent->GetFName().ToString();
 	newComponentNode->Parent = parent.Get();
 	newComponentNode->NeedsReload = true;

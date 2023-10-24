@@ -82,8 +82,8 @@ public:
 	TMap<FGuid, TSet<AActor*>> ChildMap;
 
 	TSharedPtr<FolderNode> FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name, TSharedPtr<TreeNode>& mostRecentParent);
-	TSharedPtr<ActorNode> AddActor(FString folderPath, AActor* actor, FGuid ForcedGuid = {});
-	TSharedPtr<ActorNode> AddActor(::FString folderPath, ::AActor* actor, TSharedPtr<TreeNode>& mostRecentParent, FGuid ForcedGuid = {});
+	TSharedPtr<ActorNode> AddActor(FString folderPath, AActor* actor);
+	TSharedPtr<ActorNode> AddActor(::FString folderPath, ::AActor* actor, TSharedPtr<TreeNode>& mostRecentParent);
 	TSharedPtr<ActorNode> AddActor(TreeNode* parent, AActor* actor);
 	TSharedPtr<SceneComponentNode> AddSceneComponent(ActorNode* parent, USceneComponent* sceneComponent);
 	TSharedPtr<SceneComponentNode> AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent);

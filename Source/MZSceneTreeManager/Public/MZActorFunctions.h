@@ -34,16 +34,25 @@ struct MZSCENETREEMANAGER_API MZCustomFunction
 
 struct MZSCENETREEMANAGER_API MZSpawnActorFunctionPinIds
 {
-	FGuid ActorPinId = FGuid::NewGuid();
-	FGuid SpawnToWorldCoordsPinId = FGuid::NewGuid();
-	FGuid SpawnLocationPinId = FGuid::NewGuid();
-	FGuid SpawnRotationPinId = FGuid::NewGuid();
-	FGuid SpawnScalePinId = FGuid::NewGuid();
+	MZSpawnActorFunctionPinIds(FString UniqueFunctionName) : FunctionName(UniqueFunctionName)
+	{
+		ActorPinId = StringToFGuid(FunctionName + "Actor List");
+		SpawnToWorldCoordsPinId = StringToFGuid(FunctionName + "Spawn To World Coordinates");
+		SpawnLocationPinId = StringToFGuid(FunctionName + "Spawn Location");
+		SpawnRotationPinId = StringToFGuid(FunctionName + "Spawn Rotation");
+		SpawnScalePinId = StringToFGuid(FunctionName + "Spawn Scale");
+	}
+	
+	FString FunctionName;
+	FGuid ActorPinId;
+	FGuid SpawnToWorldCoordsPinId;
+	FGuid SpawnLocationPinId;
+	FGuid SpawnRotationPinId;
+	FGuid SpawnScalePinId;
 };
 
 struct MZSCENETREEMANAGER_API MZSpawnActorParameters
 {
-	FGuid ForcedGuid = {};
 	bool SpawnActorToWorldCoords = false;
 	FTransform SpawnTransform = FTransform::Identity;
 };
