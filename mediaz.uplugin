@@ -44,6 +44,14 @@
 			]
 		},
 		{
+			"Name": "MZLicenseManager",
+			"Type": "UncookedOnly",
+			"LoadingPhase": "PostEngineInit",
+			"PlatformAllowList": [
+				"Win64"
+			]
+		},
+		{
 			"Name": "MZViewportManager",
 			"Type": "UncookedOnly",
 			"LoadingPhase": "Default",
