@@ -26,10 +26,9 @@ void UMZViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 	auto state = GetViewportRenderingState();
 	if(state == MZViewportRenderingState::RENDERING_DISABLED_COMPLETELY)
 		return;
-	if (GetWorld()->WorldType == EWorldType::Game)
-	{
-		bDisableWorldRendering = state != MZViewportRenderingState::RENDER_DEFAULT_VIEWPORT;
-	}
+
+	bDisableWorldRendering = state != MZViewportRenderingState::RENDER_DEFAULT_VIEWPORT;
+
 #ifdef VIEWPORT_TEXTURE
 	SceneCanvas->DrawTile(0, 0, ViewportTexture->SizeX, ViewportTexture->SizeY, 0, 0, 1, 1, FLinearColor::White, ViewportTexture->GetResource(), ESimpleElementBlendMode::SE_BLEND_Additive);
 #endif
