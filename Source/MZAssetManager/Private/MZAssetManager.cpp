@@ -236,8 +236,9 @@ void FMZAssetManager::SetupCustomSpawns()
 		{
 			FActorSpawnParameters sp;
 			sp.bHideFromSceneOutliner = true;
+			sp.Name = "Reality Parent Transform Actor";
+			sp.NameMode = FActorSpawnParameters::ESpawnActorNameMode::Requested;
 			AActor* SpawnedActor = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->SpawnActor(AActor::StaticClass(), 0, sp);
-			SpawnedActor->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName("Reality Parent Transform Actor")).ToString());
 			SpawnedActor->SetActorLabel("Reality Parent Transform Actor");
 			auto RootComponent = NewObject<USceneComponent>(SpawnedActor, FName("DefaultSceneRoot"));
 			SpawnedActor->SetRootComponent(RootComponent);
