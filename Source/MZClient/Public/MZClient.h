@@ -131,7 +131,6 @@ DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAct
 DECLARE_EVENT(FMZClient, FMZNodeRemoved);
 DECLARE_EVENT_FourParams(FMZClient, FMZPinValueChanged, mz::fb::UUID const&, uint8_t const*, size_t, bool);
 DECLARE_EVENT_TwoParams(FMZClient, FMZPinShowAsChanged, mz::fb::UUID const&, mz::fb::ShowAs);
-DECLARE_EVENT_OneParam(FMZClient, FMZExecutedApp, mz::app::AppExecute const&);
 DECLARE_EVENT_TwoParams(FMZClient, FMZFunctionCalled, mz::fb::UUID const&, mz::fb::Node const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeSelected, mz::fb::UUID const&);
 DECLARE_EVENT_OneParam(FMZClient, FMZNodeImported, mz::fb::Node const&);
@@ -156,7 +155,7 @@ public:
 	virtual void OnNodeRemoved() override;
 	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset) override;
 	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
-	virtual void OnExecuteApp(mz::app::AppExecute const& appExecute) override; 
+	virtual void OnExecuteAppInfo(mz::app::AppExecuteInfo const* appExecuteInfo) override; 
 	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;
 	virtual void OnNodeSelected(mz::fb::UUID const& nodeId) override;
 	virtual void OnNodeImported(mz::fb::Node const& appNode) override;
@@ -246,7 +245,7 @@ public:
 	void OnPreWorldFinishDestroy(UWorld* World);
 
 	//Called when the node is executed from mediaZ
-	void OnUpdatedNodeExecuted(float deltaTime);
+	void OnUpdatedNodeExecuted(mz::fb::vec2u deltaSeconds);
 
 	bool ExecuteConsoleCommand(const TCHAR* Input);
 
@@ -280,7 +279,6 @@ public:
 	FMZNodeRemoved OnMZNodeRemoved;
 	FMZPinValueChanged OnMZPinValueChanged;
 	FMZPinShowAsChanged OnMZPinShowAsChanged;
-	FMZExecutedApp OnMZExecutedApp;
 	FMZFunctionCalled OnMZFunctionCalled;
 	FMZNodeSelected OnMZNodeSelected;
 	FMZNodeImported OnMZNodeImported;

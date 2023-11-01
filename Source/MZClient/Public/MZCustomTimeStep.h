@@ -35,12 +35,12 @@ public:
 
 	}
 
-	void Step(float deltaTime)
+	void Step(mz::fb::vec2u deltaSeconds)
 	{
 		std::unique_lock lock(Mutex);
-		if(deltaTime > 0.0001)
+		if(deltaSeconds.x() != 0)
 		{
-			CustomDeltaTime = deltaTime;
+			CustomDeltaTime = deltaSeconds.x() / (double)deltaSeconds.y();
 		}
 		IsReadyForNextStep = true;
 		lock.unlock();

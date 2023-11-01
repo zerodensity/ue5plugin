@@ -145,9 +145,6 @@ public:
 	//called when a function is called from mediaz
 	void OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb::Node const& function);
 
-	//called when the app(unreal engine) is executed from mediaz
-	void OnMZExecutedApp(mz::app::AppExecute const& appExecute);
-
 	//called when a context menu is requested on some node on mediaz
 	void OnMZContextMenuRequested(mz::ContextMenuRequest const& request);
 

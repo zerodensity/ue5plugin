@@ -290,7 +290,7 @@ void MZEventDelegates::OnNodeRemoved()
 
 	if (PluginClient->MZTimeStep.IsValid())
 	{
-		PluginClient->MZTimeStep->Step(1.f / 50.f);
+		PluginClient->MZTimeStep->Step({ 1 , 50 });
 	}
 
 	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
@@ -358,25 +358,14 @@ void MZEventDelegates::OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node c
 		});
 }
 
-void MZEventDelegates::OnExecuteApp(mz::app::AppExecute const& appExecute)
+void MZEventDelegates::OnExecuteAppInfo(mz::app::AppExecuteInfo const* appExecuteInfo)
 {
 	if (!PluginClient)
 	{
 		return;
 	}
 	
-	PluginClient->OnUpdatedNodeExecuted(appExecute.delta_seconds());
-
-	mz::app::TAppExecute appExecuteCopy;
-	appExecute.UnPackTo(&appExecuteCopy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, appExecuteCopy]()
-		{
-			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::app::CreateAppExecute(fbb, &appExecuteCopy);
-			fbb.Finish(offset);
-			auto buf = fbb.Release();
-			MZClient->OnMZExecutedApp.Broadcast(*flatbuffers::GetRoot<mz::app::AppExecute>(buf.data()));
-		});
+	PluginClient->OnUpdatedNodeExecuted(*appExecuteInfo->delta_seconds());
 }
 
 void MZEventDelegates::OnNodeSelected(mz::fb::UUID const& nodeId)
@@ -492,7 +481,7 @@ void FMZClient::Disconnected()
 {
 	if (MZTimeStep.IsValid())
 	{
-		MZTimeStep->Step(1.f / 50.f);
+		MZTimeStep->Step({ 1, 50 });
 	}
 }
 
@@ -651,11 +640,11 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
-void FMZClient::OnUpdatedNodeExecuted(float deltaTime)
+void FMZClient::OnUpdatedNodeExecuted(mz::fb::vec2u deltaSeconds)
 {
 	if (MZTimeStep.IsValid())
 	{
-		MZTimeStep->Step(deltaTime);
+		MZTimeStep->Step(deltaSeconds);
 	}
 }
 

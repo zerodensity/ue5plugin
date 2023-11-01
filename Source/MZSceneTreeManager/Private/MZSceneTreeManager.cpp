@@ -154,7 +154,6 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZPinValueChanged.AddRaw(this, &FMZSceneTreeManager::OnMZPinValueChanged);
 	MZClient->OnMZPinShowAsChanged.AddRaw(this, &FMZSceneTreeManager::OnMZPinShowAsChanged);
 	MZClient->OnMZFunctionCalled.AddRaw(this, &FMZSceneTreeManager::OnMZFunctionCalled);
-	MZClient->OnMZExecutedApp.AddRaw(this, &FMZSceneTreeManager::OnMZExecutedApp);
 	MZClient->OnMZContextMenuRequested.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuRequested);
 	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
 	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
@@ -487,42 +486,6 @@ void FMZSceneTreeManager::OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb:
 		LOG("Unreal Engine function executed.");
 	}
 }
-
-void FMZSceneTreeManager::OnMZExecutedApp(mz::app::AppExecute const& appExecute)
-{
-	if (!flatbuffers::IsFieldPresent(&appExecute, mz::app::AppExecute::VT_LATEST_PIN_DATA))
-	{
-		return;
-	}
-	for (auto* update : *appExecute.latest_pin_data())
-	{
-		auto id = *(FGuid*)update->pin_id()->bytes()->Data();
-
-		if (MZPropertyManager.PropertiesById.Contains(id))
-		{
-			auto mzprop = MZPropertyManager.PropertiesById.FindRef(id);
-			mzprop->SetPropValue((void*)update->value()->data(), update->value()->size());
-			if(mzprop->TypeName == "mz.fb.Texture")
-			{
-				auto texman = MZTextureShareManager::GetInstance();
-				auto ShowAs = mzprop->PinShowAs;
-				if(MZPropertyManager.PropertyToPortalPin.Contains(mzprop->Id))
-				{
-					auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id); 
-					if(MZPropertyManager.PortalPinsById.Contains(PortalId))
-					{
-						auto& Portal = MZPropertyManager.PortalPinsById.FindChecked(PortalId);
-						ShowAs = Portal.ShowAs;
-					}
-				}
-				texman->UpdatePinShowAs(mzprop.Get(), ShowAs);
-				
-			}
-		}
-		
-	}
-}
-
 void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const& request)
 {
 	FVector2D pos(request.pos()->x(), request.pos()->y());
