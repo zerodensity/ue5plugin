@@ -22,7 +22,7 @@
 
 struct PinDataQueue : public TQueue<TPair<mz::Buffer, uint32_t>>
 {
-	void DiscardExcessThenDequeue(TPair<mz::Buffer, uint32_t>& result, uint32_t requestedFrameNumber)
+	void DiscardExcessThenDequeue(TPair<mz::Buffer, uint32_t>& result, uint32_t requestedFrameNumber, bool wait)
 	{
 		u32 tryCount = 0;
 		FPlatformProcess::ConditionalSleep([&]() 
@@ -33,7 +33,7 @@ struct PinDataQueue : public TQueue<TPair<mz::Buffer, uint32_t>>
 					return true;
 			}
 
-			return tryCount++ > 20;
+			return !wait || tryCount++ > 20;
 		}, 0.001f);
 
 		if (result.Value != requestedFrameNumber)
@@ -74,7 +74,7 @@ public:
 		auto queue = GetAddQueue(pinId);
 
 		TPair<mz::Buffer, uint32_t> result;
-		queue->DiscardExcessThenDequeue(result, frameNumber);
+		queue->DiscardExcessThenDequeue(result, frameNumber, wait);
 		return result.Key;
 	}
 
