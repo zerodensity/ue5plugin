@@ -20,40 +20,24 @@
 #include <mzFlatBuffersCommon.h>
 #include <functional> 
 
-struct PinDataQueue : public TQueue<mz::Buffer>
+struct PinDataQueue : public TQueue<TPair<mz::Buffer, uint32_t>>
 {
-	std::atomic<bool> LiveNow = true;
-	std::atomic<u32> DropCount = 0;
-	std::atomic<u32> FramesSinceLastDrop = 0;
-
-	void Reset()
+	void DiscardExcessThenDequeue(TPair<mz::Buffer, uint32_t>& result, uint32_t requestedFrameNumber)
 	{
-		Empty();
-		DropCount = FramesSinceLastDrop = 0;
-	}
-
-	void OnDrop()
-	{
-		LiveNow = false;
-		DropCount++;
-		FramesSinceLastDrop = 0;
-	}
-
-	void DiscardExcessThenDequeue(mz::Buffer& result)
-	{
-		FramesSinceLastDrop++;
-		if (DropCount && FramesSinceLastDrop == 50)
+		u32 tryCount = 0;
+		FPlatformProcess::ConditionalSleep([&]() 
 		{
-			UE_LOG(LogCore, Warning, TEXT("Discarding next %d track data"), DropCount.load());
+			while (Dequeue(result))
+			{
+				if (result.Value >= requestedFrameNumber)
+					return true;
+			}
 
-			while (DropCount-- && !IsEmpty())
-				Dequeue(result);
-		}
-		else
-			LiveNow = !IsEmpty();
+			return tryCount++ > 20;
+		}, 0.001f);
 
-		if (LiveNow)
-			Dequeue(result);
+		if (result.Value != requestedFrameNumber)
+			UE_LOG(LogCore, Warning, TEXT("Mismatch between popped frame number and requested frame number: %i, %i"), result.Value, requestedFrameNumber);
 	}
 };
 
@@ -70,47 +54,28 @@ public:
 		return &Queues[id];
 	}
 
-	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset) override
+	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override
 	{
 		if (reset)
 		{
-			std::scoped_lock<std::mutex> lock(Guard);
+			/*std::scoped_lock<std::mutex> lock(Guard);
 			for (auto& [_, queue] : Queues)
-				queue.Reset();
+				queue.Empty();*/
 
 			return;
 		}
 
 		auto queue = GetAddQueue(pinId);
-		queue->LiveNow = true;
-		queue->Enqueue(mz::Buffer(data, size));
+		queue->Enqueue({ mz::Buffer(data, size), frameNumber });
 	}
 
-	mz::Buffer Pop(mz::fb::UUID const& pinId, bool wait)
+	mz::Buffer Pop(mz::fb::UUID const& pinId, bool wait, uint32_t frameNumber)
 	{
 		auto queue = GetAddQueue(pinId);
 
-		if (wait && queue->LiveNow) 
-		{
-			u32 tryCount = 0;
-			FPlatformProcess::ConditionalSleep(
-				[&](){ return !queue->IsEmpty() || tryCount++ > 20; },
-				.001f);
-		}
-
-		mz::Buffer result;
-		if (queue->IsEmpty())
-		{
-			if (wait)
-			{
-				queue->OnDrop();
-				UE_LOG(LogCore, Warning, TEXT("Rendering with repeating track data"));
-			}
-		}
-		else
-			queue->DiscardExcessThenDequeue(result);
-
-		return result;
+		TPair<mz::Buffer, uint32_t> result;
+		queue->DiscardExcessThenDequeue(result, frameNumber);
+		return result.Key;
 	}
 
 	std::mutex Guard;
@@ -153,7 +118,7 @@ public:
 	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
-	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset) override;
+	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override;
 	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
 	virtual void OnExecuteAppInfo(mz::app::AppExecuteInfo const* appExecuteInfo) override; 
 	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;

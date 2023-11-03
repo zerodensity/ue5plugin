@@ -84,7 +84,7 @@ public:
 	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
 	void Reset();
 	void TextureDestroyed(MZProperty* texture);
-	void SetupFences(FRHICommandListImmediate& RHICmdList, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup);
+	void SetupFences(FRHICommandListImmediate& RHICmdList, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup, uint64_t frameNumber);
 	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();

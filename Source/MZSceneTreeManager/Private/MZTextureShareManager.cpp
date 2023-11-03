@@ -339,36 +339,35 @@ void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& 
 }
 
 void MZTextureShareManager::SetupFences(FRHICommandListImmediate& RHICmdList, mz::fb::ShowAs CopyShowAs,
-	TMap<ID3D12Fence*, u64>& SignalGroup)
+	TMap<ID3D12Fence*, u64>& SignalGroup, uint64_t frameNumber)
 {
 	if(ExecutionState == mz::app::ExecutionState::SYNCED)
 	{
 		if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
 		{
-			RHICmdList.EnqueueLambda([CmdQueue = CmdQueue,InputFence = InputFence, FrameCounter = FrameCounter](FRHICommandList& ExecutingCmdList)
+			RHICmdList.EnqueueLambda([CmdQueue = CmdQueue,InputFence = InputFence, frameNumber](FRHICommandList& ExecutingCmdList)
 			{
-				GetID3D12DynamicRHI()->RHIWaitManualFence(ExecutingCmdList, InputFence, (2 * FrameCounter) + 1);
+				GetID3D12DynamicRHI()->RHIWaitManualFence(ExecutingCmdList, InputFence, (2 * frameNumber) + 1);
 			});
-			SignalGroup.Add(InputFence, (2 * FrameCounter) + 2);
+			SignalGroup.Add(InputFence, (2 * frameNumber) + 2);
 
 #ifdef DEBUG_FRAME_SYNC_LOG
-			UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * FrameCounter + 1);
+			UE_LOG(LogTemp, Warning, TEXT("Input pins are waiting on %d") , 2 * frameNumber + 1);
 #endif
 			
 		}
 		else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 		{
-			RHICmdList.EnqueueLambda([CmdQueue = CmdQueue, OutputFence = OutputFence, FrameCounter = FrameCounter](FRHICommandList& ExecutingCmdList)
+			RHICmdList.EnqueueLambda([CmdQueue = CmdQueue, OutputFence = OutputFence, frameNumber = frameNumber](FRHICommandList& ExecutingCmdList)
 			{
 				
-				GetID3D12DynamicRHI()->RHIWaitManualFence(ExecutingCmdList, OutputFence, (2 * FrameCounter));
+				GetID3D12DynamicRHI()->RHIWaitManualFence(ExecutingCmdList, OutputFence, (2 * frameNumber));
 			});
-			SignalGroup.Add(OutputFence, (2 * FrameCounter) + 1);
+			SignalGroup.Add(OutputFence, (2 * frameNumber) + 1);
 
 #ifdef DEBUG_FRAME_SYNC_LOG
-			UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * FrameCounter);
+			UE_LOG(LogTemp, Warning, TEXT("Out pins are waiting on %d") , 2 * frameNumber);
 #endif
-			FrameCounter++;
 		}
 	}
 }
@@ -386,7 +385,7 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 
 	//auto cmdData = GetNewCommandList();
 	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
-		[this, CopyShowAs, CopiesFiltered](FRHICommandListImmediate& RHICmdList)
+		[this, CopyShowAs, CopiesFiltered, frameNumber = FrameCounter](FRHICommandListImmediate& RHICmdList)
 		{
 			if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
 			{
@@ -399,7 +398,7 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 				RHICmdList.PushEvent(*EventLabel, FColor::Red);
 			}
 			TMap<ID3D12Fence*, u64> SignalGroup;
-			SetupFences(RHICmdList, CopyShowAs, SignalGroup);
+			SetupFences(RHICmdList, CopyShowAs, SignalGroup, frameNumber);
 			for (auto& [URT, pin] : CopiesFiltered)
 			{
 				FRHICopyTextureInfo CopyInfo;
@@ -431,7 +430,7 @@ void MZTextureShareManager::OnBeginFrame()
 void MZTextureShareManager::OnEndFrame()
 {
 	ProcessCopies(mz::fb::ShowAs::OUTPUT_PIN, Copies);
-
+	FrameCounter++;
 	while(!ResourcesToDelete.IsEmpty())
 	{
 		TPair<TObjectPtr<UTextureRenderTarget2D>, uint32_t> resource;

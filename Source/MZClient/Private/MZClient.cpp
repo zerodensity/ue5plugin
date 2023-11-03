@@ -300,13 +300,13 @@ void MZEventDelegates::OnNodeRemoved()
 		});
 }
 
-void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
+void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber)
 {
 	if (!PluginClient)
 	{
 		return;
 	}
-	PinDataQueues::OnPinValueChanged(pinId, data, size, reset);
+	PinDataQueues::OnPinValueChanged(pinId, data, size, reset, frameNumber);
 	
 	std::vector<uint8_t> copy(size, 0);
 	memcpy(copy.data(), data, size);
