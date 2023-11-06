@@ -22,21 +22,31 @@
 
 struct PinDataQueue : public TQueue<TPair<mz::Buffer, uint32_t>>
 {
+	bool LiveNow = true;
+
 	void DiscardExcessThenDequeue(TPair<mz::Buffer, uint32_t>& result, uint32_t requestedFrameNumber, bool wait)
 	{
 		u32 tryCount = 0;
-		FPlatformProcess::ConditionalSleep([&]() 
-		{
-			while (Dequeue(result))
+		bool dequeued = false;
+		bool oldLiveNow = LiveNow;
+		FPlatformProcess::ConditionalSleep([&]()
 			{
-				if (result.Value >= requestedFrameNumber)
-					return true;
-			}
+				while (Dequeue(result))
+				{
+					LiveNow = true;
+					dequeued = true;
+					if (result.Value >= requestedFrameNumber)
+						return true;
+				}
 
-			return !wait || tryCount++ > 20;
-		}, 0.001f);
+				return !LiveNow || !wait || tryCount++ > 20;
+			}, 0.001f);
+		
+		LiveNow = dequeued;
+		if (oldLiveNow != LiveNow)
+			UE_LOG(LogCore, Warning, TEXT("LiveNow Changed"));
 
-		if (result.Value != requestedFrameNumber)
+		if (LiveNow && result.Value != requestedFrameNumber)
 			UE_LOG(LogCore, Warning, TEXT("Mismatch between popped frame number and requested frame number: %i, %i"), result.Value, requestedFrameNumber);
 	}
 };
