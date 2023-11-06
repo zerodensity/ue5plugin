@@ -133,6 +133,8 @@ public:
 	//every function of this class runs in game thread
 	void OnMZNodeSelected(mz::fb::UUID const& nodeId);
 
+	void LoadNodesOnPath(FString NodePath);
+
 	//called when connection is ended with mediaz
 	void OnMZConnectionClosed();
 
@@ -154,6 +156,8 @@ public:
 	void OnMZNodeRemoved();
 
 	void OnMZStateChanged_GRPCThread(mz::app::ExecutionState);
+	
+	void OnMZLoadNodesOnPaths(const TArray<FString>& paths);
 	//END OF MediaZ DELEGATES
 	 
 

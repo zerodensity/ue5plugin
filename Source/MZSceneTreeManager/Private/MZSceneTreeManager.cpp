@@ -159,6 +159,7 @@ void FMZSceneTreeManager::StartupModule()
 	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
 	MZClient->OnMZNodeRemoved.AddRaw(this, &FMZSceneTreeManager::OnMZNodeRemoved);
 	MZClient->OnMZStateChanged_GRPCThread.AddRaw(this, &FMZSceneTreeManager::OnMZStateChanged_GRPCThread);
+	MZClient->OnMZLoadNodesOnPaths.AddRaw(this, &FMZSceneTreeManager::OnMZLoadNodesOnPaths);
 
 	FCoreDelegates::OnBeginFrame.AddRaw(this, &FMZSceneTreeManager::OnBeginFrame);
 	FCoreDelegates::OnEndFrame.AddRaw(this, &FMZSceneTreeManager::OnEndFrame);
@@ -345,6 +346,35 @@ void FMZSceneTreeManager::OnMZNodeSelected(mz::fb::UUID const& nodeId)
 		else if (PopulateNode(id))
 		{
 			SendNodeUpdate(id);
+		}
+	}
+}
+
+void FMZSceneTreeManager::LoadNodesOnPath(FString NodePath)
+{
+	TArray<FString> NodeNames;
+	NodePath.ParseIntoArray(NodeNames, TEXT("/"));
+
+	auto CurrentNode = SceneTree.Root;
+	for(auto nodeName : NodeNames)
+	{
+		//find node from the children of the current node
+		for(auto child : CurrentNode->Children)
+		{
+			if(child && child->Name == nodeName)
+			{
+				LOGF("Populating node named %s", *child->Name);
+				if(auto actorNode = child->GetAsActorNode())
+				{
+					PopulateAllChildsOfActor(actorNode->actor.Get());
+				}
+				else if (PopulateNode(child->Id))
+				{
+					SendNodeUpdate(child->Id);
+				}
+				CurrentNode = child;
+				break;
+			}
 		}
 	}
 }
@@ -565,6 +595,14 @@ void FMZSceneTreeManager::OnMZStateChanged_GRPCThread(mz::app::ExecutionState ne
 			ExecutionState = newState;
 			MZTextureShareManager::GetInstance()->SwitchStateToIdle_GRPCThread(0);
 		}
+	}
+}
+
+void FMZSceneTreeManager::OnMZLoadNodesOnPaths(const TArray<FString>& paths)
+{
+	for(auto path : paths)
+	{
+		LoadNodesOnPath(path);
 	}
 }
 

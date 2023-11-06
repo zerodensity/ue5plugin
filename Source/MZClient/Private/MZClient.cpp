@@ -270,6 +270,24 @@ void MZEventDelegates::OnConsoleAutoCompleteSuggestionRequest(
 		});
 }
 
+void MZEventDelegates::OnLoadNodesOnPaths(mz::LoadNodesOnPaths const* loadNodesOnPathsRequest)
+{
+	LOG("LoadNodesOnPaths request from mediaZ");
+	if (!PluginClient || !loadNodesOnPathsRequest->paths())
+	{
+		return;
+	}
+	TArray<FString> Paths;
+	for(auto path : *loadNodesOnPathsRequest->paths())
+	{
+		Paths.Push(path->c_str());
+	}
+	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, Paths]()
+		{
+			MZClient->OnMZLoadNodesOnPaths.Broadcast(Paths);
+		});
+}
+
 void MZEventDelegates::OnCloseApp()
 {
 	LOG("Closing UE per mediaz request.");
