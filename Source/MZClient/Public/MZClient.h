@@ -68,9 +68,9 @@ public:
 	{
 		if (reset)
 		{
-			/*std::scoped_lock<std::mutex> lock(Guard);
+			std::scoped_lock<std::mutex> lock(Guard);
 			for (auto& [_, queue] : Queues)
-				queue.Empty();*/
+				queue.Empty();
 
 			return;
 		}
