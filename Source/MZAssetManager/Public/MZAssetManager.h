@@ -46,13 +46,13 @@ public:
 
 	void SetupCustomSpawns();
 
-	AActor* SpawnBasicShape(FSoftObjectPath BasicShape);
+	AActor* SpawnBasicShape(FSoftObjectPath BasicShape, FTransform Transform = FTransform::Identity);
 
 	void ScanUMGs();
 
-	AActor* SpawnFromTag(FString SpawnTag);
+	AActor* SpawnFromTag(FString SpawnTag, FTransform Transform = FTransform::Identity);
 
-	AActor* SpawnFromAssetPath(FTopLevelAssetPath AssetPath);
+	AActor* SpawnFromAssetPath(FTopLevelAssetPath AssetPath, FTransform Transform = FTransform::Identity);
 
 	UUserWidget* CreateUMGFromTag(FString UMGTag);
 
@@ -66,7 +66,7 @@ public:
 	TAssetNameToPathMap UMGs;
 
 	//for custom spawnables like basic shapes(cube, sphere etc.)
-	TMap<FString, TFunction<AActor*()>> CustomSpawns;
+	TMap<FString, TFunction<AActor*(FTransform Transform)>> CustomSpawns;
 
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;

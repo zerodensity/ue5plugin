@@ -2319,12 +2319,11 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Par
 		return nullptr;
 	}
 
-	AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag);
+	AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag, Params.SpawnTransform);
 	if (!SpawnedActor)
 	{
 		return nullptr;
 	}
-	SpawnedActor->SetActorTransform(Params.SpawnTransform);
 	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
 	if(!bIsSpawningParentTransform)
 	{
