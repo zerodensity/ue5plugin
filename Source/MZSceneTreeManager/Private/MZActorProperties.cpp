@@ -559,19 +559,27 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			
 			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::component);
 			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
+			FString ActorUniqueName;
 			if (auto component = Cast<USceneComponent>(container))
 			{
 				mzprop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 				if (auto actor = component->GetOwner())
 				{
+					ActorUniqueName = actor->GetFName().ToString();
 					mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 			}
 			else if (auto actor = Cast<AActor>(container))
 			{
+				ActorUniqueName = actor->GetFName().ToString();
 				mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 			}
 
+			
+			FString PropertyPath = mzprop->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
+			FString ComponentPath = mzprop->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+			FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath;
+			mzprop->Id = StringToFGuid(IdStringKey);
 			childProperties.push_back(mzprop);
 			
 			for (auto it : mzprop->childProperties)
@@ -587,18 +595,28 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 				}
 				it->mzMetaDataMap.Remove(MzMetadataKeys::component);
 				it->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
+				
+				FString ActorUniqueNameChild;
 				if (auto component = Cast<USceneComponent>(container))
 				{
 					it->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
 					if (auto actor = component->GetOwner())
 					{
+						ActorUniqueNameChild = actor->GetFName().ToString();
 						it->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 					}
 				}
 				else if (auto actor = Cast<AActor>(container))
 				{
+					ActorUniqueNameChild = actor->GetFName().ToString();
 					it->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
+				
+				FString PropertyPathChild = it->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
+				FString ComponentPathChild = it->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+				FString IdStringKeyChild = ActorUniqueNameChild + ComponentPathChild + PropertyPathChild;
+				it->Id = StringToFGuid(IdStringKeyChild);
+				
 				childProperties.push_back(it);
 			}
 		}
