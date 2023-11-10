@@ -363,6 +363,67 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	//}
 }
 
+std::vector<uint8> MZTransformProperty::UpdatePinValue(uint8* customContainer)
+{
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
+	else if (StructPtr) container = StructPtr;
+
+	if (container)
+	{
+		FTransform TransformData = *Property->ContainerPtrToValuePtr<FTransform>(container);
+		flatbuffers::FlatBufferBuilder fb;
+		mz::fb::Transform TempTransform;
+		TempTransform.mutable_position() = mz::fb::vec3d(TransformData.GetLocation().X, TransformData.GetLocation().Y, TransformData.GetLocation().Z);
+		TempTransform.mutable_scale() = mz::fb::vec3d(TransformData.GetScale3D().X, TransformData.GetScale3D().Y, TransformData.GetScale3D().Z);
+		TempTransform.mutable_rotation() = mz::fb::vec3d(TransformData.GetRotation().ToRotationVector().X, TransformData.GetRotation().ToRotationVector().Y, TransformData.GetRotation().ToRotationVector().Z);
+		
+		mz::Buffer buffer = mz::Buffer::From(TempTransform);
+		data = buffer;
+	}
+	return data;
+
+}
+
+void MZTransformProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+{
+	IsChanged = true;
+
+	void* container = nullptr;
+	if (customContainer) container = customContainer;
+	else if (ComponentContainer) container = ComponentContainer.Get();
+	else if (ActorContainer) container = ActorContainer.Get();
+	else if (ObjectPtr && IsValid(ObjectPtr)) container = ObjectPtr;
+	else if (StructPtr) container = StructPtr;
+	if (!container)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
+		return; //TODO investigate why container is null
+	}
+	
+	SetProperty_InCont(container, val);
+
+	if (!customContainer && container)
+	{
+		MarkState();
+	}
+}
+
+void MZTransformProperty::SetProperty_InCont(void* container, void* val)
+{
+	auto transform = *(mz::fb::Transform*)val;
+	FTransform* TransformData = structprop->ContainerPtrToValuePtr<FTransform>(container);
+
+	TransformData->SetLocation(FVector(transform.position().x(), transform.position().y(), transform.position().z()));
+	TransformData->SetScale3D(FVector(transform.scale().x(), transform.scale().y(), transform.scale().z()));
+	
+	FRotator rot(transform.rotation().y(), transform.rotation().z(), transform.rotation().x());
+	TransformData->SetRotation(rot.Quaternion());
+}
+
 
 std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 {
@@ -929,6 +990,8 @@ std::vector<uint8> MZEnumProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
+
+
 TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
                                                          FProperty* uproperty, 
                                                          FString parentCategory, 
@@ -1017,7 +1080,6 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	}
 	else if (FStructProperty* structprop = CastField<FStructProperty>(uproperty))
 	{
-
 		//TODO ADD SUPPORT FOR FTRANSFORM
 		if (structprop->Struct == TBaseStructure<FVector2D>::Get()) //vec2
 		{
@@ -1042,6 +1104,10 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 		else if (structprop->Struct == FMZTrack::StaticStruct()) //track
 		{
 			prop = TSharedPtr<MZProperty>(new MZTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty));
+		}
+		else if (structprop->Struct == TBaseStructure<FTransform>::Get()) //track
+		{
+			prop = TSharedPtr<MZProperty>(new MZTransformProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else //auto construct
 		{

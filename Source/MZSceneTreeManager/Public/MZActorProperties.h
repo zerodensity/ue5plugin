@@ -393,6 +393,26 @@ protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };
 
+
+class MZTransformProperty : public MZProperty
+{
+public:
+	MZTransformProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
+		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	{
+		data = std::vector<uint8_t>(72, 0);
+		TypeName = "mz.fb.Transform";
+	}
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
+
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
+
+	FStructProperty* structprop;
+protected:
+	virtual void SetProperty_InCont(void* container, void* val) override;
+};
+
+
 class  MZSCENETREEMANAGER_API  MZPropertyFactory
 {
 public:
