@@ -17,7 +17,7 @@ void FMZLicenseManager::ShutdownModule()
 }
 
 bool FMZLicenseManager::UpdateFeature(bool registerFeature, AActor* actor, USceneComponent* component, FProperty* property,
-	FString featureName, uint32_t count, FString message)
+	FString featureName, uint32_t count, FString message, uint64_t buildTime)
 {
 	auto& MZClient = FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
 	auto& MZSceneTreeManager = FModuleManager::LoadModuleChecked<FMZSceneTreeManager>("MZSceneTreeManager");
@@ -36,7 +36,6 @@ bool FMZLicenseManager::UpdateFeature(bool registerFeature, AActor* actor, UScen
 			auto portalId = MZSceneTreeManager.MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id);
 			flatbuffers::FlatBufferBuilder mb;
 			//// TODO: find a way to get a build time
-			uint64_t buildTime = 0;
 			auto offset = mz::CreateAppEventOffset(mb, mz::app::CreateFeatureRegistrationUpdateDirect(mb, (mz::fb::UUID*)&portalId, TCHAR_TO_UTF8(*featureName), !registerFeature, count, TCHAR_TO_UTF8(*message), buildTime));
 			mb.Finish(offset);
 			auto buf = mb.Release();
@@ -49,9 +48,9 @@ bool FMZLicenseManager::UpdateFeature(bool registerFeature, AActor* actor, UScen
 	return false;
 }
 bool FMZLicenseManager::RegisterFeature(AActor* actor, USceneComponent* component, FProperty* property,
-                                        FString featureName, uint32_t count, FString message)
+                                        FString featureName, uint32_t count, FString message, uint64_t buildTime)
 {
-	return UpdateFeature(true, actor, component, property, featureName, count, message);
+	return UpdateFeature(true, actor, component, property, featureName, count, message, buildTime);
 }
 
 bool FMZLicenseManager::UnregisterFeature(AActor* actor, USceneComponent* component, FProperty* property, FString featureName)

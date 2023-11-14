@@ -18,12 +18,12 @@ public:
 	virtual void ShutdownModule() override;
 
 	bool RegisterFeature(AActor* actor, USceneComponent* component, FProperty* property, FString featureName,
-	                     uint32_t count, FString message = "");
+	                     uint32_t count, FString message = "", uint64_t buildTime = 0);
 	
 	bool UnregisterFeature(AActor* actor, USceneComponent* component, FProperty* property, FString featureName);
 
 private:
 
-	bool UpdateFeature(bool register, AActor* actor, USceneComponent* component, FProperty* property, FString featureName, uint32_t count = 0, FString message = "");
+	bool UpdateFeature(bool register, AActor* actor, USceneComponent* component, FProperty* property, FString featureName, uint32_t count = 0, FString message = "", uint64_t buildTime = 0);
 	
 };
