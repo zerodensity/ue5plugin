@@ -74,7 +74,7 @@ public:
 	};
 
 	AActor* GetParentTransformActor();
-	AActor* SpawnActor(FString SpawnTag, MZSpawnActorParameters Params = {});
+	AActor* SpawnActor(FString SpawnTag, MZSpawnActorParameters Params = {}, TMap<FString, FString> Metadata = {});
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	void ClearActors();
 	

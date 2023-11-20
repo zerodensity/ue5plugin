@@ -661,6 +661,7 @@ struct NodeAndActorGuid
 
 struct NodeSpawnInfo
 {
+	TMap<FString, FString> Metadata;
 	FString SpawnTag;
 	bool DontAttachToRealityParent = false;
 };
@@ -679,6 +680,11 @@ void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>,
 				if(auto dontAttachToRealityParentEntry = node->meta_data_map()->LookupByKey(MzMetadataKeys::DoNotAttachToRealityParent))
 					spawnInfo.DontAttachToRealityParent = strcmp(dontAttachToRealityParentEntry->value()->c_str(), "true") == 0;
 
+				for(auto* entryx: *node->meta_data_map())
+				{
+					if(entryx)
+						spawnInfo.Metadata.Add({entryx->key()->c_str(), entryx->value()->c_str()});
+				}
 				spawnedByMediaz.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} , spawnInfo);
 			}
 		}
@@ -709,6 +715,27 @@ void GetUMGsByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>, FString
 		for (auto child : *node->contents_as_Graph()->nodes())
 		{
 			GetUMGsByMediaz(child, UMGsByMediaz);
+		}
+	}
+}
+
+void GetLevelSequenceActorsByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>, FString>& LevelSequenceActorsByMediaz)
+{
+	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_META_DATA_MAP))
+	{
+		if (auto entry = node->meta_data_map()->LookupByKey("LevelSequenceName"))
+		{
+			if (auto idEntry = node->meta_data_map()->LookupByKey(MzMetadataKeys::ActorGuid))
+			{
+				LevelSequenceActorsByMediaz.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} ,FString(entry->value()->c_str()));
+			}
+		}
+	}
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
+	{
+		for (auto child : *node->contents_as_Graph()->nodes())
+		{
+			GetUMGsByMediaz(child, LevelSequenceActorsByMediaz);
 		}
 	}
 }
@@ -898,7 +925,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 
 	TMap<TPair<FGuid, FGuid>, FString> UMGsByMediaz; //old guid (imported) x spawn tag
 	GetUMGsByMediaz(node, UMGsByMediaz);
-	
+
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
 	TMap<FGuid, AActor*> sceneActorMap;
@@ -944,7 +971,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		if (!sceneActorMap.Contains(oldGuid.Key))
 		{
 			///spawn
-			AActor* spawnedActor = MZActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent});
+			AActor* spawnedActor = MZActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent}, spawnInfo.Metadata);
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -2312,14 +2339,14 @@ AActor* FMZActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Params)
+AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Params, TMap<FString, FString> Metadata)
 {
 	if (!MZAssetManager)
 	{
 		return nullptr;
 	}
 
-	AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag, Params.SpawnTransform);
+	AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag, Params.SpawnTransform, Metadata);
 	if (!SpawnedActor)
 	{
 		return nullptr;
@@ -2333,6 +2360,9 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Par
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
+
+	for(auto& [key, value] : Metadata)
+		savedMetadata.Add({ key, value});
 	savedMetadata.Add({ MzMetadataKeys::spawnTag, SpawnTag});
 	savedMetadata.Add({ MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
 	savedMetadata.Add({ MzMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
@@ -2341,11 +2371,13 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Par
 	Actors.Add({ MZActorReference(SpawnedActor), savedData});
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
-	ActorNode->mzMetaData.Add(MzMetadataKeys::spawnTag, SpawnTag);
+	for(auto& [key, value] : Metadata)
+		ActorNode->mzMetaData.Add({ key, value});
+	ActorNode->mzMetaData.Add({ MzMetadataKeys::spawnTag, SpawnTag});
 	ActorNode->mzMetaData.Add(MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
 	ActorNode->mzMetaData.Add({ MzMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
 	ActorNode->mzMetaData.Add(MzMetadataKeys::DoNotAttachToRealityParent, FString(Params.SpawnActorToWorldCoords ? "true" : "false"));
-
+	
 	if (!MZClient->IsConnected())
 	{
 		return SpawnedActor;

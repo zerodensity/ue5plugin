@@ -50,7 +50,7 @@ public:
 
 	void ScanUMGs();
 
-	AActor* SpawnFromTag(FString SpawnTag, FTransform Transform = FTransform::Identity);
+	AActor* SpawnFromTag(FString SpawnTag, FTransform Transform = FTransform::Identity, TMap<FString, FString> Metadata = {});
 
 	AActor* SpawnFromAssetPath(FTopLevelAssetPath AssetPath, FTransform Transform = FTransform::Identity);
 
@@ -68,6 +68,8 @@ public:
 	//for custom spawnables like basic shapes(cube, sphere etc.)
 	TMap<FString, TFunction<AActor*(FTransform Transform)>> CustomSpawns;
 
+	TMap<FString, TFunction<AActor*(FTransform Transform, TMap<FString, FString>)>> CustomSpawnsWithMetadata;
+	
 	//Class communicates with MediaZ
 	class FMZClient* MZClient;
 

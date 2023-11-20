@@ -316,11 +316,16 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath, FTrans
 	return SpawnedActor;
 }
 
-AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag, FTransform Transform)
+AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag, FTransform Transform, TMap<FString, FString> Metadata)
 {	
 	if (CustomSpawns.Contains(SpawnTag))
 	{
 		return CustomSpawns[SpawnTag](Transform);
+	}
+	
+	if (CustomSpawnsWithMetadata.Contains(SpawnTag))
+	{
+		return CustomSpawnsWithMetadata[SpawnTag](Transform, Metadata);
 	}
 
 	if (SpawnableAssets.Contains(SpawnTag))
