@@ -186,20 +186,6 @@ void FMZAssetManager::ScanAssets(
 	}
 }
 
-void FMZAssetManager::ScanAssetObjects(
-	TAssetNameToObjectMap& Map,
-	const UClass* ParentClass)
-{
-	Map.Empty();
-
-	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-
-	TArray<FAssetData> ObjectList;
-	AssetRegistryModule.Get().GetAssetsByClass(ParentClass->GetClassPathName(), ObjectList);
-	for (const FAssetData& Object : ObjectList)
-		Map.Add(Object.AssetName.ToString(), Object.GetAsset());
-}
-
 void FMZAssetManager::ScanUMGs()
 {
 	ScanAssets(UMGs, UUserWidget::StaticClass());

@@ -57,7 +57,7 @@ public:
 	UUserWidget* CreateUMGFromTag(FString UMGTag);
 
 	typedef TMap<FString, FTopLevelAssetPath> TAssetNameToPathMap;
-	typedef TMap<FString, UObject*> TAssetNameToObjectMap;
+	typedef TMap<FString, FSoftObjectPath> TAssetNameToObjectMap;
 
 	//spawnable actor assets
 	TAssetNameToPathMap SpawnableAssets;
@@ -74,7 +74,6 @@ public:
 	class FMZClient* MZClient;
 
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);
-	void ScanAssetObjects(TAssetNameToObjectMap& Map, const UClass* ParentClass);
 	void SendList(const char* ListName, const TArray<FString>& Value);
 	void SendList(const char* ListName, const TAssetNameToPathMap& Value);
 	void SendList(const char* ListName, const TAssetNameToObjectMap& Value);
