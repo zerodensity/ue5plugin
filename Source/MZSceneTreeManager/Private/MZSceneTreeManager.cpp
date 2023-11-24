@@ -27,6 +27,8 @@ IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
 UWorld* FMZSceneTreeManager::daWorld = nullptr;
 
+static TAutoConsoleVariable<int32> CVarReloadLevelFrameCount(TEXT("mediaz.ReloadFrameCount"), 0, TEXT("Reload frame count"));
+
 #define MZ_POPULATE_UNREAL_FUNCTIONS //uncomment if you want to see functions 
 
 TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
@@ -616,7 +618,7 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 
 void FMZSceneTreeManager::OnMZNodeRemoved()
 {
-	ReloadingLevel = 500;
+	ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
 	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
 	MZActorManager->ClearActors();
 }
