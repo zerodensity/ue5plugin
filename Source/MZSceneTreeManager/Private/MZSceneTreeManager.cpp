@@ -102,6 +102,12 @@ void FMZSceneTreeManager::AddToBeAddedActors()
 
 void FMZSceneTreeManager::OnBeginFrame()
 {
+	if (ReloadingLevel > 0)
+	{
+		ReloadingLevel--;
+		return;
+	}
+
 	if(ToggleExecutionStateToSynced)
 	{
 		ToggleExecutionStateToSynced = false;
@@ -118,6 +124,11 @@ void FMZSceneTreeManager::OnBeginFrame()
 
 void FMZSceneTreeManager::OnEndFrame()
 {
+	if (ReloadingLevel > 0)
+	{
+		return;
+	}
+
 	MZPropertyManager.OnEndFrame();
 	MZTextureShareManager::GetInstance()->OnEndFrame();
 }
@@ -261,7 +272,7 @@ void FMZSceneTreeManager::StartupModule()
 		mzcf->Serialize = [funcid = mzcf->Id, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
 			{
 				return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Reload Level", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control"
-				, 0, false, nullptr, 0, "Add actors spawned since last refresh to the scene outliner.");
+				, 0, false, nullptr, 0, "Reload current level");
 			};
 		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 			{
@@ -605,6 +616,8 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 
 void FMZSceneTreeManager::OnMZNodeRemoved()
 {
+	ReloadingLevel = 500;
+	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
 	MZActorManager->ClearActors();
 }
 
