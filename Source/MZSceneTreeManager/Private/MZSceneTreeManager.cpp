@@ -171,6 +171,14 @@ void FMZSceneTreeManager::StartupModule()
 	FEditorDelegates::MapChange.AddRaw(this, &FMZSceneTreeManager::OnMapChange);
 
 	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMZSceneTreeManager::OnPropertyChanged);
+	FCoreUObjectDelegates::PostLoadMapWithWorld.AddLambda([this](UWorld* World)
+	{
+		if(World == FMZSceneTreeManager::daWorld)
+		{
+			RescanScene();
+			SendNodeUpdate(FMZClient::NodeId);
+		}
+	});
 
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZSceneTreeManager::OnPreWorldFinishDestroy);
@@ -635,9 +643,15 @@ void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::Initializ
 	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
 	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
-	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
-	RescanScene();
-	SendNodeUpdate(FMZClient::NodeId);
+	
+	if(GEditor && !GEditor->IsPlaySessionInProgress())
+	{
+		FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+	}
+	else
+	{
+		FMZSceneTreeManager::daWorld = GEngine->GetCurrentPlayWorld();
+	}
 }
 
 
