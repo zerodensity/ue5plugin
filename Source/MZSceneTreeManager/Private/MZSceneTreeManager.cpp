@@ -246,6 +246,24 @@ void FMZSceneTreeManager::StartupModule()
 		};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
+	{
+		MZCustomFunction* mzcf = new MZCustomFunction;
+		FString UniqueFunctionName("Reload Level");
+		mzcf->Id = StringToFGuid(UniqueFunctionName);
+		mzcf->Serialize = [funcid = mzcf->Id, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+			{
+				return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Reload Level", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control"
+				, 0, false, nullptr, 0, "Add actors spawned since last refresh to the scene outliner.");
+			};
+		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
+			{
+				if(daWorld && daWorld->GetCurrentLevel())
+				{
+					UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
+				}
+			};
+		CustomFunctions.Add(mzcf->Id, mzcf);
+	}
 
 	LOG("MZSceneTreeManager module successfully loaded.");
 }
