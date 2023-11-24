@@ -618,9 +618,9 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 
 void FMZSceneTreeManager::OnMZNodeRemoved()
 {
+	MZActorManager->ClearActors();
 	ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
 	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
-	MZActorManager->ClearActors();
 }
 
 void FMZSceneTreeManager::OnMZStateChanged_GRPCThread(mz::app::ExecutionState newState)
