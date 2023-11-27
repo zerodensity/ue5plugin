@@ -13,13 +13,13 @@
 // UE
 #include "Engine/EngineCustomTimeStep.h"
 
-// MediaZ Plugin
+// Nodos Plugin
 #include "Editor.h"
-#include "MZClient.h"
-#include "MZCustomTimeStep.generated.h"
+#include "NOSClient.h"
+#include "NOSCustomTimeStep.generated.h"
 
 UCLASS()
-class MZCLIENT_API UMZCustomTimeStep : public UEngineCustomTimeStep
+class NOSCLIENT_API UNOSCustomTimeStep : public UEngineCustomTimeStep
 {
 	GENERATED_BODY()
 public:
@@ -35,7 +35,7 @@ public:
 
 	}
 
-	void Step(mz::fb::vec2u deltaSeconds)
+	void Step(nos::fb::vec2u deltaSeconds)
 	{
 		std::unique_lock lock(Mutex);
 		if(deltaSeconds.x() != 0)
@@ -87,7 +87,7 @@ public:
 		}
 	}
 
-	class FMZClient* PluginClient = nullptr;
+	class FNOSClient* PluginClient = nullptr;
 
 
 private:

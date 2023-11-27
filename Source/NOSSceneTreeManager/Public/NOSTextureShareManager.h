@@ -17,13 +17,13 @@ void MemoryBarrier();
 
 #include <shared_mutex>
 
-#include "MZActorProperties.h"
-#include "MediaZ/AppAPI.h" 
-#include <mzFlatBuffersCommon.h>
-#include "MZClient.h"
+#include "NOSActorProperties.h"
+#include "Nodos/AppAPI.h" 
+#include <nosFlatBuffersCommon.h>
+#include "NOSClient.h"
 #include "RHI.h"
 
-#define MZ_D3D12_ASSERT_SUCCESS(expr)                                                               \
+#define NOS_D3D12_ASSERT_SUCCESS(expr)                                                               \
     {                                                                                               \
         HRESULT re = (expr);                                                                        \
         while (FAILED(re))                                                                          \
@@ -31,16 +31,16 @@ void MemoryBarrier();
             std::string __err = std::system_category().message(re);                                 \
             char errbuf[1024];                                                                      \
             std::snprintf(errbuf, 1024, "[%lx] %s (%s:%d)", re, __err.c_str(), __FILE__, __LINE__); \
-            MZ_ABORT;                                                                           \
+            NOS_ABORT;                                                                           \
         }                                                                                           \
     }
 
 struct ResourceInfo
 {
-	MZProperty* SrcMzp = 0;
+	NOSProperty* SrcNosp = 0;
 	UPROPERTY()
 	TObjectPtr<UTextureRenderTarget2D> DstResource = 0;
-	mz::fb::ShowAs ShowAs;
+	nos::fb::ShowAs ShowAs;
 };
 
 enum CmdState
@@ -66,45 +66,45 @@ struct SyncSemaphoresExport
 	HANDLE OutputSemaphore;
 };
 
-//This class manages copy operations between textures of MediaZ and unreal 2d texture target
-class MZSCENETREEMANAGER_API MZTextureShareManager
+//This class manages copy operations between textures of Nodos and unreal 2d texture target
+class NOSSCENETREEMANAGER_API NOSTextureShareManager
 {
 //protected:
 public:
-	MZTextureShareManager();
-	static MZTextureShareManager* singleton;
+	NOSTextureShareManager();
+	static NOSTextureShareManager* singleton;
 
-	static MZTextureShareManager* GetInstance();
+	static NOSTextureShareManager* GetInstance();
 
-	~MZTextureShareManager();
+	~NOSTextureShareManager();
 	
-	mz::fb::TTexture AddTexturePin(MZProperty*);
-	void UpdateTexturePin(MZProperty*, mz::fb::ShowAs);
-	bool UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTexture& Texture);
-	void UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs);
+	nos::fb::TTexture AddTexturePin(NOSProperty*);
+	void UpdateTexturePin(NOSProperty*, nos::fb::ShowAs);
+	bool UpdateTexturePin(NOSProperty* NosProperty, nos::fb::TTexture& Texture);
+	void UpdatePinShowAs(NOSProperty* NosProperty, nos::fb::ShowAs NewShowAs);
 	void Reset();
-	void TextureDestroyed(MZProperty* texture);
-	void SetupFences(FRHICommandListImmediate& RHICmdList, mz::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup, uint64_t frameNumber);
-	void ProcessCopies(mz::fb::ShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap);
+	void TextureDestroyed(NOSProperty* texture);
+	void SetupFences(FRHICommandListImmediate& RHICmdList, nos::fb::ShowAs CopyShowAs, TMap<ID3D12Fence*, u64>& SignalGroup, uint64_t frameNumber);
+	void ProcessCopies(nos::fb::ShowAs, TMap<NOSProperty*, ResourceInfo>& CopyMap);
 	void OnBeginFrame();
 	void OnEndFrame();
 	bool SwitchStateToSynced();
 	void SwitchStateToIdle_GRPCThread(u64 LastFrameNumber);
 
-	class FMZClient* MZClient;
+	class FNOSClient* NOSClient;
 	
 	struct ID3D12Device* Dev;
 	struct ID3D12CommandQueue* CmdQueue;
 	size_t CommandListCount = 10;
 	std::vector<CmdStruct*> Cmds;
 
-	TMap<FGuid, MZProperty*> PendingCopyQueue;
+	TMap<FGuid, NOSProperty*> PendingCopyQueue;
 
 	TQueue<TPair<TObjectPtr<UTextureRenderTarget2D>, uint32_t>> ResourcesToDelete;
 	
-	TMap<MZProperty*, ResourceInfo> CopyOnTick;
+	TMap<NOSProperty*, ResourceInfo> CopyOnTick;
 	UPROPERTY()
-	TMap<MZProperty*, ResourceInfo> Copies;
+	TMap<NOSProperty*, ResourceInfo> Copies;
 
 	uint64_t FrameCounter = 0;
 	ID3D12Fence* InputFence = nullptr;
@@ -114,15 +114,15 @@ public:
 	
 	SyncSemaphoresExport SyncSemaphoresExportHandles;
 	
-	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
+	nos::app::ExecutionState ExecutionState = nos::app::ExecutionState::IDLE;
 	
 	void RenewSemaphores();
 private:
-bool CreateTextureResource(MZProperty*, mz::fb::TTexture& Texture, ResourceInfo& Resource);
+bool CreateTextureResource(NOSProperty*, nos::fb::TTexture& Texture, ResourceInfo& Resource);
 
 private:
 	void Initiate();
-	class MZGPUFailSafeRunnable* FailSafeRunnable = nullptr;
+	class NOSGPUFailSafeRunnable* FailSafeRunnable = nullptr;
 	FRunnableThread* FailSafeThread = nullptr;
 };
 

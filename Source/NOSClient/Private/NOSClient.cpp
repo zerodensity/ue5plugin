@@ -1,7 +1,7 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZClient.h"
-#include "MZCustomTimeStep.h"
+#include "NOSClient.h"
+#include "NOSCustomTimeStep.h"
 // std
 #include <cstdio>
 #include <string>
@@ -15,37 +15,37 @@
 #include "Engine/EngineCustomTimeStep.h"
 #include "Misc/MessageDialog.h"
 
-//mediaz
-#include "mzFlatBuffersCommon.h"
+//Nodos
+#include "nosFlatBuffersCommon.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameStateBase.h"
 #include "Toolkits/FConsoleCommandExecutor.h"
 
-#define LOCTEXT_NAMESPACE "FMZClient"
+#define LOCTEXT_NAMESPACE "FNOSClient"
 #pragma optimize("", off)
 
-DEFINE_LOG_CATEGORY(LogMZClient);
-#define LOG(x) UE_LOG(LogMZClient, Display, TEXT(x))
-#define LOGF(x, y) UE_LOG(LogMZClient, Display, TEXT(x), y)
+DEFINE_LOG_CATEGORY(LogNOSClient);
+#define LOG(x) UE_LOG(LogNOSClient, Display, TEXT(x))
+#define LOGF(x, y) UE_LOG(LogNOSClient, Display, TEXT(x), y)
 
-FGuid FMZClient::NodeId = {};
-FString FMZClient::AppKey = "";
+FGuid FNOSClient::NodeId = {};
+FString FNOSClient::AppKey = "";
 
-void* FMediaZ::LibHandle = nullptr;
-mz::app::FN_MakeAppServiceClient* FMediaZ::MakeAppServiceClient = nullptr;
-mz::app::FN_ShutdownClient* FMediaZ::ShutdownClient = nullptr;
+void* FNodos::LibHandle = nullptr;
+nos::app::FN_MakeAppServiceClient* FNodos::MakeAppServiceClient = nullptr;
+nos::app::FN_ShutdownClient* FNodos::ShutdownClient = nullptr;
 
-bool FMediaZ::Initialize()
+bool FNodos::Initialize()
 {
-	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("MZ_SDK_DIR"));
+	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("NODOS_SDK_DIR"));
 	FString SdkBinPath = FPaths::Combine(SdkPath, TEXT("bin"));
 	FPlatformProcess::PushDllDirectory(*SdkBinPath);
-	FString SdkDllPath = FPaths::Combine(SdkBinPath, "mzAppSDK.dll");
+	FString SdkDllPath = FPaths::Combine(SdkBinPath, "nosAppSDK.dll");
 
 	if (!FPaths::FileExists(SdkDllPath))
 	{
-		UE_LOG(LogMZClient, Error, TEXT("Failed to find the mzAppSDK.dll at %s. Plugin will not be functional."), *SdkPath);
+		UE_LOG(LogNOSClient, Error, TEXT("Failed to find the nosAppSDK.dll at %s. Plugin will not be functional."), *SdkPath);
 		return false;
 	}
 
@@ -53,31 +53,31 @@ bool FMediaZ::Initialize()
 
 	if (LibHandle == nullptr)
 	{
-		UE_LOG(LogMZClient, Error, TEXT("Failed to load required library %s. Plugin will not be functional."), *SdkDllPath);
+		UE_LOG(LogNOSClient, Error, TEXT("Failed to load required library %s. Plugin will not be functional."), *SdkDllPath);
 		return false;
 	}
 
-	auto CheckCompatible = (mz::app::FN_CheckSDKCompatibility*)FPlatformProcess::GetDllExport(LibHandle, TEXT("CheckSDKCompatibility"));
-	bool IsCompatible = CheckCompatible && CheckCompatible(MZ_APPLICATION_SDK_VERSION_MAJOR, MZ_APPLICATION_SDK_VERSION_MINOR, MZ_APPLICATION_SDK_VERSION_PATCH);
+	auto CheckCompatible = (nos::app::FN_CheckSDKCompatibility*)FPlatformProcess::GetDllExport(LibHandle, TEXT("CheckSDKCompatibility"));
+	bool IsCompatible = CheckCompatible && CheckCompatible(NOS_APPLICATION_SDK_VERSION_MAJOR, NOS_APPLICATION_SDK_VERSION_MINOR, NOS_APPLICATION_SDK_VERSION_PATCH);
 	if (!IsCompatible)
 	{
-		UE_LOG(LogMZClient, Error, TEXT("MediaZ SDK is incompatible with the plugin. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
+		UE_LOG(LogNOSClient, Error, TEXT("Nodos SDK is incompatible with the plugin. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
 		return false;
 	}
 
-	MakeAppServiceClient = (mz::app::FN_MakeAppServiceClient*)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
-	ShutdownClient = (mz::app::FN_ShutdownClient*)FPlatformProcess::GetDllExport(LibHandle, TEXT("ShutdownClient"));
+	MakeAppServiceClient = (nos::app::FN_MakeAppServiceClient*)FPlatformProcess::GetDllExport(LibHandle, TEXT("MakeAppServiceClient"));
+	ShutdownClient = (nos::app::FN_ShutdownClient*)FPlatformProcess::GetDllExport(LibHandle, TEXT("ShutdownClient"));
 	
 	if (!MakeAppServiceClient || !ShutdownClient)
 	{
-		UE_LOG(LogMZClient, Error, TEXT("Failed to load some of the functions in MediaZ SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
+		UE_LOG(LogNOSClient, Error, TEXT("Failed to load some of the functions in Nodos SDK. The plugin uses a different version of the SDK (%s) that what is available in your system."), *SdkDllPath)
 		return false;
 	}
 
 	return true;
 }
 
-void FMediaZ::Shutdown()
+void FNodos::Shutdown()
 {
 	if (LibHandle)
 	{
@@ -85,14 +85,14 @@ void FMediaZ::Shutdown()
 		LibHandle = nullptr;
 		MakeAppServiceClient = nullptr;
 		ShutdownClient = nullptr;
-		LOG("Unloaded MediaZ SDK dll successfully.");
+		LOG("Unloaded Nodos SDK dll successfully.");
 	}
 }
 
-TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
+TMap<FGuid, std::vector<uint8>> ParsePins(nos::fb::Node const& archive)
 {
 	TMap<FGuid, std::vector<uint8>> re;
-	if (!flatbuffers::IsFieldPresent(&archive, mz::fb::Node::VT_PINS))
+	if (!flatbuffers::IsFieldPresent(&archive, nos::fb::Node::VT_PINS))
 	{
 		return re;
 	}
@@ -105,10 +105,10 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 	return re;
 }
 
-TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
+TMap<FGuid, const nos::fb::Pin*> ParsePins(const nos::fb::Node* archive)
 {
-	TMap<FGuid, const mz::fb::Pin*> re;
-	if (!flatbuffers::IsFieldPresent(archive, mz::fb::Node::VT_PINS))
+	TMap<FGuid, const nos::fb::Pin*> re;
+	if (!flatbuffers::IsFieldPresent(archive, nos::fb::Node::VT_PINS))
 	{
 		return re;
 	}
@@ -119,11 +119,11 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 	return re;
 }
 
-void MZEventDelegates::OnAppConnected(mz::fb::Node const* appNode)
+void NOSEventDelegates::OnAppConnected(nos::fb::Node const* appNode)
 {
 	if (appNode)
 	{
-		FMZClient::NodeId = *(FGuid*)appNode->id();
+		FNOSClient::NodeId = *(FGuid*)appNode->id();
 	}
 	
 	if (!PluginClient)
@@ -131,124 +131,124 @@ void MZEventDelegates::OnAppConnected(mz::fb::Node const* appNode)
 		return;
 	}
 
-	LOG("Connected to mzEngine");
+	LOG("Connected to nosEngine");
 	PluginClient->Connected();
 
-	mz::fb::TNode copy;
+	nos::fb::TNode copy;
 	bool NodeIsPresent = false;
 	if(appNode)
 	{
 		NodeIsPresent = true;
 		appNode->UnPackTo(&copy);
 	}
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, NodeIsPresent]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy, NodeIsPresent]()
 		{
 			if(!NodeIsPresent)
 			{
-				MZClient->OnMZConnected.Broadcast(nullptr);
+				NOSClient->OnNOSConnected.Broadcast(nullptr);
 				return;
 			}
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::fb::CreateNode(fbb, &copy);
+			auto offset = nos::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZConnected.Broadcast(flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			NOSClient->OnNOSConnected.Broadcast(flatbuffers::GetRoot<nos::fb::Node>(buf.data()));
 		});
 
     
 }
 
-void MZEventDelegates::OnNodeUpdated(mz::fb::Node const& appNode)
+void NOSEventDelegates::OnNodeUpdated(nos::fb::Node const& appNode)
 {
-	LOG("Node update from mediaz");
+	LOG("Node update from Nodos");
 
 	if (!PluginClient)
 	{
 		return;
 	}
-	if (!FMZClient::NodeId.IsValid())
+	if (!FNOSClient::NodeId.IsValid())
 	{
-		FMZClient::NodeId = *(FGuid*)appNode.id();
+		FNOSClient::NodeId = *(FGuid*)appNode.id();
 		PluginClient->Connected();
 	}
 
-	mz::fb::TNode copy;
+	nos::fb::TNode copy;
 	appNode.UnPackTo(&copy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::fb::CreateNode(fbb, &copy);
+			auto offset = nos::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZNodeUpdated.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			NOSClient->OnNOSNodeUpdated.Broadcast(*flatbuffers::GetRoot<nos::fb::Node>(buf.data()));
 		});
 }
 
-void MZEventDelegates::OnConnectionClosed()
+void NOSEventDelegates::OnConnectionClosed()
 {
-	LOG("Connection with mediaz is finished.");
-	FMZClient::NodeId = {};
+	LOG("Connection with Nodos is finished.");
+	FNOSClient::NodeId = {};
 	if (!PluginClient)
 	{
 		return;
 	}
 	PluginClient->Disconnected();
 	
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient]()
 		{
-			MZClient->OnMZConnectionClosed.Broadcast();
+			NOSClient->OnNOSConnectionClosed.Broadcast();
 		});
 }
 
-void MZEventDelegates::OnStateChanged(mz::app::ExecutionState newState)
+void NOSEventDelegates::OnStateChanged(nos::app::ExecutionState newState)
 {
-	LOGF("Execution state is changed from mediaz to %s", *FString(newState == mz::app::ExecutionState::SYNCED ? "synced" : "idle"));
+	LOGF("Execution state is changed from Nodos to %s", *FString(newState == nos::app::ExecutionState::SYNCED ? "synced" : "idle"));
 	if (!PluginClient)
 	{
 		return;
 	}
 
-	PluginClient->OnMZStateChanged_GRPCThread.Broadcast(newState);
+	PluginClient->OnNOSStateChanged_GRPCThread.Broadcast(newState);
 
-	//PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, newState]()
+	//PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, newState]()
 	//	{
-	//		MZClient->OnMZStateChanged.Broadcast(newState);
+	//		NOSClient->OnNOSStateChanged.Broadcast(newState);
 	//	});
 	
 }
 
-void MZEventDelegates::OnConsoleCommand(mz::app::ConsoleCommand const* consoleCommand)
+void NOSEventDelegates::OnConsoleCommand(nos::app::ConsoleCommand const* consoleCommand)
 {
 	if(!consoleCommand)
 	{
 		LOG("OnConsoleCommand request is NULL");
 	}
-	LOGF("Console command is here from mz %s", *FString(consoleCommand->command()->c_str()));
+	LOGF("Console command is here from nos %s", *FString(consoleCommand->command()->c_str()));
 	if (!PluginClient)
 	{
 		return;
 	}
 	FString CommandString = FString(consoleCommand->command()->c_str());
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, CommandString]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, CommandString]()
 		{
-			MZClient->ExecuteConsoleCommand(*CommandString);
+			NOSClient->ExecuteConsoleCommand(*CommandString);
 		});
 }
 
-void MZEventDelegates::OnConsoleAutoCompleteSuggestionRequest(
-	mz::app::ConsoleAutoCompleteSuggestionRequest const* consoleAutoCompleteSuggestionRequest)
+void NOSEventDelegates::OnConsoleAutoCompleteSuggestionRequest(
+	nos::app::ConsoleAutoCompleteSuggestionRequest const* consoleAutoCompleteSuggestionRequest)
 {
 	if(!consoleAutoCompleteSuggestionRequest)
 	{
 		LOG("OnConsoleCommand request is NULL");
 	}
-	LOGF("Console command auto-complete request is here from mz %s", *FString(consoleAutoCompleteSuggestionRequest->input()->c_str()));
+	LOGF("Console command auto-complete request is here from nos %s", *FString(consoleAutoCompleteSuggestionRequest->input()->c_str()));
 	if (!PluginClient)
 	{
 		return;
 	}
 	FString InputString = FString(consoleAutoCompleteSuggestionRequest->input()->c_str());
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, InputString]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, InputString]()
 		{
 		    auto CmdExec = MakeUnique<FConsoleCommandExecutor>();
 		    //IModularFeatures::Get().RegisterModularFeature(IConsoleCommandExecutor::ModularFeatureName(), CmdExec.Get());
@@ -262,17 +262,17 @@ void MZEventDelegates::OnConsoleAutoCompleteSuggestionRequest(
 			{
 				suggestions.push_back(mb.CreateString(TCHAR_TO_UTF8(*sugg)));
 			}
-		    auto offset = mz::CreateAppEventOffset(mb, mz::app::CreateConsoleAutoCompleteSuggestionsUpdateDirect(mb, &suggestions));
+		    auto offset = nos::CreateAppEventOffset(mb, nos::app::CreateConsoleAutoCompleteSuggestionsUpdateDirect(mb, &suggestions));
 		    mb.Finish(offset);
 		    auto buf = mb.Release();
-		    auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
-		    MZClient->AppServiceClient->Send(*root);
+		    auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+		    NOSClient->AppServiceClient->Send(*root);
 		});
 }
 
-void MZEventDelegates::OnLoadNodesOnPaths(mz::LoadNodesOnPaths const* loadNodesOnPathsRequest)
+void NOSEventDelegates::OnLoadNodesOnPaths(nos::LoadNodesOnPaths const* loadNodesOnPathsRequest)
 {
-	LOG("LoadNodesOnPaths request from mediaZ");
+	LOG("LoadNodesOnPaths request from Nodos");
 	if (!PluginClient || !loadNodesOnPathsRequest->paths())
 	{
 		return;
@@ -282,15 +282,15 @@ void MZEventDelegates::OnLoadNodesOnPaths(mz::LoadNodesOnPaths const* loadNodesO
 	{
 		Paths.Push(path->c_str());
 	}
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, Paths]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, Paths]()
 		{
-			MZClient->OnMZLoadNodesOnPaths.Broadcast(Paths);
+			NOSClient->OnNOSLoadNodesOnPaths.Broadcast(Paths);
 		});
 }
 
-void MZEventDelegates::OnCloseApp()
+void NOSEventDelegates::OnCloseApp()
 {
-	LOG("Closing UE per mediaz request.");
+	LOG("Closing UE per Nodos request.");
 	if (!PluginClient)
 	{
 		return;
@@ -298,27 +298,27 @@ void MZEventDelegates::OnCloseApp()
 	FGenericPlatformMisc::RequestExit(false);
 }
 
-void MZEventDelegates::OnNodeRemoved()
+void NOSEventDelegates::OnNodeRemoved()
 {
-	LOG("Plugin node removed from mediaz");
+	LOG("Plugin node removed from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
 
-	if (PluginClient->MZTimeStep.IsValid())
+	if (PluginClient->NOSTimeStep.IsValid())
 	{
-		PluginClient->MZTimeStep->Step({ 1 , 50 });
+		PluginClient->NOSTimeStep->Step({ 1 , 50 });
 	}
 
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient]()
 		{
-			FMZClient::NodeId = {};
-			MZClient->OnMZNodeRemoved.Broadcast();
+			FNOSClient::NodeId = {};
+			NOSClient->OnNOSNodeRemoved.Broadcast();
 		});
 }
 
-void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber)
+void NOSEventDelegates::OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber)
 {
 	if (!PluginClient)
 	{
@@ -330,16 +330,16 @@ void MZEventDelegates::OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t cons
 	memcpy(copy.data(), data, size);
 	FGuid id = *(FGuid*)&pinId;
 
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, size, id, reset]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy, size, id, reset]()
 		{
-			MZClient->OnMZPinValueChanged.Broadcast(*(mz::fb::UUID*)&id, copy.data(), size, reset);
+			NOSClient->OnNOSPinValueChanged.Broadcast(*(nos::fb::UUID*)&id, copy.data(), size, reset);
 		});
 
 }
 
-void MZEventDelegates::OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs)
+void NOSEventDelegates::OnPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs)
 {
-	LOG("Pin show as changed from mediaz");
+	LOG("Pin show as changed from Nodos");
 	if (!PluginClient)
 	{
 		return;
@@ -347,36 +347,36 @@ void MZEventDelegates::OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::Sho
 	
 
 	FGuid id = *(FGuid*)&pinId;
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, id, newShowAs]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, id, newShowAs]()
 		{
-			MZClient->OnMZPinShowAsChanged.Broadcast(*(mz::fb::UUID*)&id, newShowAs);
+			NOSClient->OnNOSPinShowAsChanged.Broadcast(*(nos::fb::UUID*)&id, newShowAs);
 		});
 }
 
-void MZEventDelegates::OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function)
+void NOSEventDelegates::OnFunctionCall(nos::fb::UUID const& nodeId, nos::fb::Node const& function)
 {
-	LOG("Function called from mediaz");
+	LOG("Function called from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
 
 
-	mz::fb::TNode copy;
+	nos::fb::TNode copy;
 	function.UnPackTo(&copy);
 	FGuid id = *(FGuid*)&nodeId;
 
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy, id]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy, id]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::fb::CreateNode(fbb, &copy);
+			auto offset = nos::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZFunctionCalled.Broadcast(*(mz::fb::UUID*)&id, *flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			NOSClient->OnNOSFunctionCalled.Broadcast(*(nos::fb::UUID*)&id, *flatbuffers::GetRoot<nos::fb::Node>(buf.data()));
 		});
 }
 
-void MZEventDelegates::OnExecuteAppInfo(mz::app::AppExecuteInfo const* appExecuteInfo)
+void NOSEventDelegates::OnExecuteAppInfo(nos::app::AppExecuteInfo const* appExecuteInfo)
 {
 	if (!PluginClient)
 	{
@@ -386,124 +386,124 @@ void MZEventDelegates::OnExecuteAppInfo(mz::app::AppExecuteInfo const* appExecut
 	PluginClient->OnUpdatedNodeExecuted(*appExecuteInfo->delta_seconds());
 }
 
-void MZEventDelegates::OnNodeSelected(mz::fb::UUID const& nodeId)
+void NOSEventDelegates::OnNodeSelected(nos::fb::UUID const& nodeId)
 {
-	LOG("Node selected from mediaz");
+	LOG("Node selected from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
 	FGuid id = *(FGuid*)&nodeId;
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, id]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, id]()
 		{
-			MZClient->OnMZNodeSelected.Broadcast(*(mz::fb::UUID*)&id);
+			NOSClient->OnNOSNodeSelected.Broadcast(*(nos::fb::UUID*)&id);
 		});
 }
 
-void MZEventDelegates::OnContextMenuRequested(mz::ContextMenuRequest const& request)
+void NOSEventDelegates::OnContextMenuRequested(nos::ContextMenuRequest const& request)
 {
-	LOG("Context menu fired from MediaZ");
+	LOG("Context menu fired from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
 
 	
-	mz::TContextMenuRequest copy;
+	nos::TContextMenuRequest copy;
 	request.UnPackTo(&copy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::CreateContextMenuRequest(fbb, &copy);
+			auto offset = nos::CreateContextMenuRequest(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZContextMenuRequested.Broadcast(*flatbuffers::GetRoot<mz::ContextMenuRequest>(buf.data()));
+			NOSClient->OnNOSContextMenuRequested.Broadcast(*flatbuffers::GetRoot<nos::ContextMenuRequest>(buf.data()));
 		});
 }
 
-void MZEventDelegates::OnContextMenuCommandFired(mz::ContextMenuAction const& action)
+void NOSEventDelegates::OnContextMenuCommandFired(nos::ContextMenuAction const& action)
 {
-	LOG("Context menu command fired from MediaZ");
+	LOG("Context menu command fired from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
 
-	mz::TContextMenuAction copy;
+	nos::TContextMenuAction copy;
 	action.UnPackTo(&copy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::CreateContextMenuAction(fbb, &copy);
+			auto offset = nos::CreateContextMenuAction(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			MZClient->OnMZContextMenuCommandFired.Broadcast(*flatbuffers::GetRoot<mz::ContextMenuAction>(buf.data()));
+			NOSClient->OnNOSContextMenuCommandFired.Broadcast(*flatbuffers::GetRoot<nos::ContextMenuAction>(buf.data()));
 		});
 }
 
-void MZEventDelegates::OnNodeImported(mz::fb::Node const& appNode)
+void NOSEventDelegates::OnNodeImported(nos::fb::Node const& appNode)
 {
-	LOG("Node imported from MediaZ");
+	LOG("Node imported from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
 
 
-	mz::fb::TNode copy;
+	nos::fb::TNode copy;
 	appNode.UnPackTo(&copy);
-	PluginClient->TaskQueue.Enqueue([MZClient = PluginClient, copy]()
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = mz::fb::CreateNode(fbb, &copy);
+			auto offset = nos::fb::CreateNode(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			FMZClient::NodeId = *(FGuid*)&copy.id;
-			MZClient->OnMZNodeImported.Broadcast(*flatbuffers::GetRoot<mz::fb::Node>(buf.data()));
+			FNOSClient::NodeId = *(FGuid*)&copy.id;
+			NOSClient->OnNOSNodeImported.Broadcast(*flatbuffers::GetRoot<nos::fb::Node>(buf.data()));
 
 			auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
 			if (WorldContext->World())
 			{
-				mz::fb::TNodeStatusMessage MapNameStatus;
+				nos::fb::TNodeStatusMessage MapNameStatus;
 				MapNameStatus.text = TCHAR_TO_UTF8(*WorldContext->World()->GetMapName());
-				MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
-				MZClient->UENodeStatusHandler.Add("map_name", MapNameStatus);
+				MapNameStatus.type = nos::fb::NodeStatusMessageType::INFO;
+				NOSClient->UENodeStatusHandler.Add("map_name", MapNameStatus);
 			}
 		});
 }
 
-FMZClient::FMZClient() {}
+FNOSClient::FNOSClient() {}
 
-bool FMZClient::IsConnected()
+bool FNOSClient::IsConnected()
 {
 	return AppServiceClient && AppServiceClient->IsConnected();
 }
 
-void FMZClient::Connected()
+void FNOSClient::Connected()
 {
 	TaskQueue.Enqueue([&]()
 		{
-			LOG("Sent map information to MediaZ");
+			LOG("Sent map information to Nodos");
 			auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
 			if (WorldContext->World())
 			{
-				mz::fb::TNodeStatusMessage MapNameStatus;
+				nos::fb::TNodeStatusMessage MapNameStatus;
 				MapNameStatus.text = TCHAR_TO_UTF8(*WorldContext->World()->GetMapName());
-				MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+				MapNameStatus.type = nos::fb::NodeStatusMessageType::INFO;
 				UENodeStatusHandler.Add("map_name", MapNameStatus);
 			}
 		});
 }
 
-void FMZClient::Disconnected()
+void FNOSClient::Disconnected()
 {
-	if (MZTimeStep.IsValid())
+	if (NOSTimeStep.IsValid())
 	{
-		MZTimeStep->Step({ 1, 50 });
+		NOSTimeStep->Step({ 1, 50 });
 	}
 }
 
-void FMZClient::TryConnect()
+void FNOSClient::TryConnect()
 {
 	if (!IsWorldInitialized)
 	{
@@ -513,22 +513,22 @@ void FMZClient::TryConnect()
 	if (!AppServiceClient)
 	{
 		FString CmdAppKey;
-		if (FParse::Value(FCommandLine::Get(), TEXT("mzname"), CmdAppKey))
+		if (FParse::Value(FCommandLine::Get(), TEXT("nosname"), CmdAppKey))
 		{
-			LOGF("MediaZ app key is provided: %s", *CmdAppKey);
-			FMZClient::AppKey = CmdAppKey;
+			LOGF("Nodos app key is provided: %s", *CmdAppKey);
+			FNOSClient::AppKey = CmdAppKey;
 		}
 		else
 		{
-			FMZClient::AppKey = "UE5";
+			FNOSClient::AppKey = "UE5";
 		}
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
-		AppServiceClient = FMediaZ::MakeAppServiceClient("localhost:50053", mz::app::ApplicationInfo {
-			.AppKey = TCHAR_TO_UTF8(*FMZClient::AppKey),
+		AppServiceClient = FNodos::MakeAppServiceClient("localhost:50053", nos::app::ApplicationInfo {
+			.AppKey = TCHAR_TO_UTF8(*FNOSClient::AppKey),
 			.AppName = "UE5"
 		});
-		EventDelegates = TSharedPtr<MZEventDelegates>(new MZEventDelegates());
+		EventDelegates = TSharedPtr<NOSEventDelegates>(new NOSEventDelegates());
 		EventDelegates->PluginClient = this;
 		UENodeStatusHandler.SetClient(this);
 		AppServiceClient->RegisterEventDelegates(EventDelegates.Get());
@@ -549,9 +549,9 @@ void FMZClient::TryConnect()
 
 	 if (!CustomTimeStepBound && IsConnected())
 	 {
-	 	MZTimeStep = NewObject<UMZCustomTimeStep>();
-	 	MZTimeStep->PluginClient = this;
-	 	if (GEngine->SetCustomTimeStep(MZTimeStep.Get()))
+	 	NOSTimeStep = NewObject<UNOSCustomTimeStep>();
+	 	NOSTimeStep->PluginClient = this;
+	 	if (GEngine->SetCustomTimeStep(NOSTimeStep.Get()))
 	 	{
 	 		CustomTimeStepBound = true;
 	 	}
@@ -559,12 +559,12 @@ void FMZClient::TryConnect()
 	return;
 }
 
-void FMZClient::OnBeginFrame()
+void FNOSClient::OnBeginFrame()
 {
 
 }
 
-void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues initValues)
+void FNOSClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues initValues)
 {
 	TaskQueue.Enqueue([World, this]()
 		{
@@ -580,14 +580,14 @@ void FMZClient::OnPostWorldInit(UWorld* World, const UWorld::InitializationValue
 
 			IsWorldInitialized = true;
 
-			mz::fb::TNodeStatusMessage MapNameStatus;
+			nos::fb::TNodeStatusMessage MapNameStatus;
 			MapNameStatus.text = TCHAR_TO_UTF8(*World->GetMapName());
-			MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+			MapNameStatus.type = nos::fb::NodeStatusMessageType::INFO;
 			UENodeStatusHandler.Add("map_name", MapNameStatus);
 		});
 }
 
-void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
+void FNOSClient::OnPreWorldFinishDestroy(UWorld* World)
 {
 	LOG("World is destroyed");
 
@@ -598,9 +598,9 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
 	if (WorldContext->World())
 	{
-		mz::fb::TNodeStatusMessage MapNameStatus;
+		nos::fb::TNodeStatusMessage MapNameStatus;
 		MapNameStatus.text = TCHAR_TO_UTF8(*WorldContext->World()->GetMapName());
-		MapNameStatus.type = mz::fb::NodeStatusMessageType::INFO;
+		MapNameStatus.type = nos::fb::NodeStatusMessageType::INFO;
 		UENodeStatusHandler.Add("map_name", MapNameStatus);
 	}
 	if (World != WorldContext->World())
@@ -610,7 +610,7 @@ void FMZClient::OnPreWorldFinishDestroy(UWorld* World)
 	
 }
 
-void FMZClient::StartupModule() {
+void FNOSClient::StartupModule() {
 
 	if (!FApp::HasProjectName())
 	{
@@ -620,33 +620,33 @@ void FMZClient::StartupModule() {
 	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
 	if ("D3D12" != hwinfo)
 	{
-		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
+		FMessageDialog::Debugf(FText::FromString("Nodos plugin supports DirectX12 only!"), 0);
 		return;
 	}
 
-	if (!FMediaZ::Initialize())
+	if (!FNodos::Initialize())
 	{
 		return;
 	}
 
 	//Add Delegates
-	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZClient::Tick));
-	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZClient::OnPostWorldInit);
-	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZClient::OnPreWorldFinishDestroy);
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSClient::Tick));
+	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSClient::OnPostWorldInit);
+	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSClient::OnPreWorldFinishDestroy);
 }
 
-void FMZClient::ShutdownModule()
+void FNOSClient::ShutdownModule()
 {
 	// AppServiceClient-/*>*/
-	MZTimeStep = nullptr;
-	if(FMediaZ::ShutdownClient)
+	NOSTimeStep = nullptr;
+	if(FNodos::ShutdownClient)
 	{
-		FMediaZ::ShutdownClient(AppServiceClient);
+		FNodos::ShutdownClient(AppServiceClient);
 	}
-	FMediaZ::Shutdown();
+	FNodos::Shutdown();
 }
 
-bool FMZClient::Tick(float dt)
+bool FNOSClient::Tick(float dt)
 {
 	if (ReloadingLevel > 0)
 	{
@@ -664,15 +664,15 @@ bool FMZClient::Tick(float dt)
 	return true;
 }
 
-void FMZClient::OnUpdatedNodeExecuted(mz::fb::vec2u deltaSeconds)
+void FNOSClient::OnUpdatedNodeExecuted(nos::fb::vec2u deltaSeconds)
 {
-	if (MZTimeStep.IsValid())
+	if (NOSTimeStep.IsValid())
 	{
-		MZTimeStep->Step(deltaSeconds);
+		NOSTimeStep->Step(deltaSeconds);
 	}
 }
 
-bool FMZClient::ExecuteConsoleCommand(const TCHAR* Input)
+bool FNOSClient::ExecuteConsoleCommand(const TCHAR* Input)
 {
 	IConsoleManager::Get().AddConsoleHistoryEntry(TEXT(""), Input);
 
@@ -691,12 +691,12 @@ bool FMZClient::ExecuteConsoleCommand(const TCHAR* Input)
 	return bHandled;
 }
 
-bool FMZClient::ExecInternal(const TCHAR* Input)
+bool FNOSClient::ExecInternal(const TCHAR* Input)
 {
 	bool bWasHandled = false;
 	UWorld* World = nullptr;
 	UWorld* OldWorld = nullptr;
-	MZConsoleOutput ConsoleOutput(this);
+	NOSConsoleOutput ConsoleOutput(this);
 
 	// The play world needs to handle these commands if it exists
 	if (GIsEditor && GEditor->PlayWorld && !GIsPlayInEditorWorld)
@@ -758,12 +758,12 @@ bool FMZClient::ExecInternal(const TCHAR* Input)
 	
 }
 
-void UENodeStatusHandler::SetClient(FMZClient* _PluginClient)
+void UENodeStatusHandler::SetClient(FNOSClient* _PluginClient)
 {
 	this->PluginClient = _PluginClient;
 }
 
-void UENodeStatusHandler::Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status)
+void UENodeStatusHandler::Add(std::string const& Id, nos::fb::TNodeStatusMessage const& Status)
 {
 	StatusMessages[Id] = Status;
 	Dirty = true;
@@ -789,19 +789,19 @@ void UENodeStatusHandler::Update()
 
 void UENodeStatusHandler::SendStatus()
 {
-	if (!PluginClient || !PluginClient->IsConnected() || !FMZClient::NodeId.IsValid())
+	if (!PluginClient || !PluginClient->IsConnected() || !FNOSClient::NodeId.IsValid())
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
-	mz::TPartialNodeUpdate UpdateRequest;
-	UpdateRequest.node_id = *reinterpret_cast<mz::fb::UUID*>(&FMZClient::NodeId);
+	nos::TPartialNodeUpdate UpdateRequest;
+	UpdateRequest.node_id = *reinterpret_cast<nos::fb::UUID*>(&FNOSClient::NodeId);
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
-		UpdateRequest.status_messages.push_back(std::make_unique<mz::fb::TNodeStatusMessage>(StatusMsg));
+		UpdateRequest.status_messages.push_back(std::make_unique<nos::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	auto offset = mz::CreatePartialNodeUpdate(Builder, &UpdateRequest);
+	auto offset = nos::CreatePartialNodeUpdate(Builder, &UpdateRequest);
 	Builder.Finish(offset);
 	auto buf = Builder.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
 	PluginClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	Dirty = false;
 }
@@ -822,20 +822,20 @@ bool FPSCounter::Update(float dt)
 	return false;
 }
 
-mz::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
+nos::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 {
-	mz::fb::TNodeStatusMessage FpsStatusMessage;
+	nos::fb::TNodeStatusMessage FpsStatusMessage;
 
 	FpsStatusMessage.text.resize(32);
 	::snprintf(FpsStatusMessage.text.data(), 32, "%.2f FPS", FramesPerSecond);
 	FpsStatusMessage.text.shrink_to_fit();
 
-	FpsStatusMessage.type = mz::fb::NodeStatusMessageType::INFO;
+	FpsStatusMessage.type = nos::fb::NodeStatusMessageType::INFO;
 	return FpsStatusMessage;
 }
 
 #pragma optimize("", on)
 #undef LOCTEXT_NAMESPACE
 
-IMPLEMENT_MODULE(FMZClient, ClientImpl)
+IMPLEMENT_MODULE(FNOSClient, ClientImpl)
 

@@ -1,6 +1,6 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZSceneTree.h"
+#include "NOSSceneTree.h"
 
 #include "Chaos/AABB.h"
 #include "Chaos/AABB.h"
@@ -11,15 +11,15 @@
 #include "Chaos/AABB.h"
 #include "Chaos/AABB.h"
 
-MZSceneTree::MZSceneTree()
+NOSSceneTree::NOSSceneTree()
 {
 	Root = TSharedPtr<FolderNode>(new FolderNode);
-	Root->mzMetaData.Add("PinnedCategories", "Control");
-	Root->Name = FMZClient::AppKey;
+	Root->nosMetaData.Add("PinnedCategories", "Control");
+	Root->Name = FNOSClient::AppKey;
 	Root->Parent = nullptr;
 }
 
-TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name, TSharedPtr<TreeNode>& mostRecentParent)
+TSharedPtr<FolderNode> NOSSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name, TSharedPtr<TreeNode>& mostRecentParent)
 {
 	for (auto child : node->Children)
 	{
@@ -33,7 +33,7 @@ TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> no
 	newChild->Name = name;
 	if(name == NAME_Reality_FolderName.ToString())
 	{
-		newChild->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
+		newChild->nosMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);	
 	}
 	newChild->Id = FGuid::NewGuid();
 	node->Children.push_back(newChild);
@@ -47,7 +47,7 @@ TSharedPtr<FolderNode> MZSceneTree::FindOrAddChildFolder(TSharedPtr<TreeNode> no
 
 
 
-void MZSceneTree::Clear()
+void NOSSceneTree::Clear()
 {
 	ClearRecursive(Root);
 	NodeMap.Empty();
@@ -55,7 +55,7 @@ void MZSceneTree::Clear()
 	NodeMap.Add(Root->Id, Root);
 }
 
-void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
+void NOSSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 {
 	for (auto child : node->Children)
 	{
@@ -68,13 +68,13 @@ void MZSceneTree::ClearRecursive(TSharedPtr<TreeNode> node)
 	}
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor)
+TSharedPtr<ActorNode> NOSSceneTree::AddActor(FString folderPath, AActor* actor)
 {
 	TSharedPtr<TreeNode> mostRecentParent;
 	return AddActor(folderPath, actor, mostRecentParent);
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent)
+TSharedPtr<ActorNode> NOSSceneTree::AddActor(FString folderPath, AActor* actor, TSharedPtr<TreeNode>& mostRecentParent)
 {
 	if (!actor)
 	{
@@ -97,12 +97,12 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	//todo fix display names newChild->Name = actor->GetActorLabel();
 	newChild->Name = actor->GetFName().ToString();
 	newChild->Id = StringToFGuid(actor->GetFName().ToString());
-	newChild->actor = MZActorReference(actor);
+	newChild->actor = NOSActorReference(actor);
 	newChild->NeedsReload = true;
 	ptr->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
 	ActorIdToNodeId.Add(actor->GetActorGuid(), newChild->Id);
-	newChild->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
+	newChild->nosMetaData.Add(NosMetadataKeys::PinnedCategories, "Transform");
 	
 	if (actor->GetRootComponent())
 	{
@@ -119,7 +119,7 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(FString folderPath, AActor* actor, T
 	return newChild;
 }
 
-TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
+TSharedPtr<ActorNode> NOSSceneTree::AddActor(TreeNode* parent, AActor* actor)
 {
 	if (!actor)
 	{
@@ -134,12 +134,12 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
 	newChild->Parent = parent;
 	newChild->Name = actor->GetActorLabel();
 	newChild->Id = StringToFGuid(actor->GetFName().ToString());
-	newChild->actor = MZActorReference(actor);
+	newChild->actor = NOSActorReference(actor);
 	newChild->NeedsReload = true;
 	parent->Children.push_back(newChild);
 	NodeMap.Add(newChild->Id, newChild);
 	ActorIdToNodeId.Add(actor->GetActorGuid(), newChild->Id);
-	newChild->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
+	newChild->nosMetaData.Add(NosMetadataKeys::PinnedCategories, "Transform");
 	
 	if (actor->GetRootComponent())
 	{
@@ -153,11 +153,11 @@ TSharedPtr<ActorNode> MZSceneTree::AddActor(TreeNode* parent, AActor* actor)
 	return newChild;
 }
 
-TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(ActorNode* parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> NOSSceneTree::AddSceneComponent(ActorNode* parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode>newComponentNode(new SceneComponentNode);
-	newComponentNode->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
-	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
+	newComponentNode->nosMetaData.Add(NosMetadataKeys::PinnedCategories, "Transform");
+	newComponentNode->sceneComponent = NOSComponentReference(sceneComponent);
 	FString ActorUniqueName = parent->actor->GetFName().ToString();
 	FString ComponentName = sceneComponent->GetFName().ToString();
 	newComponentNode->Id = StringToFGuid(ActorUniqueName + ComponentName);
@@ -176,11 +176,11 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(ActorNode* parent,
 	return newComponentNode;
 }
 
-TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
+TSharedPtr<SceneComponentNode> NOSSceneTree::AddSceneComponent(TSharedPtr<SceneComponentNode> parent, USceneComponent* sceneComponent)
 {
 	TSharedPtr<SceneComponentNode> newComponentNode(new SceneComponentNode);
-	newComponentNode->mzMetaData.Add(MzMetadataKeys::PinnedCategories, "Transform");
-	newComponentNode->sceneComponent = MZComponentReference(sceneComponent);
+	newComponentNode->nosMetaData.Add(NosMetadataKeys::PinnedCategories, "Transform");
+	newComponentNode->sceneComponent = NOSComponentReference(sceneComponent);
 	FString ActorUniqueName;
 	if(auto actor = sceneComponent->GetAttachParentActor())
 	{
@@ -203,14 +203,14 @@ TSharedPtr<SceneComponentNode> MZSceneTree::AddSceneComponent(TSharedPtr<SceneCo
 	return newComponentNode;
 }
 
-ActorNode* MZSceneTree::GetNode(AActor* Actor)
+ActorNode* NOSSceneTree::GetNode(AActor* Actor)
 {
 	if(!Actor)
 		return  nullptr;
 	return GetNodeFromActorId(Actor->GetActorGuid());
 }
 
-ActorNode* MZSceneTree::GetNodeFromActorId(FGuid ActorId)
+ActorNode* NOSSceneTree::GetNodeFromActorId(FGuid ActorId)
 {
 	if(!ActorIdToNodeId.Contains(ActorId))
 		return  nullptr;
@@ -223,7 +223,7 @@ ActorNode* MZSceneTree::GetNodeFromActorId(FGuid ActorId)
 	return Node->GetAsActorNode();
 }
 
-FGuid MZSceneTree::GetNodeIdActorId(FGuid ActorId)
+FGuid NOSSceneTree::GetNodeIdActorId(FGuid ActorId)
 {
 	if(!ActorIdToNodeId.Contains(ActorId))
 		return {};
@@ -231,7 +231,7 @@ FGuid MZSceneTree::GetNodeIdActorId(FGuid ActorId)
 	return ActorIdToNodeId.FindRef(ActorId);
 }
 
-TreeNode* MZSceneTree::GetNode(FGuid NodeId)
+TreeNode* NOSSceneTree::GetNode(FGuid NodeId)
 {
 	if(!NodeMap.Contains(NodeId))
 		return nullptr;
@@ -240,32 +240,32 @@ TreeNode* MZSceneTree::GetNode(FGuid NodeId)
 	return Node.Get();
 }
 
-void MZSceneTree::RemoveNode(FGuid NodeId)
+void NOSSceneTree::RemoveNode(FGuid NodeId)
 {
 	NodeMap.Remove(NodeId);
 }
 
-flatbuffers::Offset<mz::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
-	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, 0, 0, 0, &metadata);
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
+	std::vector<flatbuffers::Offset<nos::fb::Node>> childNodes = SerializeChildren(fbb);
+	return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, 0, 0, nos::fb::NodeContents::Graph, nos::fb::CreateGraphDirect(fbb, &childNodes).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, 0, 0, 0, &metadata);
 }
 
-flatbuffers::Offset<mz::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Node> ActorNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
-	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, 0, 0, 0, &metadata, 0, 0, TCHAR_TO_UTF8(*actor->GetActorLabel()));
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
+	std::vector<flatbuffers::Offset<nos::fb::Node>> childNodes = SerializeChildren(fbb);
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> pins = SerializePins(fbb);
+	return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, nos::fb::NodeContents::Graph, nos::fb::CreateGraphDirect(fbb, &childNodes).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, 0, 0, 0, &metadata, 0, 0, TCHAR_TO_UTF8(*actor->GetActorLabel()));
 }
 
-std::vector<flatbuffers::Offset<mz::fb::Pin>> ActorNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::fb::Pin>> ActorNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-	for (auto mzprop : Properties)
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> pins;
+	for (auto nosprop : Properties)
 	{
-		pins.push_back(mzprop->Serialize(fbb));
+		pins.push_back(nosprop->Serialize(fbb));
 	}
 	return pins;
 }
@@ -274,27 +274,27 @@ ActorNode::~ActorNode()
 {
 }
 
-flatbuffers::Offset<mz::fb::Node> SceneComponentNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Node> SceneComponentNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
-	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes = SerializeChildren(fbb);
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins = SerializePins(fbb);
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, mz::fb::NodeContents::Graph, mz::fb::CreateGraphDirect(fbb, &childNodes).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, 0, 0, 0, &metadata);
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
+	std::vector<flatbuffers::Offset<nos::fb::Node>> childNodes = SerializeChildren(fbb);
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> pins = SerializePins(fbb);
+	return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*Name), TCHAR_TO_UTF8(*GetClassDisplayName()), false, true, &pins, 0, nos::fb::NodeContents::Graph, nos::fb::CreateGraphDirect(fbb, &childNodes).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, 0, 0, 0, &metadata);
 }
 
-std::vector<flatbuffers::Offset<mz::fb::Pin>> SceneComponentNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::fb::Pin>> SceneComponentNode::SerializePins(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
-	for (auto mzprop : Properties)
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> pins;
+	for (auto nosprop : Properties)
 	{
-		pins.push_back(mzprop->Serialize(fbb));
+		pins.push_back(nosprop->Serialize(fbb));
 	}
 	return pins;
 }
 
-std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::fb::Node>> TreeNode::SerializeChildren(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::Node>> childNodes;
+	std::vector<flatbuffers::Offset<nos::fb::Node>> childNodes;
 
 	if (Children.empty())
 	{
@@ -309,12 +309,12 @@ std::vector<flatbuffers::Offset<mz::fb::Node>> TreeNode::SerializeChildren(flatb
 	return childNodes;
 }
 
-std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> TreeNode::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> TreeNode::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
-	for (auto [key, value] : mzMetaData)
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata;
+	for (auto [key, value] : nosMetaData)
 	{
-		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
+		metadata.push_back(nos::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
 	}
 	return metadata;
 }

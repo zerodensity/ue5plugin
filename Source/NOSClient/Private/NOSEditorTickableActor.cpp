@@ -1,10 +1,10 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
 
-#include "MZEditorTickableActor.h"
+#include "NOSEditorTickableActor.h"
 
 // Sets default values
-AMZEditorTickableActor::AMZEditorTickableActor()
+ANOSEditorTickableActor::ANOSEditorTickableActor()
 {
  	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
@@ -12,13 +12,13 @@ AMZEditorTickableActor::AMZEditorTickableActor()
 }
 
 // Called when the game starts or when spawned
-void AMZEditorTickableActor::BeginPlay()
+void ANOSEditorTickableActor::BeginPlay()
 {
 	Super::BeginPlay();
 	
 }
 
-void AMZEditorTickableActor::Tick(float DeltaTime)
+void ANOSEditorTickableActor::Tick(float DeltaTime)
 {
 #if WITH_EDITOR
 	if (GetWorld() != nullptr && GetWorld()->WorldType == EWorldType::Editor)
@@ -33,7 +33,7 @@ void AMZEditorTickableActor::Tick(float DeltaTime)
 }
 
 
-bool AMZEditorTickableActor::ShouldTickIfViewportsOnly() const
+bool ANOSEditorTickableActor::ShouldTickIfViewportsOnly() const
 {
 	if (GetWorld() != nullptr && GetWorld()->WorldType == EWorldType::Editor && UseEditorTick)
 	{

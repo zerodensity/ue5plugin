@@ -1,6 +1,6 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZAssetManager.h"
+#include "NOSAssetManager.h"
 
 
 #include "ActorFactories/ActorFactory.h"
@@ -14,7 +14,7 @@
 
 #include <vector>
 
-IMPLEMENT_MODULE(FMZAssetManager, MZAssetManager)
+IMPLEMENT_MODULE(FNOSAssetManager, NOSAssetManager)
 
 template<typename T>
 inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffers::Offset<T> const& offset)
@@ -24,18 +24,18 @@ inline const T& FinishBuffer(flatbuffers::FlatBufferBuilder& builder, flatbuffer
 	return *flatbuffers::GetRoot<T>(buf.data());
 }
 
-FMZAssetManager::FMZAssetManager()
+FNOSAssetManager::FNOSAssetManager()
 {
 }
 
-void FMZAssetManager::StartupModule()
+void FNOSAssetManager::StartupModule()
 {
-	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+	NOSClient = &FModuleManager::LoadModuleChecked<FNOSClient>("NOSClient");
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>("AssetRegistry");
-	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FMZAssetManager::OnAssetCreated);
-	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FMZAssetManager::OnAssetDeleted);
+	AssetRegistryModule.Get().OnAssetAdded().AddRaw(this, &FNOSAssetManager::OnAssetCreated);
+	AssetRegistryModule.Get().OnAssetRemoved().AddRaw(this, &FNOSAssetManager::OnAssetDeleted);
 
-	MZClient->OnMZConnected.AddLambda([this](mz::fb::Node const* appNode)
+	NOSClient->OnNOSConnected.AddLambda([this](nos::fb::Node const* appNode)
 		{
 			RescanAndSendAll();
 		});
@@ -45,36 +45,36 @@ void FMZAssetManager::StartupModule()
 	SetupCustomSpawns();
 }
 
-void FMZAssetManager::ShutdownModule()
+void FNOSAssetManager::ShutdownModule()
 {
 }
 
-bool FMZAssetManager::HideFromOutliner() const
+bool FNOSAssetManager::HideFromOutliner() const
 {
 	return true;
 }
 
-void FMZAssetManager::OnAssetCreated(const FAssetData& createdAsset)
+void FNOSAssetManager::OnAssetCreated(const FAssetData& createdAsset)
 {
-	if (!MZClient || !MZClient->IsConnected())
+	if (!NOSClient || !NOSClient->IsConnected())
 	{
 		return;
 	}
 	RescanAndSendAll();
 }
 
-void FMZAssetManager::OnAssetDeleted(const FAssetData& removedAsset)
+void FNOSAssetManager::OnAssetDeleted(const FAssetData& removedAsset)
 {
-	if (!MZClient || !MZClient->IsConnected())
+	if (!NOSClient || !NOSClient->IsConnected())
 	{
 		return;
 	}
 	RescanAndSendAll();
 }
 
-void FMZAssetManager::SendList(const char* ListName, const TArray<FString>& Value)
+void FNOSAssetManager::SendList(const char* ListName, const TArray<FString>& Value)
 {
-	if (!(MZClient && MZClient->IsConnected()))
+	if (!(NOSClient && NOSClient->IsConnected()))
 		return;
 
 	flatbuffers::FlatBufferBuilder mb;
@@ -84,14 +84,14 @@ void FMZAssetManager::SendList(const char* ListName, const TArray<FString>& Valu
 		NameList.push_back(TCHAR_TO_UTF8(*name));
 	}
 	
-	auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateStringList(mb, mb.CreateString(ListName), mb.CreateVectorOfStrings(NameList)));
+	auto offset = nos::app::CreateUpdateStringList(mb, nos::fb::CreateStringList(mb, mb.CreateString(ListName), mb.CreateVectorOfStrings(NameList)));
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
-	MZClient->AppServiceClient->UpdateStringList(*root);
+	auto root = flatbuffers::GetRoot<nos::app::UpdateStringList>(buf.data());
+	NOSClient->AppServiceClient->UpdateStringList(*root);
 }
 
-void FMZAssetManager::SendList(const char* ListName, const TAssetNameToPathMap& Value)
+void FNOSAssetManager::SendList(const char* ListName, const TAssetNameToPathMap& Value)
 {
 	TArray<FString> Names;
 	for (auto [Name, _] : Value)
@@ -100,7 +100,7 @@ void FMZAssetManager::SendList(const char* ListName, const TAssetNameToPathMap& 
 	SendList(ListName, Names);
 }
 
-void FMZAssetManager::SendList(const char* ListName, const TAssetNameToObjectMap& Value)
+void FNOSAssetManager::SendList(const char* ListName, const TAssetNameToObjectMap& Value)
 {
 	TArray<FString> Names;
 	for (auto [Name, _] : Value)
@@ -109,9 +109,9 @@ void FMZAssetManager::SendList(const char* ListName, const TAssetNameToObjectMap
 	SendList(ListName, Names);
 }
 
-void FMZAssetManager::SendAssetList()
+void FNOSAssetManager::SendAssetList()
 {
-	if (!(MZClient && MZClient->IsConnected()))
+	if (!(NOSClient && NOSClient->IsConnected()))
 	{
 		return;
 	}
@@ -131,18 +131,18 @@ void FMZAssetManager::SendAssetList()
 	SendList("UE5_ACTOR_LIST", SpawnTags);
 }
 
-void FMZAssetManager::SendUMGList()
+void FNOSAssetManager::SendUMGList()
 {
 	SendList("UE5_UMG_LIST", UMGs);
 }
 
-TSet<FTopLevelAssetPath> FMZAssetManager::GetAssetPathsOfClass(UClass* ParentClass)
+TSet<FTopLevelAssetPath> FNOSAssetManager::GetAssetPathsOfClass(UClass* ParentClass)
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	TArray< FString > ContentPaths;
 	ContentPaths.Add(TEXT("/Game"));
 	ContentPaths.Add(TEXT("/Script"));
-	ContentPaths.Add(TEXT("/mediaz"));
+	ContentPaths.Add(TEXT("/Nodos"));
 	ContentPaths.Add(TEXT("/RealityEngine"));
 	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
 	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
@@ -159,7 +159,7 @@ TSet<FTopLevelAssetPath> FMZAssetManager::GetAssetPathsOfClass(UClass* ParentCla
 	return DerivedAssetPaths;
 }
 
-void FMZAssetManager::RescanAndSendAll()
+void FNOSAssetManager::RescanAndSendAll()
 {
 	ScanAssets();
 	ScanUMGs();
@@ -168,7 +168,7 @@ void FMZAssetManager::RescanAndSendAll()
 	SendUMGList();
 }
 
-void FMZAssetManager::ScanAssets(
+void FNOSAssetManager::ScanAssets(
 	TAssetNameToPathMap& Map,
 	UClass* ParentClass)
 {
@@ -186,17 +186,17 @@ void FMZAssetManager::ScanAssets(
 	}
 }
 
-void FMZAssetManager::ScanUMGs()
+void FNOSAssetManager::ScanUMGs()
 {
 	ScanAssets(UMGs, UUserWidget::StaticClass());
 }
 
-void FMZAssetManager::ScanAssets()
+void FNOSAssetManager::ScanAssets()
 {
 	ScanAssets(SpawnableAssets, AActor::StaticClass());
 }
 
-void FMZAssetManager::SetupCustomSpawns()
+void FNOSAssetManager::SetupCustomSpawns()
 {
 	CustomSpawns.Add("Cube", [this](FTransform Transform)
 		{
@@ -236,7 +236,7 @@ void FMZAssetManager::SetupCustomSpawns()
 		});
 }
 
-AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape, FTransform Transform)
+AActor* FNOSAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape, FTransform Transform)
 {
 	UWorld* CurrentWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
@@ -273,7 +273,7 @@ AActor* FMZAssetManager::SpawnBasicShape(FSoftObjectPath BasicShape, FTransform 
 	return SpawnedActor;
 }
 
-AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath, FTransform Transform)
+AActor* FNOSAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath, FTransform Transform)
 {
 	TSoftClassPtr<AActor> ActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(*AssetPath.ToString()));
 	UClass* LoadedAsset = ActorClass.LoadSynchronous();
@@ -302,7 +302,7 @@ AActor* FMZAssetManager::SpawnFromAssetPath(FTopLevelAssetPath AssetPath, FTrans
 	return SpawnedActor;
 }
 
-AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag, FTransform Transform, TMap<FString, FString> Metadata)
+AActor* FNOSAssetManager::SpawnFromTag(FString SpawnTag, FTransform Transform, TMap<FString, FString> Metadata)
 {	
 	if (CustomSpawns.Contains(SpawnTag))
 	{
@@ -323,7 +323,7 @@ AActor* FMZAssetManager::SpawnFromTag(FString SpawnTag, FTransform Transform, TM
 	return nullptr;
 }
 
-UUserWidget* FMZAssetManager::CreateUMGFromTag(FString UMGTag)
+UUserWidget* FNOSAssetManager::CreateUMGFromTag(FString UMGTag)
 {
 	if (UMGs.Contains(UMGTag))
 	{

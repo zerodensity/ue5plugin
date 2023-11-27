@@ -4,8 +4,8 @@
 
 #pragma once
 #include "CoreMinimal.h"
-#include "MZActorProperties.h"
-#include "MZActorFunctions.h"
+#include "NOSActorProperties.h"
+#include "NOSActorFunctions.h"
 #include <vector>
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
@@ -17,7 +17,7 @@ struct SceneComponentNode;
 static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 static const FString HEXCOLOR_Reality_Node(TEXT("0xFE5000"));
 
-struct MZSCENETREEMANAGER_API  TreeNode {
+struct NOSSCENETREEMANAGER_API  TreeNode {
 
 	virtual ActorNode* GetAsActorNode() { return nullptr; };
 	virtual FolderNode* GetAsFolderNode() { return nullptr; };
@@ -29,42 +29,42 @@ struct MZSCENETREEMANAGER_API  TreeNode {
 	FGuid Id;
 	bool NeedsReload = true;
 	std::vector<TSharedPtr<TreeNode>> Children;
-	TMap<FString, FString> mzMetaData;
+	TMap<FString, FString> nosMetaData;
 
 	
-	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
-	std::vector<flatbuffers::Offset<mz::fb::Node>> SerializeChildren(flatbuffers::FlatBufferBuilder& fbb);
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
+	virtual flatbuffers::Offset<nos::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<nos::fb::Node>> SerializeChildren(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
 
 	virtual ~TreeNode();
 };
 
-struct MZSCENETREEMANAGER_API  ActorNode : TreeNode
+struct NOSSCENETREEMANAGER_API  ActorNode : TreeNode
 {
-	MZActorReference actor;
-	std::vector<TSharedPtr<MZProperty>> Properties;
-	std::vector<TSharedPtr<MZFunction>> Functions;
+	NOSActorReference actor;
+	std::vector<TSharedPtr<NOSProperty>> Properties;
+	std::vector<TSharedPtr<NOSFunction>> Functions;
 	virtual FString GetClassDisplayName() override { return actor ? actor->GetClass()->GetFName().ToString() : "Actor"; };
 	virtual ActorNode* GetAsActorNode() override { return this; };
-	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
+	virtual flatbuffers::Offset<nos::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
 	
 	virtual ~ActorNode();
 };
 
-struct MZSCENETREEMANAGER_API  SceneComponentNode : TreeNode
+struct NOSSCENETREEMANAGER_API  SceneComponentNode : TreeNode
 {
-	MZComponentReference sceneComponent;
-	std::vector<TSharedPtr<MZProperty>> Properties;
+	NOSComponentReference sceneComponent;
+	std::vector<TSharedPtr<NOSProperty>> Properties;
 	virtual FString GetClassDisplayName() override { return sceneComponent ? sceneComponent->GetClass()->GetFName().ToString() : FString("ActorComponent"); };
 	virtual SceneComponentNode* GetAsSceneComponentNode() override { return this; };
-	virtual flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
+	virtual flatbuffers::Offset<nos::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> SerializePins(flatbuffers::FlatBufferBuilder& fbb);
 
 	virtual ~SceneComponentNode();
 };
 
-struct MZSCENETREEMANAGER_API  FolderNode : TreeNode
+struct NOSSCENETREEMANAGER_API  FolderNode : TreeNode
 {
 	virtual FString GetClassDisplayName() override { return FString("Folder"); };
 	virtual FolderNode* GetAsFolderNode() override { return this; };
@@ -72,10 +72,10 @@ struct MZSCENETREEMANAGER_API  FolderNode : TreeNode
 	virtual ~FolderNode();
 };
 
-class MZSCENETREEMANAGER_API MZSceneTree
+class NOSSCENETREEMANAGER_API NOSSceneTree
 {
 public:
-	MZSceneTree();
+	NOSSceneTree();
 
 	TSharedPtr<TreeNode> Root;
 	bool IsSorted = false;

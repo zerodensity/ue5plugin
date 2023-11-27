@@ -8,15 +8,15 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZLicenseManager : ModuleRules
+public class NOSLicenseManager : ModuleRules
 {
-	public MZLicenseManager(ReadOnlyTargetRules Target) : base(Target)
+	public NOSLicenseManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PrivateDependencyModuleNames.AddRange(
 			new string[]
 			{
-				"MZSceneTreeManager",
-				"MZClient",
+				"NOSSceneTreeManager",
+				"NOSClient",
 			});
 		PublicDependencyModuleNames.AddRange(
 			new string[]

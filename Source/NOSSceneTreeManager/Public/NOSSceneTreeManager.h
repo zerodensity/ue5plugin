@@ -5,17 +5,17 @@
 #pragma once
 #include "CoreMinimal.h"
 #include "Engine/EngineTypes.h"
-#include "MediaZ/AppAPI.h"
+#include "Nodos/AppAPI.h"
 #include "AppEvents_generated.h"
-#include <mzFlatBuffersCommon.h>
-#include "MZSceneTree.h"
-#include "MZClient.h"
-#include "MZViewportClient.h"
-#include "MZAssetManager.h"
+#include <nosFlatBuffersCommon.h>
+#include "NOSSceneTree.h"
+#include "NOSClient.h"
+#include "NOSViewportClient.h"
+#include "NOSAssetManager.h"
 
-DECLARE_LOG_CATEGORY_EXTERN(LogMZSceneTreeManager, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogNOSSceneTreeManager, Log, All);
 
-struct MZPortal
+struct NOSPortal
 {
 	FGuid Id;
 	FGuid SourceId;
@@ -23,35 +23,35 @@ struct MZPortal
 	FString DisplayName;
 	FString TypeName;
 	FString CategoryName;
-	mz::fb::ShowAs ShowAs;
+	nos::fb::ShowAs ShowAs;
 };
 
 //This class holds the list of all properties and pins 
-class MZSCENETREEMANAGER_API FMZPropertyManager
+class NOSSCENETREEMANAGER_API FNOSPropertyManager
 {
 public:
-	FMZPropertyManager();
+	FNOSPropertyManager();
 
-	TSharedPtr<MZProperty> CreateProperty(UObject* container,
+	TSharedPtr<NOSProperty> CreateProperty(UObject* container,
 		FProperty* uproperty,
 		FString parentCategory = FString(""));
 
 	void SetPropertyValue();
-	bool CheckPinShowAs(mz::fb::CanShowAs CanShowAs, mz::fb::ShowAs ShowAs);
-	void CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs);
-	void CreatePortal(FProperty* uproperty, UObject* Container, mz::fb::ShowAs ShowAs);
+	bool CheckPinShowAs(nos::fb::CanShowAs CanShowAs, nos::fb::ShowAs ShowAs);
+	void CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs);
+	void CreatePortal(FProperty* uproperty, UObject* Container, nos::fb::ShowAs ShowAs);
 	void ActorDeleted(FGuid DeletedActorId);
-	flatbuffers::Offset<mz::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty);
+	flatbuffers::Offset<nos::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, NOSPortal Portal, NOSProperty* SourceProperty);
 	
-	FMZClient* MZClient;
+	FNOSClient* NOSClient;
 
-	TMap<FGuid, TSharedPtr<MZProperty>> customProperties;
+	TMap<FGuid, TSharedPtr<NOSProperty>> customProperties;
 	TMap<FGuid, FGuid> PropertyToPortalPin;
-	TMap<FGuid, MZPortal> PortalPinsById;
-	TMap<FGuid, TSharedPtr<MZProperty>> PropertiesById;
-	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesByPointer;
+	TMap<FGuid, NOSPortal> PortalPinsById;
+	TMap<FGuid, TSharedPtr<NOSProperty>> PropertiesById;
+	TMap<FProperty*, TSharedPtr<NOSProperty>> PropertiesByPointer;
 
-	TMap<TPair<FProperty*, void*>, TSharedPtr<MZProperty>> PropertiesByPropertyAndContainer;
+	TMap<TPair<FProperty*, void*>, TSharedPtr<NOSProperty>> PropertiesByPropertyAndContainer;
 	void Reset(bool ResetPortals = true);
 
 	void OnBeginFrame();
@@ -63,18 +63,18 @@ struct SavedActorData
 	TMap<FString, FString> Metadata;
 };
 
-class MZSCENETREEMANAGER_API FMZActorManager
+class NOSSCENETREEMANAGER_API FNOSActorManager
 {
 public:
-	FMZActorManager(MZSceneTree& SceneTree) : SceneTree(SceneTree)
+	FNOSActorManager(NOSSceneTree& SceneTree) : SceneTree(SceneTree)
 	{
-		MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
-		MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+		NOSAssetManager = &FModuleManager::LoadModuleChecked<FNOSAssetManager>("NOSAssetManager");
+		NOSClient = &FModuleManager::LoadModuleChecked<FNOSClient>("NOSClient");
 		RegisterDelegates();
 	};
 
 	AActor* GetParentTransformActor();
-	AActor* SpawnActor(FString SpawnTag, MZSpawnActorParameters Params = {}, TMap<FString, FString> Metadata = {});
+	AActor* SpawnActor(FString SpawnTag, NOSSpawnActorParameters Params = {}, TMap<FString, FString> Metadata = {});
 	AActor* SpawnUMGRenderManager(FString umgTag,UUserWidget* widget);
 	void ClearActors();
 	
@@ -84,14 +84,14 @@ public:
 	void PreSave(UWorld* World, FObjectPreSaveContext Context);
 	void PostSave(UWorld* World, FObjectPostSaveContext Context);
 
-	MZActorReference ParentTransformActor;
+	NOSActorReference ParentTransformActor;
 
-	MZSceneTree& SceneTree;
-	class FMZAssetManager* MZAssetManager;
-	class FMZClient* MZClient;
+	NOSSceneTree& SceneTree;
+	class FNOSAssetManager* NOSAssetManager;
+	class FNOSClient* NOSClient;
 	
 	TSet<FGuid> ActorIds;
-	TArray< TPair<MZActorReference,SavedActorData> > Actors;
+	TArray< TPair<NOSActorReference,SavedActorData> > Actors;
 };
 
 
@@ -100,20 +100,20 @@ class ContextMenuActions
 public:
 	TArray<TPair<FString, std::function<void(AActor*)>>>  ActorMenu;
 	TArray<TPair<FString, Task>>  FunctionMenu;
-	TArray<TPair<FString, std::function<void(class FMZSceneTreeManager*, FGuid)>>>   PortalPropertyMenu;
+	TArray<TPair<FString, std::function<void(class FNOSSceneTreeManager*, FGuid)>>>   PortalPropertyMenu;
 	ContextMenuActions();
-	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb);
-	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<nos::ContextMenuItem>> SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<nos::ContextMenuItem>> SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb);
 	void ExecuteActorAction(uint32 command, AActor* actor);
-	void ExecutePortalPropertyAction(uint32 command, class FMZSceneTreeManager* MZSceneTreeManager, FGuid PortalId);
+	void ExecutePortalPropertyAction(uint32 command, class FNOSSceneTreeManager* NOSSceneTreeManager, FGuid PortalId);
 };
 
 
-class MZSCENETREEMANAGER_API FMZSceneTreeManager : public IModuleInterface {
+class NOSSCENETREEMANAGER_API FNOSSceneTreeManager : public IModuleInterface {
 
 public:
 	//Empty constructor
-	FMZSceneTreeManager();
+	FNOSSceneTreeManager();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;
@@ -126,39 +126,39 @@ public:
 	void OnBeginFrame();
 	void OnEndFrame();
 
-	void OnMZConnected(mz::fb::Node const* appNode);
+	void OnNOSConnected(nos::fb::Node const* appNode);
 
-	void OnMZNodeUpdated(mz::fb::Node const& appNode);
+	void OnNOSNodeUpdated(nos::fb::Node const& appNode);
 
 	//every function of this class runs in game thread
-	void OnMZNodeSelected(mz::fb::UUID const& nodeId);
+	void OnNOSNodeSelected(nos::fb::UUID const& nodeId);
 
 	void LoadNodesOnPath(FString NodePath);
 
-	//called when connection is ended with mediaz
-	void OnMZConnectionClosed();
+	//called when connection is ended with Nodos
+	void OnNOSConnectionClosed();
 
-	//called when a pin value changed from mediaz
-	void OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset);
+	//called when a pin value changed from Nodos
+	void OnNOSPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset);
 
 	//called when a pins show as changed
-	void OnMZPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs);
+	void OnNOSPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs);
 
-	//called when a function is called from mediaz
-	void OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb::Node const& function);
+	//called when a function is called from Nodos
+	void OnNOSFunctionCalled(nos::fb::UUID const& nodeId, nos::fb::Node const& function);
 
-	//called when a context menu is requested on some node on mediaz
-	void OnMZContextMenuRequested(mz::ContextMenuRequest const& request);
+	//called when a context menu is requested on some node on Nodos
+	void OnNOSContextMenuRequested(nos::ContextMenuRequest const& request);
 
 	//called when a action is selected from context menu
-	void OnMZContextMenuCommandFired(mz::ContextMenuAction const& action);
+	void OnNOSContextMenuCommandFired(nos::ContextMenuAction const& action);
 
-	void OnMZNodeRemoved();
+	void OnNOSNodeRemoved();
 
-	void OnMZStateChanged_GRPCThread(mz::app::ExecutionState);
+	void OnNOSStateChanged_GRPCThread(nos::app::ExecutionState);
 	
-	void OnMZLoadNodesOnPaths(const TArray<FString>& paths);
-	//END OF MediaZ DELEGATES
+	void OnNOSLoadNodesOnPaths(const TArray<FString>& paths);
+	//END OF Nodos DELEGATES
 	 
 
 	void PopulateAllChildsOfActor(FGuid ActorId);
@@ -174,7 +174,7 @@ public:
 	void OnPreWorldFinishDestroy(UWorld* World);
 
 	//delegate called when a property is changed from unreal engine editor
-	//it updates thecorresponding property in mediaz
+	//it updates thecorresponding property in Nodos
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
 
 	//Called when an actor is spawned into the world
@@ -183,8 +183,8 @@ public:
 	//Called when an actor is destroyed from the world
 	void OnActorDestroyed(AActor* InActor);
 
-	//called when unreal engine node is imported from mediaZ
-	void OnMZNodeImported(mz::fb::Node const& appNode);
+	//called when unreal engine node is imported from Nodos
+	void OnNOSNodeImported(nos::fb::Node const& appNode);
 
 	//Set a properties value
 	void SetPropertyValue(FGuid pinId, void* newval, size_t size);
@@ -203,12 +203,12 @@ public:
 	//Populates node with child actors/components, functions and properties
 	bool PopulateNode(FGuid id);
 
-	//Sends node updates to the MediaZ
+	//Sends node updates to the Nodos
 	void SendNodeUpdate(FGuid NodeId, bool bResetRootPins = true);
 
 	void SendEngineFunctionUpdate();
 
-	//Sends pin value changed event to MediaZ
+	//Sends pin value changed event to Nodos
 	void SendPinValueChanged(FGuid propertyId, std::vector<uint8> data);
 
 	//Sends pin updates to the root node 
@@ -217,15 +217,15 @@ public:
 	void RemovePortal(FGuid PortalId);
 	
 	//Sends pin to add to a node
-	void SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop);
+	void SendPinAdded(FGuid NodeId, TSharedPtr<NOSProperty> const& nosprop);
 
 	//Add to to-be-added actors list or send directly if always updating
 	void SendActorAddedOnUpdate(AActor* actor, FString spawnTag = FString());
 
-	//Adds the node to scene tree and sends it to mediaZ
+	//Adds the node to scene tree and sends it to Nodos
 	void SendActorAdded(AActor* actor, FString spawnTag = FString());
 
-	//Deletes the node from scene tree and sends it to mediaZ
+	//Deletes the node from scene tree and sends it to Nodos
 	void SendActorDeleted(AActor* Actor);
 	
 	void PopulateAllChildsOfActor(AActor* actor);
@@ -242,21 +242,21 @@ public:
 
 	void* FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath, bool& IsResultUObject);
 
-	// UObject* FMZSceneTreeManager::FindObjectContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
+	// UObject* FNOSSceneTreeManager::FindObjectContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath);
 	//Remove properties of tree node from registered properties and pins
 	void RemoveProperties(::TreeNode* Node,
-	                      TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
+	                      TSet<TSharedPtr<NOSProperty>>& PropertiesToRemove);
 
 	void CheckPins(TSet<UObject*>& RemovedObjects,
-		TSet<TSharedPtr<MZProperty>>& PinsToRemove,
-		TSet<TSharedPtr<MZProperty>>& PropertiesToRemove);
+		TSet<TSharedPtr<NOSProperty>>& PinsToRemove,
+		TSet<TSharedPtr<NOSProperty>>& PropertiesToRemove);
 
 	void Reset();
 
 	void OnMapChange(uint32 MapFlags);
 	void OnNewCurrentLevel();
 
-	void AddCustomFunction(MZCustomFunction* CustomFunction);
+	void AddCustomFunction(NOSCustomFunction* CustomFunction);
 	
 	void AddToBeAddedActors();
 
@@ -264,48 +264,48 @@ public:
 	static UWorld* daWorld;
 
 	//all the properties registered 
-	TMap<FGuid, TSharedPtr<MZProperty>> RegisteredProperties;
+	TMap<FGuid, TSharedPtr<NOSProperty>> RegisteredProperties;
 
 	//all the properties registered mapped with property pointers
-	TMap<FProperty*, TSharedPtr<MZProperty>> PropertiesMap;
+	TMap<FProperty*, TSharedPtr<NOSProperty>> PropertiesMap;
 
 	//all the functions registered
-	TMap<FGuid, TSharedPtr<MZFunction>> RegisteredFunctions;
+	TMap<FGuid, TSharedPtr<NOSFunction>> RegisteredFunctions;
 
-	//in/out pins of the mediaz node
-	TMap<FGuid, TSharedPtr<MZProperty>> Pins;
+	//in/out pins of the Nodos node
+	TMap<FGuid, TSharedPtr<NOSProperty>> Pins;
 
 	//custom properties like viewport texture
-	TMap<FGuid, TSharedPtr<MZProperty>> CustomProperties;
+	TMap<FGuid, TSharedPtr<NOSProperty>> CustomProperties;
 
 #ifdef VIEWPORT_TEXTURE
-	MZProperty* ViewportTextureProperty;
+	NOSProperty* ViewportTextureProperty;
 #endif
 
 	//custom functions like spawn actor
-	TMap<FGuid, MZCustomFunction*> CustomFunctions;
+	TMap<FGuid, NOSCustomFunction*> CustomFunctions;
 
 	//handles context menus and their actions
 	friend class ContextMenuActions;
 	class ContextMenuActions menuActions;
 
-	//Scene tree holds the information to mimic the outliner in mediaz
-	class MZSceneTree SceneTree;
+	//Scene tree holds the information to mimic the outliner in Nodos
+	class NOSSceneTree SceneTree;
 	
-	//Class communicates with MediaZ
-	class FMZClient* MZClient;
+	//Class communicates with Nodos
+	class FNOSClient* NOSClient;
 
-	class FMZAssetManager* MZAssetManager;
+	class FNOSAssetManager* NOSAssetManager;
 
-	class FMZViewportManager* MZViewportManager;
+	class FNOSViewportManager* NOSViewportManager;
 	
-	FMZActorManager* MZActorManager;
+	FNOSActorManager* NOSActorManager;
 
-	FMZPropertyManager MZPropertyManager;
+	FNOSPropertyManager NOSPropertyManager;
 
 	bool bIsModuleFunctional = false;
 
-	mz::app::ExecutionState ExecutionState = mz::app::ExecutionState::IDLE;
+	nos::app::ExecutionState ExecutionState = nos::app::ExecutionState::IDLE;
 
 	bool ToggleExecutionStateToSynced = false;
 

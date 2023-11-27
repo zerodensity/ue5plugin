@@ -13,18 +13,18 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 
-#include "MediaZ/AppAPI.h"
+#include "Nodos/AppAPI.h"
 #include <uuid.h>
-#include "mzFlatBuffersCommon.h"
+#include "nosFlatBuffersCommon.h"
 #include "AppEvents_generated.h"
-#include <mzFlatBuffersCommon.h>
+#include <nosFlatBuffersCommon.h>
 #include <functional> 
 
-struct PinDataQueue : public TQueue<TPair<mz::Buffer, uint32_t>>
+struct PinDataQueue : public TQueue<TPair<nos::Buffer, uint32_t>>
 {
 	bool LiveNow = true;
 
-	void DiscardExcessThenDequeue(TPair<mz::Buffer, uint32_t>& result, uint32_t requestedFrameNumber, bool wait)
+	void DiscardExcessThenDequeue(TPair<nos::Buffer, uint32_t>& result, uint32_t requestedFrameNumber, bool wait)
 	{
 		u32 tryCount = 0;
 		bool dequeued = false;
@@ -51,12 +51,12 @@ struct PinDataQueue : public TQueue<TPair<mz::Buffer, uint32_t>>
 	}
 };
 
-class PinDataQueues : public mz::app::IEventDelegates
+class PinDataQueues : public nos::app::IEventDelegates
 {
 public:
 	virtual ~PinDataQueues() {}
 
-	PinDataQueue* GetAddQueue(mz::fb::UUID const& pinId)
+	PinDataQueue* GetAddQueue(nos::fb::UUID const& pinId)
 	{
 		uuids::uuid id(pinId.bytes()->begin(), pinId.bytes()->end());
 
@@ -64,7 +64,7 @@ public:
 		return &Queues[id];
 	}
 
-	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override
+	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override
 	{
 		if (reset)
 		{
@@ -76,14 +76,14 @@ public:
 		}
 
 		auto queue = GetAddQueue(pinId);
-		queue->Enqueue({ mz::Buffer(data, size), frameNumber });
+		queue->Enqueue({ nos::Buffer(data, size), frameNumber });
 	}
 
-	mz::Buffer Pop(mz::fb::UUID const& pinId, bool wait, uint32_t frameNumber)
+	nos::Buffer Pop(nos::fb::UUID const& pinId, bool wait, uint32_t frameNumber)
 	{
 		auto queue = GetAddQueue(pinId);
 
-		TPair<mz::Buffer, uint32_t> result;
+		TPair<nos::Buffer, uint32_t> result;
 		queue->DiscardExcessThenDequeue(result, frameNumber, wait);
 		return result.Key;
 	}
@@ -93,69 +93,69 @@ public:
 };
 
 
-class UMZCustomTimeStep;
+class UNOSCustomTimeStep;
 typedef std::function<void()> Task;
 
-DECLARE_LOG_CATEGORY_EXTERN(LogMZClient, Log, All);
+DECLARE_LOG_CATEGORY_EXTERN(LogNOSClient, Log, All);
 
-//events coming from mediaz
-DECLARE_EVENT_OneParam(FMZClient, FMZNodeConnected, mz::fb::Node const*);
-DECLARE_EVENT_OneParam(FMZClient, FMZNodeUpdated, mz::fb::Node const&);
-DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuRequested, mz::ContextMenuRequest const&);
-DECLARE_EVENT_OneParam(FMZClient, FMZContextMenuCommandFired, mz::ContextMenuAction const&);
-DECLARE_EVENT(FMZClient, FMZNodeRemoved);
-DECLARE_EVENT_FourParams(FMZClient, FMZPinValueChanged, mz::fb::UUID const&, uint8_t const*, size_t, bool);
-DECLARE_EVENT_TwoParams(FMZClient, FMZPinShowAsChanged, mz::fb::UUID const&, mz::fb::ShowAs);
-DECLARE_EVENT_TwoParams(FMZClient, FMZFunctionCalled, mz::fb::UUID const&, mz::fb::Node const&);
-DECLARE_EVENT_OneParam(FMZClient, FMZNodeSelected, mz::fb::UUID const&);
-DECLARE_EVENT_OneParam(FMZClient, FMZNodeImported, mz::fb::Node const&);
-DECLARE_EVENT(FMZClient, FMZConnectionClosed);
+//events coming from Nodos
+DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeConnected, nos::fb::Node const*);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeUpdated, nos::fb::Node const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuRequested, nos::ContextMenuRequest const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuCommandFired, nos::ContextMenuAction const&);
+DECLARE_EVENT(FNOSClient, FNOSNodeRemoved);
+DECLARE_EVENT_FourParams(FNOSClient, FNOSPinValueChanged, nos::fb::UUID const&, uint8_t const*, size_t, bool);
+DECLARE_EVENT_TwoParams(FNOSClient, FNOSPinShowAsChanged, nos::fb::UUID const&, nos::fb::ShowAs);
+DECLARE_EVENT_TwoParams(FNOSClient, FNOSFunctionCalled, nos::fb::UUID const&, nos::fb::Node const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeSelected, nos::fb::UUID const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeImported, nos::fb::Node const&);
+DECLARE_EVENT(FNOSClient, FNOSConnectionClosed);
 
-// DECLARE_EVENT_OneParam(FMZClient, FMZConsoleCommandExecuted, FString);
+// DECLARE_EVENT_OneParam(FNOSClient, FNOSConsoleCommandExecuted, FString);
 
 /**
- * Implements communication with the MediaZ Engine
+ * Implements communication with the Nodos Engine
  */
-class FMZClient;
+class FNOSClient;
 
-class MZCLIENT_API MZEventDelegates : public PinDataQueues
+class NOSCLIENT_API NOSEventDelegates : public PinDataQueues
 {
 public:
-	~MZEventDelegates() {}
+	~NOSEventDelegates() {}
 
-	virtual void OnAppConnected(mz::fb::Node const* appNode) override;
-	virtual void OnNodeUpdated(mz::fb::Node const& appNode) override;
-	virtual void OnContextMenuRequested(mz::ContextMenuRequest const& request) override;
-	virtual void OnContextMenuCommandFired(mz::ContextMenuAction const& action) override;
+	virtual void OnAppConnected(nos::fb::Node const* appNode) override;
+	virtual void OnNodeUpdated(nos::fb::Node const& appNode) override;
+	virtual void OnContextMenuRequested(nos::ContextMenuRequest const& request) override;
+	virtual void OnContextMenuCommandFired(nos::ContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
-	virtual void OnPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override;
-	virtual void OnPinShowAsChanged(mz::fb::UUID const& pinId, mz::fb::ShowAs newShowAs) override;
-	virtual void OnExecuteAppInfo(mz::app::AppExecuteInfo const* appExecuteInfo) override; 
-	virtual void OnFunctionCall(mz::fb::UUID const& nodeId, mz::fb::Node const& function) override;
-	virtual void OnNodeSelected(mz::fb::UUID const& nodeId) override;
-	virtual void OnNodeImported(mz::fb::Node const& appNode) override;
+	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override;
+	virtual void OnPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs) override;
+	virtual void OnExecuteAppInfo(nos::app::AppExecuteInfo const* appExecuteInfo) override; 
+	virtual void OnFunctionCall(nos::fb::UUID const& nodeId, nos::fb::Node const& function) override;
+	virtual void OnNodeSelected(nos::fb::UUID const& nodeId) override;
+	virtual void OnNodeImported(nos::fb::Node const& appNode) override;
 	virtual void OnConnectionClosed() override;
-	virtual void OnStateChanged(mz::app::ExecutionState newState) override;
-	virtual void OnConsoleCommand(mz::app::ConsoleCommand const* consoleCommand) override;
-	virtual void OnConsoleAutoCompleteSuggestionRequest(mz::app::ConsoleAutoCompleteSuggestionRequest const* consoleAutoCompleteSuggestionRequest) override;
-	virtual void OnLoadNodesOnPaths(mz::LoadNodesOnPaths const* loadNodesOnPathsRequest) override;
+	virtual void OnStateChanged(nos::app::ExecutionState newState) override;
+	virtual void OnConsoleCommand(nos::app::ConsoleCommand const* consoleCommand) override;
+	virtual void OnConsoleAutoCompleteSuggestionRequest(nos::app::ConsoleAutoCompleteSuggestionRequest const* consoleAutoCompleteSuggestionRequest) override;
+	virtual void OnLoadNodesOnPaths(nos::LoadNodesOnPaths const* loadNodesOnPathsRequest) override;
 	virtual void OnCloseApp() override;
 
-	FMZClient* PluginClient;
+	FNOSClient* PluginClient;
 };
 
 
 class UENodeStatusHandler
 {
 public:
-	void SetClient(FMZClient* PluginClient);
-	void Add(std::string const& Id, mz::fb::TNodeStatusMessage const& Status);
+	void SetClient(FNOSClient* PluginClient);
+	void Add(std::string const& Id, nos::fb::TNodeStatusMessage const& Status);
 	void Remove(std::string const& Id);
 	void Update();
 private:
 	void SendStatus();
-	FMZClient* PluginClient = nullptr;
-	std::unordered_map<std::string, mz::fb::TNodeStatusMessage> StatusMessages;
+	FNOSClient* PluginClient = nullptr;
+	std::unordered_map<std::string, nos::fb::TNodeStatusMessage> StatusMessages;
 	bool Dirty = false;
 };
 
@@ -163,33 +163,33 @@ class FPSCounter
 {
 public:
 	bool Update(float dt);
-	mz::fb::TNodeStatusMessage GetNodeStatusMessage() const;
+	nos::fb::TNodeStatusMessage GetNodeStatusMessage() const;
 private:
 	float DeltaTimeAccum = 0;
 	uint64_t FrameCount = 0;
 	float FramesPerSecond = 0;
 };
 
-class MZCLIENT_API FMediaZ
+class NOSCLIENT_API FNodos
 {
 public:
 	static bool Initialize();
 	static void Shutdown();
-	static mz::app::FN_MakeAppServiceClient* MakeAppServiceClient;
-	static mz::app::FN_ShutdownClient* ShutdownClient;
+	static nos::app::FN_MakeAppServiceClient* MakeAppServiceClient;
+	static nos::app::FN_ShutdownClient* ShutdownClient;
 private:
-	// MediaZ SDK DLL handle
+	// Nodos SDK DLL handle
 	static void* LibHandle;
 };
 
 
 
-class MZCLIENT_API FMZClient : public IModuleInterface {
+class NOSCLIENT_API FNOSClient : public IModuleInterface {
 
 public:
 	 
 	//Empty constructor
-	FMZClient();
+	FNOSClient();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;
@@ -197,16 +197,16 @@ public:
 	//Called on shutdown of the module on Unreal Engine exit
 	virtual void ShutdownModule() override;
 
-	//This function is called when the connection with the MediaZ Engine is started
+	//This function is called when the connection with the Nodos Engine is started
 	virtual void Connected();
 
-	//This function is called when the connection with the MediaZ Engine is finished
+	//This function is called when the connection with the Nodos Engine is finished
 	virtual void Disconnected();
 	 
-	/// @return Connection status with MediaZ Engine
+	/// @return Connection status with Nodos Engine
 	virtual bool IsConnected();
 
-	//Tries to initialize connection with the MediaZ engine
+	//Tries to initialize connection with the Nodos engine
 	void TryConnect();
 
 	//Tick is called every frame once and handles the tasks queued from grpc threads
@@ -220,48 +220,48 @@ public:
 	//Called when the level destruction began
 	void OnPreWorldFinishDestroy(UWorld* World);
 
-	//Called when the node is executed from mediaZ
-	void OnUpdatedNodeExecuted(mz::fb::vec2u deltaSeconds);
+	//Called when the node is executed from Nodos
+	void OnUpdatedNodeExecuted(nos::fb::vec2u deltaSeconds);
 
 	bool ExecuteConsoleCommand(const TCHAR* Input);
 
 	bool ExecInternal(const TCHAR* Input);
 	
 	//Grpc client to communicate
-	TSharedPtr<MZEventDelegates> EventDelegates = 0;
+	TSharedPtr<NOSEventDelegates> EventDelegates = 0;
 
-	//To send events to mediaz and communication
-	mz::app::IAppServiceClient* AppServiceClient = nullptr;
+	//To send events to Nodos and communication
+	nos::app::IAppServiceClient* AppServiceClient = nullptr;
 
 	//Task queue
 	TQueue<Task, EQueueMode::Mpsc> TaskQueue;
 
-	//Custom time step implementation for mediaZ controlling the unreal editor in play mode
+	//Custom time step implementation for Nodos controlling the unreal editor in play mode
 	UPROPERTY()
-	TWeakObjectPtr<UMZCustomTimeStep> MZTimeStep = nullptr;
+	TWeakObjectPtr<UNOSCustomTimeStep> NOSTimeStep = nullptr;
 	bool CustomTimeStepBound = false;
 
-	// MediaZ root node id
+	// Nodos root node id
 	static FGuid NodeId;
-	// The app key we are using for MediaZ
+	// The app key we are using for Nodos
 	static FString AppKey;
 
 	TMap<FGuid, FName> PathUpdates;
 
-	FMZNodeConnected OnMZConnected;
-	FMZNodeUpdated OnMZNodeUpdated;
-	FMZContextMenuRequested OnMZContextMenuRequested;
-	FMZContextMenuCommandFired OnMZContextMenuCommandFired;
-	FMZNodeRemoved OnMZNodeRemoved;
-	FMZPinValueChanged OnMZPinValueChanged;
-	FMZPinShowAsChanged OnMZPinShowAsChanged;
-	FMZFunctionCalled OnMZFunctionCalled;
-	FMZNodeSelected OnMZNodeSelected;
-	FMZNodeImported OnMZNodeImported;
-	FMZConnectionClosed OnMZConnectionClosed;
-	TMulticastDelegate<void(mz::app::ExecutionState), FDefaultTSDelegateUserPolicy> OnMZStateChanged_GRPCThread;
-	TMulticastDelegate<void(const TArray<FString>&), FDefaultTSDelegateUserPolicy> OnMZLoadNodesOnPaths;
-	// FMZConsoleCommandExecuted OnMZConsoleCommandExecuted;
+	FNOSNodeConnected OnNOSConnected;
+	FNOSNodeUpdated OnNOSNodeUpdated;
+	FNOSContextMenuRequested OnNOSContextMenuRequested;
+	FNOSContextMenuCommandFired OnNOSContextMenuCommandFired;
+	FNOSNodeRemoved OnNOSNodeRemoved;
+	FNOSPinValueChanged OnNOSPinValueChanged;
+	FNOSPinShowAsChanged OnNOSPinShowAsChanged;
+	FNOSFunctionCalled OnNOSFunctionCalled;
+	FNOSNodeSelected OnNOSNodeSelected;
+	FNOSNodeImported OnNOSNodeImported;
+	FNOSConnectionClosed OnNOSConnectionClosed;
+	TMulticastDelegate<void(nos::app::ExecutionState), FDefaultTSDelegateUserPolicy> OnNOSStateChanged_GRPCThread;
+	TMulticastDelegate<void(const TArray<FString>&), FDefaultTSDelegateUserPolicy> OnNOSLoadNodesOnPaths;
+	// FNOSConsoleCommandExecuted OnNOSConsoleCommandExecuted;
 	
 	UENodeStatusHandler UENodeStatusHandler;
 
@@ -275,28 +275,28 @@ protected:
 
 };
 
-class MZConsoleOutput : public FOutputDevice
+class NOSConsoleOutput : public FOutputDevice
 {
 public:
-	FMZClient* MZClient;
-	MZConsoleOutput(FMZClient* MZClient)
-		: FOutputDevice(), MZClient(MZClient)
+	FNOSClient* NOSClient;
+	NOSConsoleOutput(FNOSClient* NOSClient)
+		: FOutputDevice(), NOSClient(NOSClient)
 	{
 	}
 
 	virtual void Serialize(const TCHAR* V, ELogVerbosity::Type Verbosity, const class FName& Category) override
 	{
-		if (!MZClient || FString(V).IsEmpty())
+		if (!NOSClient || FString(V).IsEmpty())
 		{
 			return;
 		}
 		
 		flatbuffers::FlatBufferBuilder mb;
-		auto offset = mz::CreateAppEventOffset(mb ,mz::app::CreateConsoleOutputDirect(mb, TCHAR_TO_UTF8(V)));
+		auto offset = nos::CreateAppEventOffset(mb ,nos::app::CreateConsoleOutputDirect(mb, TCHAR_TO_UTF8(V)));
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
-		MZClient->AppServiceClient->Send(*root);
+		auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+		NOSClient->AppServiceClient->Send(*root);
 	}
 };
 

@@ -5,11 +5,11 @@
 #pragma once
 #include "Modules/ModuleInterface.h"
 
-class MZLICENSEMANAGER_API FMZLicenseManager : public IModuleInterface
+class NOSLICENSEMANAGER_API FNOSLicenseManager : public IModuleInterface
 {
 public:
 	//Empty constructor
-	FMZLicenseManager();
+	FNOSLicenseManager();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;

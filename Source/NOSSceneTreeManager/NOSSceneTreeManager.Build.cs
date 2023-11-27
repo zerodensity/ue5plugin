@@ -8,9 +8,9 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZSceneTreeManager : ModuleRules
+public class NOSSceneTreeManager : ModuleRules
 {
-	public MZSceneTreeManager(ReadOnlyTargetRules Target) : base(Target)
+	public NOSSceneTreeManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
 		{
@@ -18,11 +18,11 @@ public class MZSceneTreeManager : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
+				string SDKdir = Environment.GetEnvironmentVariable("NODOS_SDK_DIR");
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{
-					string errorMessage = "Please update MZ_SDK_DIR environment variable";
+					string errorMessage = "Please update NODOS_SDK_DIR environment variable";
 					System.Console.WriteLine(errorMessage);
 					throw new BuildException(errorMessage);
 				}
@@ -32,7 +32,7 @@ public class MZSceneTreeManager : ModuleRules
 				PublicIncludePaths.Add(Path.Combine(ModuleDirectory, "Public"));
 				PublicIncludePaths.Add(SDKIncludeDir);
 
-				PublicIncludePathModuleNames.Add("MZDataStructures");
+				PublicIncludePathModuleNames.Add("NOSDataStructures");
 
 				PublicDependencyModuleNames.AddRange(
 					new string[]
@@ -52,10 +52,10 @@ public class MZSceneTreeManager : ModuleRules
 					"SlateCore",
 					"UMG",
 					"UnrealEd",
-					"MZClient",
-					"MZAssetManager",
-					"MZViewportManager",
-					"MZDataStructures",
+					"NOSClient",
+					"NOSAssetManager",
+					"NOSViewportManager",
+					"NOSDataStructures",
 					"LevelSequence",
 					"PropertyPath",
 					"PropertyEditor",
@@ -82,10 +82,10 @@ public class MZSceneTreeManager : ModuleRules
 					"EditorStyle",
 					"ToolMenus",
 					"UnrealEd",
-					"MZClient",
-					"MZAssetManager",
-					"MZViewportManager",
-					"MZDataStructures",
+					"NOSClient",
+					"NOSAssetManager",
+					"NOSViewportManager",
+					"NOSDataStructures",
 					"LevelSequence",
 					"PropertyPath",
 					"PropertyEditor",

@@ -9,15 +9,15 @@
 #include "AssetRegistry/ARFilter.h"
 #include "EngineUtils.h"
 #include "Engine/EngineTypes.h"
-#include "MZClient.h"
+#include "NOSClient.h"
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 
-class MZASSETMANAGER_API FMZAssetManager : public IModuleInterface {
+class NOSASSETMANAGER_API FNOSAssetManager : public IModuleInterface {
 
 public:
 	//Empty constructor
-	FMZAssetManager();
+	FNOSAssetManager();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;
@@ -41,7 +41,7 @@ public:
 
 	TSet<FTopLevelAssetPath> GetAssetPathsOfClass(UClass* ParentClass);
 
-	//scans the assets via the asset reggistry and stores for mediaz to use them to spawn actors
+	//scans the assets via the asset reggistry and stores for Nodos to use them to spawn actors
 	void ScanAssets();
 
 	void SetupCustomSpawns();
@@ -70,8 +70,8 @@ public:
 
 	TMap<FString, TFunction<AActor*(FTransform Transform, TMap<FString, FString>)>> CustomSpawnsWithMetadata;
 	
-	//Class communicates with MediaZ
-	class FMZClient* MZClient;
+	//Class communicates with Nodos
+	class FNOSClient* NOSClient;
 
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);
 	void SendList(const char* ListName, const TArray<FString>& Value);

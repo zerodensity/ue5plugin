@@ -1,17 +1,17 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZDataStructures.h"
+#include "NOSDataStructures.h"
 
-FMZDataStructures::FMZDataStructures()
+FNOSDataStructures::FNOSDataStructures()
 {
 }
 
-void FMZDataStructures::StartupModule()
+void FNOSDataStructures::StartupModule()
 {
 }
 
-void FMZDataStructures::ShutdownModule()
+void FNOSDataStructures::ShutdownModule()
 {
 }
 
-IMPLEMENT_MODULE(FMZDataStructures, MZDataStructures)
+IMPLEMENT_MODULE(FNOSDataStructures, NOSDataStructures)

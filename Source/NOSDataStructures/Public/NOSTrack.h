@@ -1,9 +1,9 @@
 #pragma once
 //#if WITH_EDITORONLY_DATA
-#include "MZTrack.generated.h"
-/** Track data used for connecting with mediaZ */
+#include "NOSTrack.generated.h"
+/** Track data used for connecting with Nodos */
 USTRUCT(Blueprintable)
-struct MZDATASTRUCTURES_API FMZTrack 
+struct NOSDATASTRUCTURES_API FNOSTrack 
 {
 	GENERATED_BODY()
 public:

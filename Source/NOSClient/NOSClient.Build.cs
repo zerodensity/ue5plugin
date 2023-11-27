@@ -8,7 +8,7 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZClient : ModuleRules
+public class NOSClient : ModuleRules
 {
 	private string CopyToBinaries(string Filepath)
 	{
@@ -25,7 +25,7 @@ public class MZClient : ModuleRules
 		return path;
 	}
 
-	public MZClient(ReadOnlyTargetRules Target) : base(Target)
+	public NOSClient(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
 		{
@@ -33,11 +33,11 @@ public class MZClient : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
+				string SDKdir = Environment.GetEnvironmentVariable("NODOS_SDK_DIR");
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{
-					string errorMessage = "Please update MZ_SDK_DIR environment variable";
+					string errorMessage = "Please update NODOS_SDK_DIR environment variable";
 					System.Console.WriteLine(errorMessage);
 					throw new BuildException(errorMessage);
 				}

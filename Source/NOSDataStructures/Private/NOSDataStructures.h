@@ -5,11 +5,11 @@
 #pragma once
 #include "Modules/ModuleInterface.h"
 
-class FMZDataStructures : public IModuleInterface
+class FNOSDataStructures : public IModuleInterface
 {
 public:
 	//Empty constructor
-	FMZDataStructures();
+	FNOSDataStructures();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;

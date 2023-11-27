@@ -8,9 +8,9 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZDataStructures : ModuleRules
+public class NOSDataStructures : ModuleRules
 {
-	public MZDataStructures(ReadOnlyTargetRules Target) : base(Target)
+	public NOSDataStructures(ReadOnlyTargetRules Target) : base(Target)
 	{
 		PublicDependencyModuleNames.AddRange(
 			new string[]

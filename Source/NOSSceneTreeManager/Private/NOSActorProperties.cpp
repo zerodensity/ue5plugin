@@ -1,16 +1,16 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZActorProperties.h"
-#include "MZTextureShareManager.h"
+#include "NOSActorProperties.h"
+#include "NOSTextureShareManager.h"
 #include "EditorCategoryUtils.h"
 #include "ObjectEditorUtils.h"
-#include "MZTrack.h"
+#include "NOSTrack.h"
 #include "EngineUtils.h"
 #include "Blueprint/UserWidget.h"
-#include "MZSceneTreeManager.h"
+#include "NOSSceneTreeManager.h"
 #include "PropertyEditorModule.h"
 
-#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogMZSceneTreeManager, Error, TEXT("Property size mismatch with mediaZ"));return;}}
+#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Property size mismatch with Nodos"));return;}}
 
 bool PropertyVisibleExp(FProperty* ueproperty)
 {
@@ -22,7 +22,7 @@ bool PropertyVisibleExp(FProperty* ueproperty)
 		ueproperty->HasAllFlags(RF_Public);
 }
 
-MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentCategory, uint8* structPtr, MZStructProperty* parentProperty)
+NOSProperty::NOSProperty(UObject* container, FProperty* uproperty, FString parentCategory, uint8* structPtr, NOSStructProperty* parentProperty)
 {
 	Property = uproperty;
 
@@ -35,11 +35,11 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 	StructPtr = structPtr;
 	if (container && container->IsA<UActorComponent>())
 	{
-		ComponentContainer = MZComponentReference((UActorComponent*)container);
+		ComponentContainer = NOSComponentReference((UActorComponent*)container);
 	}
 	else if (container && container->IsA<AActor>())
 	{
-		ActorContainer = MZActorReference((AActor*)container);
+		ActorContainer = NOSActorReference((AActor*)container);
 	}
 	else
 	{
@@ -63,8 +63,8 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		static const FName NAME_EditCondition(TEXT("editcondition"));
 		static const FName NAME_HiddenByDefault(TEXT("PinHiddenByDefault"));
 		static const FName NAME_ToolTip(TEXT("ToolTip"));
-		static const FName NAME_MZCanShowAsOutput(TEXT("MZCanShowAsOutput"));
-		static const FName NAME_MZCanShowAsInput(TEXT("MZCanShowAsInput"));
+		static const FName NAME_NOSCanShowAsOutput(TEXT("NOSCanShowAsOutput"));
+		static const FName NAME_NOSCanShowAsInput(TEXT("NOSCanShowAsInput"));
 
 		const auto& metaData = *metaDataMap;
 		DisplayName = metaData.Contains(NAME_DisplayName) ? metaData[NAME_DisplayName] : uproperty->GetFName().ToString();
@@ -85,17 +85,17 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		}
 		if(metaData.Contains(NAME_HiddenByDefault))
 		{
-			mzMetaDataMap.Add(MzMetadataKeys::PinHidden, " ");
+			nosMetaDataMap.Add(NosMetadataKeys::PinHidden, " ");
 		}
 
-		if(!metaData.Contains(NAME_MZCanShowAsInput) && metaData.Contains(NAME_MZCanShowAsOutput))
+		if(!metaData.Contains(NAME_NOSCanShowAsInput) && metaData.Contains(NAME_NOSCanShowAsOutput))
 		{
-			PinCanShowAs = mz::fb::CanShowAs::OUTPUT_PIN_OR_PROPERTY;
+			PinCanShowAs = nos::fb::CanShowAs::OUTPUT_PIN_OR_PROPERTY;
 		}
 		
-		if(metaData.Contains(NAME_MZCanShowAsInput) && !metaData.Contains(NAME_MZCanShowAsOutput))
+		if(metaData.Contains(NAME_NOSCanShowAsInput) && !metaData.Contains(NAME_NOSCanShowAsOutput))
 		{
-			PinCanShowAs = mz::fb::CanShowAs::INPUT_PIN_OR_PROPERTY;
+			PinCanShowAs = nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY;
 		}
 		
 	}
@@ -144,13 +144,13 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 		for(auto section : Sections)
 		{
 			FString tag = section->GetDisplayName().ToString();
-			auto& tagMetadataEntry = mzMetaDataMap.FindOrAdd("Tags");
+			auto& tagMetadataEntry = nosMetaDataMap.FindOrAdd("Tags");
 			tagMetadataEntry += tag + ",";
 			// UE_LOG(LogTemp, Warning, TEXT("The property %s is in section %s"), *DisplayName, *section->GetDisplayName().ToString());
 		}
 		if(!Sections.IsEmpty())
 		{
-			mzMetaDataMap.FindOrAdd("Tags").LeftChopInline(1);
+			nosMetaDataMap.FindOrAdd("Tags").LeftChopInline(1);
 		}
 	}
 
@@ -159,7 +159,7 @@ MZProperty::MZProperty(UObject* container, FProperty* uproperty, FString parentC
 
 
 
-std::vector<uint8> MZProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -176,7 +176,7 @@ std::vector<uint8> MZProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
-void MZProperty::MarkState()
+void NOSProperty::MarkState()
 {
 	if (ComponentContainer)
 	{
@@ -186,13 +186,13 @@ void MZProperty::MarkState()
 
 }
 
-void MZProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+void NOSProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
 {
 	SetPropValue_Internal(val, size, customContainer);
 	CallOnChangedFunction();
 }
 
-void MZProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 	CHECK_PROP_SIZE();
@@ -218,7 +218,7 @@ void MZProperty::SetPropValue_Internal(void* val, size_t size, uint8* customCont
 	}
 }
 
-void* MZProperty::GetRawContainer()
+void* NOSProperty::GetRawContainer()
 {
 	if(auto Object = GetRawObjectContainer())
 	{
@@ -227,7 +227,7 @@ void* MZProperty::GetRawContainer()
 	return StructPtr;
 }
 
-UObject* MZProperty::GetRawObjectContainer()
+UObject* NOSProperty::GetRawObjectContainer()
 {
 	if (ActorContainer)
 	{
@@ -245,12 +245,12 @@ UObject* MZProperty::GetRawObjectContainer()
 	return nullptr;
 }
 
-void MZProperty::SetProperty_InCont(void* container, void* val)
+void NOSProperty::SetProperty_InCont(void* container, void* val)
 {
 	return;
 }
 
-void MZProperty::CallOnChangedFunction()
+void NOSProperty::CallOnChangedFunction()
 {
 	UClass* OwnerClass = Property->GetOwnerClass();
 	if (!OwnerClass)
@@ -273,7 +273,7 @@ void MZProperty::CallOnChangedFunction()
 	}
 }
 
-void MZTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -298,52 +298,52 @@ void MZTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 
 }
 
-void MZTrackProperty::SetProperty_InCont(void* container, void* val)
+void NOSTrackProperty::SetProperty_InCont(void* container, void* val)
 {
-	auto track = flatbuffers::GetRoot<mz::fb::Track>(val);
-	FMZTrack* TrackData = structprop->ContainerPtrToValuePtr<FMZTrack>(container);
+	auto track = flatbuffers::GetRoot<nos::fb::Track>(val);
+	FNOSTrack* TrackData = structprop->ContainerPtrToValuePtr<FNOSTrack>(container);
 	// TrackData.location = FVector(0);
 	// TrackData.rotation = FVector(0);
 	// TrackData.center_shift = FVector2d(0);
 	// TrackData.sensor_size = FVector2d(0);
 
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LOCATION))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_LOCATION))
 	{
 		TrackData->location = FVector(track->location()->x(), track->location()->y(), track->location()->z());
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ROTATION))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_ROTATION))
 	{
 		TrackData->rotation = FVector(track->rotation()->x(), track->rotation()->y(), track->rotation()->z());
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOV))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_FOV))
 	{
 		TrackData->fov = track->fov();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_FOCUS))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_FOCUS))
 	{
 		TrackData->focus_distance = track->focus_distance();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_ZOOM))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_ZOOM))
 	{
 		TrackData->zoom = track->zoom();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_RENDER_RATIO))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_RENDER_RATIO))
 	{
 		TrackData->render_ratio = track->render_ratio();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_SENSOR_SIZE))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_SENSOR_SIZE))
 	{
 		TrackData->sensor_size = FVector2D(track->sensor_size()->x(), track->sensor_size()->y());
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_PIXEL_ASPECT_RATIO))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_PIXEL_ASPECT_RATIO))
 	{
 		TrackData->pixel_aspect_ratio = track->pixel_aspect_ratio();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_NODAL_OFFSET))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_NODAL_OFFSET))
 	{
 		TrackData->nodal_offset = track->nodal_offset();
 	}
-	if (flatbuffers::IsFieldPresent(track, mz::fb::Track::VT_LENS_DISTORTION))
+	if (flatbuffers::IsFieldPresent(track, nos::fb::Track::VT_LENS_DISTORTION))
 	{
 		auto distortion = track->lens_distortion();
 		TrackData->distortion_scale = distortion->distortion_scale();
@@ -363,7 +363,7 @@ void MZTrackProperty::SetProperty_InCont(void* container, void* val)
 	//}
 }
 
-std::vector<uint8> MZTransformProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSTransformProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -376,19 +376,19 @@ std::vector<uint8> MZTransformProperty::UpdatePinValue(uint8* customContainer)
 	{
 		FTransform TransformData = *Property->ContainerPtrToValuePtr<FTransform>(container);
 		flatbuffers::FlatBufferBuilder fb;
-		mz::fb::Transform TempTransform;
-		TempTransform.mutable_position() = mz::fb::vec3d(TransformData.GetLocation().X, TransformData.GetLocation().Y, TransformData.GetLocation().Z);
-		TempTransform.mutable_scale() = mz::fb::vec3d(TransformData.GetScale3D().X, TransformData.GetScale3D().Y, TransformData.GetScale3D().Z);
-		TempTransform.mutable_rotation() = mz::fb::vec3d(TransformData.GetRotation().ToRotationVector().X, TransformData.GetRotation().ToRotationVector().Y, TransformData.GetRotation().ToRotationVector().Z);
+		nos::fb::Transform TempTransform;
+		TempTransform.mutable_position() = nos::fb::vec3d(TransformData.GetLocation().X, TransformData.GetLocation().Y, TransformData.GetLocation().Z);
+		TempTransform.mutable_scale() = nos::fb::vec3d(TransformData.GetScale3D().X, TransformData.GetScale3D().Y, TransformData.GetScale3D().Z);
+		TempTransform.mutable_rotation() = nos::fb::vec3d(TransformData.GetRotation().ToRotationVector().X, TransformData.GetRotation().ToRotationVector().Y, TransformData.GetRotation().ToRotationVector().Z);
 		
-		mz::Buffer buffer = mz::Buffer::From(TempTransform);
+		nos::Buffer buffer = nos::Buffer::From(TempTransform);
 		data = buffer;
 	}
 	return data;
 
 }
 
-void MZTransformProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSTransformProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -412,9 +412,9 @@ void MZTransformProperty::SetPropValue_Internal(void* val, size_t size, uint8* c
 	}
 }
 
-void MZTransformProperty::SetProperty_InCont(void* container, void* val)
+void NOSTransformProperty::SetProperty_InCont(void* container, void* val)
 {
-	auto transform = *(mz::fb::Transform*)val;
+	auto transform = *(nos::fb::Transform*)val;
 	FTransform* TransformData = structprop->ContainerPtrToValuePtr<FTransform>(container);
 
 	TransformData->SetLocation(FVector(transform.position().x(), transform.position().y(), transform.position().z()));
@@ -425,7 +425,7 @@ void MZTransformProperty::SetProperty_InCont(void* container, void* val)
 }
 
 
-std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSTrackProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -436,34 +436,34 @@ std::vector<uint8> MZTrackProperty::UpdatePinValue(uint8* customContainer)
 
 	if (container)
 	{
-		FMZTrack TrackData = *Property->ContainerPtrToValuePtr<FMZTrack>(container);
+		FNOSTrack TrackData = *Property->ContainerPtrToValuePtr<FNOSTrack>(container);
 		
 		flatbuffers::FlatBufferBuilder fb;
-		mz::fb::TTrack TempTrack;
-		TempTrack.location = mz::fb::vec3(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
-		TempTrack.rotation = mz::fb::vec3(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
+		nos::fb::TTrack TempTrack;
+		TempTrack.location = nos::fb::vec3(TrackData.location.X, TrackData.location.Y, TrackData.location.Z);
+		TempTrack.rotation = nos::fb::vec3(TrackData.rotation.X, TrackData.rotation.Y, TrackData.rotation.Z);
 		TempTrack.fov = TrackData.fov;
 		TempTrack.focus = TrackData.focus_distance;
 		TempTrack.zoom = TrackData.zoom;
 		TempTrack.render_ratio = TrackData.render_ratio;
-		TempTrack.sensor_size = mz::fb::vec2(TrackData.sensor_size.X, TrackData.sensor_size.Y);
+		TempTrack.sensor_size = nos::fb::vec2(TrackData.sensor_size.X, TrackData.sensor_size.Y);
 		TempTrack.pixel_aspect_ratio = TrackData.pixel_aspect_ratio;
 		TempTrack.nodal_offset = TrackData.nodal_offset;
 		auto& Distortion = TempTrack.lens_distortion;
-		Distortion.mutable_k1k2() = mz::fb::vec2(TrackData.k1, TrackData.k2);
-		Distortion.mutable_center_shift() = mz::fb::vec2(TrackData.center_shift.X, TrackData.center_shift.Y);
+		Distortion.mutable_k1k2() = nos::fb::vec2(TrackData.k1, TrackData.k2);
+		Distortion.mutable_center_shift() = nos::fb::vec2(TrackData.center_shift.X, TrackData.center_shift.Y);
 		Distortion.mutate_distortion_scale(TrackData.distortion_scale);
 		
-		auto offset = mz::fb::CreateTrack(fb, &TempTrack);
+		auto offset = nos::fb::CreateTrack(fb, &TempTrack);
 		fb.Finish(offset);
-		mz::Buffer buffer = fb.Release();
+		nos::Buffer buffer = fb.Release();
 		data = buffer;
 	}
 	return data;
 }
 
 
-void MZRotatorProperty::SetProperty_InCont(void* container, void* val)
+void NOSRotatorProperty::SetProperty_InCont(void* container, void* val)
 {
 	double x = ((double*)val)[0];
 	double y = ((double*)val)[1];
@@ -472,7 +472,7 @@ void MZRotatorProperty::SetProperty_InCont(void* container, void* val)
 	structprop->CopyCompleteValue(structprop->ContainerPtrToValuePtr<void>(container), &rotator);
 }
 
-std::vector<uint8> MZRotatorProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSRotatorProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -495,30 +495,30 @@ std::vector<uint8> MZRotatorProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
-flatbuffers::Offset<mz::fb::Pin> MZProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Pin> NOSProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
 	auto displayName = Property->GetDisplayNameText().ToString();
-	if (TypeName == "mz.fb.Void" || TypeName.size() < 1)
+	if (TypeName == "nos.fb.Void" || TypeName.size() < 1)
 	{
-		return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "mz.fb.Void", mz::fb::ShowAs::NONE, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, mz::fb::PinContents::JobPin, 0, mz::fb::CreateOrphanStateDirect(fbb, true, TCHAR_TO_UTF8(TEXT("Unknown type!"))), false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
+		return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "nos.fb.Void", nos::fb::ShowAs::NONE, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, true, TCHAR_TO_UTF8(TEXT("Unknown type!"))), false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
 	}
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, mz::fb::PinContents::JobPin, 0, mz::fb::CreateOrphanStateDirect(fbb, IsOrphan, TCHAR_TO_UTF8(*OrphanMessage)), false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
+	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, IsOrphan, TCHAR_TO_UTF8(*OrphanMessage)), false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
 }
 
-std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> MZProperty::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> NOSProperty::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata;
-	for (auto [key, value] : mzMetaDataMap)
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata;
+	for (auto [key, value] : nosMetaDataMap)
 	{
-		metadata.push_back(mz::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
+		metadata.push_back(nos::fb::CreateMetaDataEntryDirect(fbb, TCHAR_TO_UTF8(*key), TCHAR_TO_UTF8(*value)));
 	}
 	return metadata;
 }
 
-MZStructProperty::MZStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
-	: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+NOSStructProperty::NOSStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory, uint8* StructPtr, NOSStructProperty* parentProperty)
+	: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 {
 	uint8* StructInst = nullptr;
 	UClass* Class = nullptr;
@@ -544,76 +544,76 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 		}
 
 		//UE_LOG(LogTemp, Warning, TEXT("The property name in struct: %s"), *(AProperty->GetAuthoredName()));
-		auto mzprop = MZPropertyFactory::CreateProperty(nullptr, AProperty, CategoryName + "|" + DisplayName, StructInst, this);
-		if (mzprop)
+		auto nosprop = NOSPropertyFactory::CreateProperty(nullptr, AProperty, CategoryName + "|" + DisplayName, StructInst, this);
+		if (nosprop)
 		{
-			if(mzprop->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
+			if(nosprop->nosMetaDataMap.Contains(NosMetadataKeys::ContainerPath))
 			{
-				auto ContainerPath = mzprop->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
+				auto ContainerPath = nosprop->nosMetaDataMap.Find(NosMetadataKeys::ContainerPath);
 				ContainerPath->InsertAt(0, structprop->GetNameCPP() + FString("/") );
 			}
 			else
 			{
-				mzprop->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, structprop->GetNameCPP());
+				nosprop->nosMetaDataMap.Add(NosMetadataKeys::ContainerPath, structprop->GetNameCPP());
 			}
 			
-			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::component);
-			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
+			nosprop->nosMetaDataMap.Remove(NosMetadataKeys::component);
+			nosprop->nosMetaDataMap.Remove(NosMetadataKeys::actorId);
 			FString ActorUniqueName;
 			if (auto component = Cast<USceneComponent>(container))
 			{
-				mzprop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
+				nosprop->nosMetaDataMap.Add(NosMetadataKeys::component, component->GetFName().ToString());
 				if (auto actor = component->GetOwner())
 				{
 					ActorUniqueName = actor->GetFName().ToString();
-					mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+					nosprop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 			}
 			else if (auto actor = Cast<AActor>(container))
 			{
 				ActorUniqueName = actor->GetFName().ToString();
-				mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+				nosprop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 			}
 
 			
-			FString PropertyPath = mzprop->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
-			FString ComponentPath = mzprop->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+			FString PropertyPath = nosprop->nosMetaDataMap.FindRef(NosMetadataKeys::PropertyPath);
+			FString ComponentPath = nosprop->nosMetaDataMap.FindRef(NosMetadataKeys::component);
 			FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath;
-			mzprop->Id = StringToFGuid(IdStringKey);
-			childProperties.push_back(mzprop);
+			nosprop->Id = StringToFGuid(IdStringKey);
+			childProperties.push_back(nosprop);
 			
-			for (auto it : mzprop->childProperties)
+			for (auto it : nosprop->childProperties)
 			{
-				if(it->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
+				if(it->nosMetaDataMap.Contains(NosMetadataKeys::ContainerPath))
 				{
-					auto ContainerPath = it->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
+					auto ContainerPath = it->nosMetaDataMap.Find(NosMetadataKeys::ContainerPath);
 					ContainerPath->InsertAt(0, structprop->GetNameCPP() + FString("/") );
 				}
 				else
 				{
-					it->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, structprop->GetNameCPP());
+					it->nosMetaDataMap.Add(NosMetadataKeys::ContainerPath, structprop->GetNameCPP());
 				}
-				it->mzMetaDataMap.Remove(MzMetadataKeys::component);
-				it->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
+				it->nosMetaDataMap.Remove(NosMetadataKeys::component);
+				it->nosMetaDataMap.Remove(NosMetadataKeys::actorId);
 				
 				FString ActorUniqueNameChild;
 				if (auto component = Cast<USceneComponent>(container))
 				{
-					it->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
+					it->nosMetaDataMap.Add(NosMetadataKeys::component, component->GetFName().ToString());
 					if (auto actor = component->GetOwner())
 					{
 						ActorUniqueNameChild = actor->GetFName().ToString();
-						it->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+						it->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 					}
 				}
 				else if (auto actor = Cast<AActor>(container))
 				{
 					ActorUniqueNameChild = actor->GetFName().ToString();
-					it->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+					it->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 				
-				FString PropertyPathChild = it->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
-				FString ComponentPathChild = it->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+				FString PropertyPathChild = it->nosMetaDataMap.FindRef(NosMetadataKeys::PropertyPath);
+				FString ComponentPathChild = it->nosMetaDataMap.FindRef(NosMetadataKeys::component);
 				FString IdStringKeyChild = ActorUniqueNameChild + ComponentPathChild + PropertyPathChild;
 				it->Id = StringToFGuid(IdStringKeyChild);
 				
@@ -625,25 +625,25 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 	}
 
 	data = std::vector<uint8_t>(1, 0);
-	TypeName = "mz.fb.Void";
+	TypeName = "nos.fb.Void";
 }
 
-void MZStructProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSStructProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	//empty
 }
 
 bool PropertyVisible(FProperty* ueproperty);
 
-MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* uproperty, FString parentCategory, uint8* StructPtr, MZStructProperty* parentProperty)
-	: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), objectprop(uproperty)
+NOSObjectProperty::NOSObjectProperty(UObject* container, FObjectProperty* uproperty, FString parentCategory, uint8* StructPtr, NOSStructProperty* parentProperty)
+	: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), objectprop(uproperty)
 {
 	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 	{
-		TypeName = "mz.fb.Texture";
+		TypeName = "nos.fb.Texture";
 		ReadOnly = true;
-		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(this);
-		data = mz::Buffer::From(tex);
+		auto tex = NOSTextureShareManager::GetInstance()->AddTexturePin(this);
+		data = nos::Buffer::From(tex);
 	}
 	else if (objectprop->PropertyClass->IsChildOf<UUserWidget>())
 	{
@@ -656,7 +656,7 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 		if(!Widget)
 		{
 			data = std::vector<uint8_t>(1, 0);
-			TypeName = "mz.fb.Void";
+			TypeName = "nos.fb.Void";
 			return;
 		}
 	
@@ -676,69 +676,69 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 				WProperty = WProperty->PropertyLinkNext;
 				continue;
 			}
-			TSharedPtr<MZProperty> mzprop = MZPropertyFactory::CreateProperty(Widget, WProperty, parentCategory);
+			TSharedPtr<NOSProperty> nosprop = NOSPropertyFactory::CreateProperty(Widget, WProperty, parentCategory);
 
-			if(mzprop->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
+			if(nosprop->nosMetaDataMap.Contains(NosMetadataKeys::ContainerPath))
 			{
-				auto propPath = mzprop->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
+				auto propPath = nosprop->nosMetaDataMap.Find(NosMetadataKeys::ContainerPath);
 				propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
 			}
 			else
 			{
-				mzprop->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, objectprop->GetFName().ToString());
+				nosprop->nosMetaDataMap.Add(NosMetadataKeys::ContainerPath, objectprop->GetFName().ToString());
 			}
 			
 			
-			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::component);
-			mzprop->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
+			nosprop->nosMetaDataMap.Remove(NosMetadataKeys::component);
+			nosprop->nosMetaDataMap.Remove(NosMetadataKeys::actorId);
 			if (auto component = Cast<USceneComponent>(container))
 			{
-				mzprop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
+				nosprop->nosMetaDataMap.Add(NosMetadataKeys::component, component->GetFName().ToString());
 				if (auto actor = component->GetOwner())
 				{
-					mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+					nosprop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 			}
 			else if (auto actor = Cast<AActor>(container))
 			{
-				mzprop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+				nosprop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 			}
 
 			
-			if (!mzprop)
+			if (!nosprop)
 			{
 				WProperty = WProperty->PropertyLinkNext;
 				continue;
 			}
-			//RegisteredProperties.Add(mzprop->Id, mzprop);
-			childProperties.push_back(mzprop);
+			//RegisteredProperties.Add(nosprop->Id, nosprop);
+			childProperties.push_back(nosprop);
 
-			for (auto It : mzprop->childProperties)
+			for (auto It : nosprop->childProperties)
 			{
 				
-				if(It->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
+				if(It->nosMetaDataMap.Contains(NosMetadataKeys::ContainerPath))
 				{
-					auto propPath = It->mzMetaDataMap.Find(MzMetadataKeys::ContainerPath);
+					auto propPath = It->nosMetaDataMap.Find(NosMetadataKeys::ContainerPath);
 					propPath->InsertAt(0, objectprop->GetFName().ToString() + FString("/") );
 				}
 				else
 				{
-					It->mzMetaDataMap.Add(MzMetadataKeys::ContainerPath, objectprop->GetFName().ToString());
+					It->nosMetaDataMap.Add(NosMetadataKeys::ContainerPath, objectprop->GetFName().ToString());
 				}
 				//RegisteredProperties.Add(it->Id, it);
-				It->mzMetaDataMap.Remove(MzMetadataKeys::component);
-				It->mzMetaDataMap.Remove(MzMetadataKeys::actorId);
+				It->nosMetaDataMap.Remove(NosMetadataKeys::component);
+				It->nosMetaDataMap.Remove(NosMetadataKeys::actorId);
 				if (auto component = Cast<USceneComponent>(container))
 				{
-					It->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
+					It->nosMetaDataMap.Add(NosMetadataKeys::component, component->GetFName().ToString());
 					if (auto actor = component->GetOwner())
 					{
-						It->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+						It->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 					}
 				}
 				else if (auto actor = Cast<AActor>(container))
 				{
-					It->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+					It->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 				}
 				childProperties.push_back(It);
 			}
@@ -747,36 +747,36 @@ MZObjectProperty::MZObjectProperty(UObject* container, FObjectProperty* upropert
 		}
 
 		data = std::vector<uint8_t>(1, 0);
-		TypeName = "mz.fb.Void";
+		TypeName = "nos.fb.Void";
 	}
 	else
 	{
 		data = std::vector<uint8_t>(1, 0);
-		TypeName = "mz.fb.Void";
+		TypeName = "nos.fb.Void";
 	}
 }
 
-void MZObjectProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSObjectProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 }
 
-std::vector<uint8> MZObjectProperty::UpdatePinValue(uint8* customContainer) 
+std::vector<uint8> NOSObjectProperty::UpdatePinValue(uint8* customContainer) 
 { 
 	UObject* container = GetRawObjectContainer();
 
 	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 		{
-		const mz::fb::Texture* tex = flatbuffers::GetRoot<mz::fb::Texture>(data.data());
-		mz::fb::TTexture texture;
+		const nos::fb::Texture* tex = flatbuffers::GetRoot<nos::fb::Texture>(data.data());
+		nos::fb::TTexture texture;
 		tex->UnPackTo(&texture);
 
-		if (MZTextureShareManager::GetInstance()->UpdateTexturePin(this, texture))
+		if (NOSTextureShareManager::GetInstance()->UpdateTexturePin(this, texture))
 			{
-			// data = mz::Buffer::From(texture);
+			// data = nos::Buffer::From(texture);
 			flatbuffers::FlatBufferBuilder fb;
-			auto offset = mz::fb::CreateTexture(fb, &texture);
+			auto offset = nos::fb::CreateTexture(fb, &texture);
 			fb.Finish(offset);
-			mz::Buffer buffer = fb.Release();
+			nos::Buffer buffer = fb.Release();
 			data = buffer;
 			}
 		}
@@ -784,7 +784,7 @@ std::vector<uint8> MZObjectProperty::UpdatePinValue(uint8* customContainer)
 	return std::vector<uint8>(); 
 }
 
-void MZStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -809,7 +809,7 @@ void MZStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* cust
 	return;
 }
 
-std::vector<uint8> MZStringProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSStringProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -830,7 +830,7 @@ std::vector<uint8> MZStringProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
-void MZNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -855,7 +855,7 @@ void MZNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* custom
 	return;
 }
 
-std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSNameProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -876,7 +876,7 @@ std::vector<uint8> MZNameProperty::UpdatePinValue(uint8* customContainer)
 	return data;
 }
 
-void MZTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	IsChanged = true;
 
@@ -903,7 +903,7 @@ void MZTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* custom
 	return;
 }
 
-std::vector<uint8> MZTextProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSTextProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -924,18 +924,18 @@ std::vector<uint8> MZTextProperty::UpdatePinValue(uint8* customContainer)
 
 	return data;
 }
-flatbuffers::Offset<mz::fb::Visualizer> MZEnumProperty::SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Visualizer> NOSEnumProperty::SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb)
 {
-	return mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, TCHAR_TO_UTF8(*Enum->GetFName().ToString()));
+	return nos::fb::CreateVisualizerDirect(fbb, nos::fb::VisualizerType::COMBO_BOX, TCHAR_TO_UTF8(*Enum->GetFName().ToString()));
 }
 
-flatbuffers::Offset<mz::fb::Pin> MZEnumProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Pin> NOSEnumProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&(MZProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*Property->GetDisplayNameText().ToString()));
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
+	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&(NOSProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  nos::fb::PinContents::JobPin, 0, 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*Property->GetDisplayNameText().ToString()));
 }
 
-void MZEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+void NOSEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
 {
 	//TODO
 	
@@ -984,7 +984,7 @@ void MZEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* custom
 	return;
 }
 
-std::vector<uint8> MZEnumProperty::UpdatePinValue(uint8* customContainer)
+std::vector<uint8> NOSEnumProperty::UpdatePinValue(uint8* customContainer)
 {
 	void* container = nullptr;
 	if (customContainer) container = customContainer;
@@ -1010,13 +1010,13 @@ std::vector<uint8> MZEnumProperty::UpdatePinValue(uint8* customContainer)
 
 
 
-TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
+TSharedPtr<NOSProperty> NOSPropertyFactory::CreateProperty(UObject* container,
                                                          FProperty* uproperty, 
                                                          FString parentCategory, 
                                                          uint8* StructPtr, 
-                                                         MZStructProperty* parentProperty)
+                                                         NOSStructProperty* parentProperty)
 {
-	TSharedPtr<MZProperty> prop = nullptr;
+	TSharedPtr<NOSProperty> prop = nullptr;
 
 	//CAST THE PROPERTY ACCORDINGLY
 	uproperty->GetClass();
@@ -1024,112 +1024,112 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 	{
 		FNumericProperty* numericprop = CastField<FNumericProperty>(uproperty);
 		UEnum* uenum = numericprop->GetIntPropertyEnum();
-		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, nullptr, numericprop, uenum, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSEnumProperty(container, nullptr, numericprop, uenum, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FFloatProperty* floatprop = CastField<FFloatProperty>(uproperty) ) 
 	{
-		prop = TSharedPtr<MZProperty>(new MZFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSFloatProperty(container, floatprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FDoubleProperty* doubleprop = CastField<FDoubleProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZDoubleProperty(container, doubleprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSDoubleProperty(container, doubleprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FInt8Property* int8prop = CastField<FInt8Property>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZInt8Property(container, int8prop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSInt8Property(container, int8prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FInt16Property* int16prop = CastField<FInt16Property>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZInt16Property(container, int16prop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSInt16Property(container, int16prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FIntProperty* intprop = CastField<FIntProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZIntProperty(container, intprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSIntProperty(container, intprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FInt64Property* int64prop = CastField<FInt64Property>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZInt64Property(container, int64prop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSInt64Property(container, int64prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FByteProperty* byteprop = CastField<FByteProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZByteProperty(container, byteprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSByteProperty(container, byteprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FUInt16Property* uint16prop = CastField<FUInt16Property>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZUInt16Property(container, uint16prop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSUInt16Property(container, uint16prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FUInt32Property* uint32prop = CastField<FUInt32Property>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZUInt32Property(container, uint32prop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSUInt32Property(container, uint32prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FUInt64Property* uint64prop = CastField<FUInt64Property>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZUInt64Property(container, uint64prop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSUInt64Property(container, uint64prop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FBoolProperty* boolprop = CastField<FBoolProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZBoolProperty(container, boolprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSBoolProperty(container, boolprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FEnumProperty* enumprop = CastField<FEnumProperty>(uproperty))
 	{
 		FNumericProperty* numericprop = enumprop->GetUnderlyingProperty();
 		UEnum* uenum = enumprop->GetEnum();
-		prop = TSharedPtr<MZProperty>(new MZEnumProperty(container, enumprop, numericprop, uenum, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSEnumProperty(container, enumprop, numericprop, uenum, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FTextProperty* textprop = CastField<FTextProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZTextProperty(container, textprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSTextProperty(container, textprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FNameProperty* nameprop = CastField<FNameProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZNameProperty(container, nameprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSNameProperty(container, nameprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FStrProperty* stringProp = CastField<FStrProperty>(uproperty))
 	{
-		prop = TSharedPtr<MZProperty>(new MZStringProperty(container, stringProp, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSStringProperty(container, stringProp, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FObjectProperty* objectprop = CastField<FObjectProperty>(uproperty))
 	{
-		if (!container) // TODO: Handle inside MZObjectProperty
+		if (!container) // TODO: Handle inside NOSObjectProperty
 		{
 			return nullptr;
 		}
-		prop = TSharedPtr<MZProperty>(new MZObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty));
+		prop = TSharedPtr<NOSProperty>(new NOSObjectProperty(container, objectprop, parentCategory, StructPtr, parentProperty));
 	}
 	else if (FStructProperty* structprop = CastField<FStructProperty>(uproperty))
 	{
 		//TODO ADD SUPPORT FOR FTRANSFORM
 		if (structprop->Struct == TBaseStructure<FVector2D>::Get()) //vec2
 		{
-			prop = TSharedPtr<MZProperty>(new MZVec2Property(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSVec2Property(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FVector>::Get()) //vec3
 		{
-			prop = TSharedPtr<MZProperty>(new MZVec3Property(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSVec3Property(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FRotator>::Get())
 		{
-			prop = TSharedPtr<MZProperty>(new MZRotatorProperty(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSRotatorProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FVector4>::Get() || structprop->Struct == TBaseStructure<FQuat>::Get()) //vec4
 		{
-			prop = TSharedPtr<MZProperty>(new MZVec4Property(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSVec4Property(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FLinearColor>::Get()) //vec4f
 		{
-			prop = TSharedPtr<MZProperty>(new MZVec4FProperty(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSVec4FProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
-		else if (structprop->Struct == FMZTrack::StaticStruct()) //track
+		else if (structprop->Struct == FNOSTrack::StaticStruct()) //track
 		{
-			prop = TSharedPtr<MZProperty>(new MZTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSTrackProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else if (structprop->Struct == TBaseStructure<FTransform>::Get()) //track
 		{
-			prop = TSharedPtr<MZProperty>(new MZTransformProperty(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSTransformProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 		else //auto construct
 		{
-			prop = TSharedPtr<MZProperty>(new MZStructProperty(container, structprop, parentCategory, StructPtr, parentProperty));
+			prop = TSharedPtr<NOSProperty>(new NOSStructProperty(container, structprop, parentCategory, StructPtr, parentProperty));
 		}
 	}
 
@@ -1140,13 +1140,13 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 
 	prop->UpdatePinValue();
 	prop->default_val = prop->data;
-	if (prop->TypeName == "mz.fb.Void")
+	if (prop->TypeName == "nos.fb.Void")
 	{
 		prop->data.clear();
 		prop->default_val.clear();
 	}
 #if 0 //default properties from objects
-	if (prop->TypeName == "mz.fb.Void")
+	if (prop->TypeName == "nos.fb.Void")
 	{
 		prop->data.clear();
 		prop->default_val.clear();
@@ -1219,35 +1219,35 @@ TSharedPtr<MZProperty> MZPropertyFactory::CreateProperty(UObject* container,
 
 	FString ActorUniqueName;
 	//update metadata
-	// prop->mzMetaDataMap.Add("property", uproperty->GetFName().ToString());
-	prop->mzMetaDataMap.Add(MzMetadataKeys::PropertyPath, uproperty->GetPathName());
+	// prop->nosMetaDataMap.Add("property", uproperty->GetFName().ToString());
+	prop->nosMetaDataMap.Add(NosMetadataKeys::PropertyPath, uproperty->GetPathName());
 	if (auto component = Cast<USceneComponent>(container))
 	{
-		prop->mzMetaDataMap.Add(MzMetadataKeys::component, component->GetFName().ToString());
+		prop->nosMetaDataMap.Add(NosMetadataKeys::component, component->GetFName().ToString());
 		if (auto actor = component->GetOwner())
 		{
-			prop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+			prop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 			ActorUniqueName = actor->GetFName().ToString();
 		}
 	}
 	else if (auto actor = Cast<AActor>(container))
 	{
-		prop->mzMetaDataMap.Add(MzMetadataKeys::actorId, actor->GetActorGuid().ToString());
+		prop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
 		ActorUniqueName = actor->GetFName().ToString();
 	}
 	
 	// FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
-	//UE_LOG(LogMZSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
+	//UE_LOG(LogNOSSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
 
-	FString PropertyPath = prop->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
-	FString ComponentPath = prop->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+	FString PropertyPath = prop->nosMetaDataMap.FindRef(NosMetadataKeys::PropertyPath);
+	FString ComponentPath = prop->nosMetaDataMap.FindRef(NosMetadataKeys::component);
 	FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath;
 	prop->Id = StringToFGuid(IdStringKey);
 	return prop;
 }
 
 
-MZActorReference::MZActorReference(TObjectPtr<AActor> actor)
+NOSActorReference::NOSActorReference(TObjectPtr<AActor> actor)
 {
 	if (actor)
 	{
@@ -1256,12 +1256,12 @@ MZActorReference::MZActorReference(TObjectPtr<AActor> actor)
 	}
 }
 
-MZActorReference::MZActorReference()
+NOSActorReference::NOSActorReference()
 {
 
 }
 
-AActor* MZActorReference::Get()
+AActor* NOSActorReference::Get()
 {
 	if (Actor.IsValid())
 	{
@@ -1274,7 +1274,7 @@ AActor* MZActorReference::Get()
 	return nullptr;
 }
 
-bool MZActorReference::UpdateActorPointer(UWorld* World)
+bool NOSActorReference::UpdateActorPointer(UWorld* World)
 {
 	if (!ActorGuid.IsValid())
 	{
@@ -1298,12 +1298,12 @@ bool MZActorReference::UpdateActorPointer(UWorld* World)
 	return false;
 }
 
-bool MZActorReference::UpdateActualActorPointer()
+bool NOSActorReference::UpdateActualActorPointer()
 {
 	UWorld* World;
-	if (FMZSceneTreeManager::daWorld)
+	if (FNOSSceneTreeManager::daWorld)
 	{
-		World = FMZSceneTreeManager::daWorld;
+		World = FNOSSceneTreeManager::daWorld;
 	}
 	else
 	{
@@ -1312,7 +1312,7 @@ bool MZActorReference::UpdateActualActorPointer()
 	return UpdateActorPointer(World);
 }
 
-MZComponentReference::MZComponentReference(TObjectPtr<UActorComponent> actorComponent)
+NOSComponentReference::NOSComponentReference(TObjectPtr<UActorComponent> actorComponent)
 	: Actor(actorComponent->GetOwner())
 {
 	if (actorComponent)
@@ -1323,12 +1323,12 @@ MZComponentReference::MZComponentReference(TObjectPtr<UActorComponent> actorComp
 	}
 }
 
-MZComponentReference::MZComponentReference()
+NOSComponentReference::NOSComponentReference()
 {
 
 }
 
-UActorComponent* MZComponentReference::Get()
+UActorComponent* NOSComponentReference::Get()
 {
 	if (Component.IsValid())
 	{
@@ -1342,12 +1342,12 @@ UActorComponent* MZComponentReference::Get()
 	return nullptr;
 }
 
-AActor* MZComponentReference::GetOwnerActor()
+AActor* NOSComponentReference::GetOwnerActor()
 {
 	return Actor.Get();
 }
 
-bool MZComponentReference::UpdateActualComponentPointer()
+bool NOSComponentReference::UpdateActualComponentPointer()
 {
 	if (!Actor.Get() || Actor.InvalidReference || PathToComponent.IsEmpty())
 	{

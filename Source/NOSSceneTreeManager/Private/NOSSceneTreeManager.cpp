@@ -1,11 +1,11 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-//mediaz plugin includes
-#include "MZSceneTreeManager.h"
-#include "MZClient.h"
-#include "MZTextureShareManager.h"
-#include "MZAssetManager.h"
-#include "MZViewportManager.h"
+//Nodos plugin includes
+#include "NOSSceneTreeManager.h"
+#include "NOSClient.h"
+#include "NOSTextureShareManager.h"
+#include "NOSAssetManager.h"
+#include "NOSViewportManager.h"
 
 //unreal engine includes
 #include "EngineUtils.h"
@@ -18,23 +18,23 @@
 #include "LevelSequence.h"
 #include "PacketHandler.h"
 
-DEFINE_LOG_CATEGORY(LogMZSceneTreeManager);
-#define LOG(x) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x))
-#define LOGF(x, y) UE_LOG(LogMZSceneTreeManager, Display, TEXT(x), y)
+DEFINE_LOG_CATEGORY(LogNOSSceneTreeManager);
+#define LOG(x) UE_LOG(LogNOSSceneTreeManager, Display, TEXT(x))
+#define LOGF(x, y) UE_LOG(LogNOSSceneTreeManager, Display, TEXT(x), y)
 
 
-IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
+IMPLEMENT_MODULE(FNOSSceneTreeManager, NOSSceneTreeManager)
 
-UWorld* FMZSceneTreeManager::daWorld = nullptr;
+UWorld* FNOSSceneTreeManager::daWorld = nullptr;
 
-static TAutoConsoleVariable<int32> CVarReloadLevelFrameCount(TEXT("mediaz.ReloadFrameCount"), 10, TEXT("Reload frame count"));
+static TAutoConsoleVariable<int32> CVarReloadLevelFrameCount(TEXT("Nodos.ReloadFrameCount"), 10, TEXT("Reload frame count"));
 
-#define MZ_POPULATE_UNREAL_FUNCTIONS //uncomment if you want to see functions 
+#define NOS_POPULATE_UNREAL_FUNCTIONS //uncomment if you want to see functions 
 
-TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
+TMap<FGuid, std::vector<uint8>> ParsePins(nos::fb::Node const& archive)
 {
 	TMap<FGuid, std::vector<uint8>> re;
-	if (!flatbuffers::IsFieldPresent(&archive, mz::fb::Node::VT_PINS))
+	if (!flatbuffers::IsFieldPresent(&archive, nos::fb::Node::VT_PINS))
 	{
 		return re;
 	}
@@ -52,10 +52,10 @@ TMap<FGuid, std::vector<uint8>> ParsePins(mz::fb::Node const& archive)
 	return re;
 }
 
-TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
+TMap<FGuid, const nos::fb::Pin*> ParsePins(const nos::fb::Node* archive)
 {
-	TMap<FGuid, const mz::fb::Pin*> re;
-	if (!flatbuffers::IsFieldPresent(archive, mz::fb::Node::VT_PINS))
+	TMap<FGuid, const nos::fb::Pin*> re;
+	if (!flatbuffers::IsFieldPresent(archive, nos::fb::Node::VT_PINS))
 	{
 		return re;
 	}
@@ -67,31 +67,31 @@ TMap<FGuid, const mz::fb::Pin*> ParsePins(const mz::fb::Node* archive)
 }
 
 
-FMZSceneTreeManager::FMZSceneTreeManager()
+FNOSSceneTreeManager::FNOSSceneTreeManager()
 {
 
 }
-void FMZSceneTreeManager::OnMapChange(uint32 MapFlags)
+void FNOSSceneTreeManager::OnMapChange(uint32 MapFlags)
 {
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	LOGF("OnMapChange with editor world contexts world %s", *WorldName);
-	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
+	FNOSSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 }
 
-void FMZSceneTreeManager::OnNewCurrentLevel()
+void FNOSSceneTreeManager::OnNewCurrentLevel()
 {
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	LOGF("OnNewCurrentLevel with editor world contexts world %s", *WorldName);
 	//todo we may need to fill these according to the level system
 }
 
-void FMZSceneTreeManager::AddCustomFunction(MZCustomFunction* CustomFunction)
+void FNOSSceneTreeManager::AddCustomFunction(NOSCustomFunction* CustomFunction)
 {
 	CustomFunctions.Add(CustomFunction->Id, CustomFunction);
 	SendEngineFunctionUpdate();
 }
 
-void FMZSceneTreeManager::AddToBeAddedActors()
+void FNOSSceneTreeManager::AddToBeAddedActors()
 {
 	for (auto weakActorPtr : ActorsToBeAdded)
 	{
@@ -102,30 +102,30 @@ void FMZSceneTreeManager::AddToBeAddedActors()
 	ActorsToBeAdded.Empty();
 }
 
-void FMZSceneTreeManager::OnBeginFrame()
+void FNOSSceneTreeManager::OnBeginFrame()
 {
 
 	if(ToggleExecutionStateToSynced)
 	{
 		ToggleExecutionStateToSynced = false;
-		ExecutionState = mz::app::ExecutionState::SYNCED;
-		if (MZTextureShareManager::GetInstance()->SwitchStateToSynced())
+		ExecutionState = nos::app::ExecutionState::SYNCED;
+		if (NOSTextureShareManager::GetInstance()->SwitchStateToSynced())
 		{
 			SendSyncSemaphores(false);
 		}
 	}
 	
-	MZPropertyManager.OnBeginFrame();
-	MZTextureShareManager::GetInstance()->OnBeginFrame();
+	NOSPropertyManager.OnBeginFrame();
+	NOSTextureShareManager::GetInstance()->OnBeginFrame();
 }
 
-void FMZSceneTreeManager::OnEndFrame()
+void FNOSSceneTreeManager::OnEndFrame()
 {
-	MZPropertyManager.OnEndFrame();
-	MZTextureShareManager::GetInstance()->OnEndFrame();
+	NOSPropertyManager.OnEndFrame();
+	NOSTextureShareManager::GetInstance()->OnEndFrame();
 }
 
-void FMZSceneTreeManager::StartupModule()
+void FNOSSceneTreeManager::StartupModule()
 {
 	if (!FApp::HasProjectName())
 	{
@@ -135,167 +135,167 @@ void FMZSceneTreeManager::StartupModule()
 	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
 	if ("D3D12" != hwinfo)
 	{
-		FMessageDialog::Debugf(FText::FromString("MediaZ plugin supports DirectX12 only!"), 0);
+		FMessageDialog::Debugf(FText::FromString("Nodos plugin supports DirectX12 only!"), 0);
 		return;
 	}
 	
 	bIsModuleFunctional = true; 
 
-	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
-	MZAssetManager = &FModuleManager::LoadModuleChecked<FMZAssetManager>("MZAssetManager");
-	MZViewportManager = &FModuleManager::LoadModuleChecked<FMZViewportManager>("MZViewportManager");
+	NOSClient = &FModuleManager::LoadModuleChecked<FNOSClient>("NOSClient");
+	NOSAssetManager = &FModuleManager::LoadModuleChecked<FNOSAssetManager>("NOSAssetManager");
+	NOSViewportManager = &FModuleManager::LoadModuleChecked<FNOSViewportManager>("NOSViewportManager");
 
-	MZPropertyManager.MZClient = MZClient;
+	NOSPropertyManager.NOSClient = NOSClient;
 
-	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FMZSceneTreeManager::Tick));
-	MZActorManager = new FMZActorManager(SceneTree);
-	//Bind to MediaZ events
-	MZClient->OnMZNodeSelected.AddRaw(this, &FMZSceneTreeManager::OnMZNodeSelected);
-	MZClient->OnMZConnected.AddRaw(this, &FMZSceneTreeManager::OnMZConnected);
-	MZClient->OnMZNodeUpdated.AddRaw(this, &FMZSceneTreeManager::OnMZNodeUpdated);
-	MZClient->OnMZConnectionClosed.AddRaw(this, &FMZSceneTreeManager::OnMZConnectionClosed);
-	MZClient->OnMZPinValueChanged.AddRaw(this, &FMZSceneTreeManager::OnMZPinValueChanged);
-	MZClient->OnMZPinShowAsChanged.AddRaw(this, &FMZSceneTreeManager::OnMZPinShowAsChanged);
-	MZClient->OnMZFunctionCalled.AddRaw(this, &FMZSceneTreeManager::OnMZFunctionCalled);
-	MZClient->OnMZContextMenuRequested.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuRequested);
-	MZClient->OnMZContextMenuCommandFired.AddRaw(this, &FMZSceneTreeManager::OnMZContextMenuCommandFired);
-	MZClient->OnMZNodeImported.AddRaw(this, &FMZSceneTreeManager::OnMZNodeImported);
-	MZClient->OnMZNodeRemoved.AddRaw(this, &FMZSceneTreeManager::OnMZNodeRemoved);
-	MZClient->OnMZStateChanged_GRPCThread.AddRaw(this, &FMZSceneTreeManager::OnMZStateChanged_GRPCThread);
-	MZClient->OnMZLoadNodesOnPaths.AddRaw(this, &FMZSceneTreeManager::OnMZLoadNodesOnPaths);
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSSceneTreeManager::Tick));
+	NOSActorManager = new FNOSActorManager(SceneTree);
+	//Bind to Nodos events
+	NOSClient->OnNOSNodeSelected.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeSelected);
+	NOSClient->OnNOSConnected.AddRaw(this, &FNOSSceneTreeManager::OnNOSConnected);
+	NOSClient->OnNOSNodeUpdated.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeUpdated);
+	NOSClient->OnNOSConnectionClosed.AddRaw(this, &FNOSSceneTreeManager::OnNOSConnectionClosed);
+	NOSClient->OnNOSPinValueChanged.AddRaw(this, &FNOSSceneTreeManager::OnNOSPinValueChanged);
+	NOSClient->OnNOSPinShowAsChanged.AddRaw(this, &FNOSSceneTreeManager::OnNOSPinShowAsChanged);
+	NOSClient->OnNOSFunctionCalled.AddRaw(this, &FNOSSceneTreeManager::OnNOSFunctionCalled);
+	NOSClient->OnNOSContextMenuRequested.AddRaw(this, &FNOSSceneTreeManager::OnNOSContextMenuRequested);
+	NOSClient->OnNOSContextMenuCommandFired.AddRaw(this, &FNOSSceneTreeManager::OnNOSContextMenuCommandFired);
+	NOSClient->OnNOSNodeImported.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeImported);
+	NOSClient->OnNOSNodeRemoved.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeRemoved);
+	NOSClient->OnNOSStateChanged_GRPCThread.AddRaw(this, &FNOSSceneTreeManager::OnNOSStateChanged_GRPCThread);
+	NOSClient->OnNOSLoadNodesOnPaths.AddRaw(this, &FNOSSceneTreeManager::OnNOSLoadNodesOnPaths);
 
-	FCoreDelegates::OnBeginFrame.AddRaw(this, &FMZSceneTreeManager::OnBeginFrame);
-	FCoreDelegates::OnEndFrame.AddRaw(this, &FMZSceneTreeManager::OnEndFrame);
+	FCoreDelegates::OnBeginFrame.AddRaw(this, &FNOSSceneTreeManager::OnBeginFrame);
+	FCoreDelegates::OnEndFrame.AddRaw(this, &FNOSSceneTreeManager::OnEndFrame);
 
 	
-	FEditorDelegates::PostPIEStarted.AddRaw(this, &FMZSceneTreeManager::HandleBeginPIE);
-	FEditorDelegates::EndPIE.AddRaw(this, &FMZSceneTreeManager::HandleEndPIE);
-	FEditorDelegates::NewCurrentLevel.AddRaw(this, &FMZSceneTreeManager::OnNewCurrentLevel);
-	FEditorDelegates::MapChange.AddRaw(this, &FMZSceneTreeManager::OnMapChange);
+	FEditorDelegates::PostPIEStarted.AddRaw(this, &FNOSSceneTreeManager::HandleBeginPIE);
+	FEditorDelegates::EndPIE.AddRaw(this, &FNOSSceneTreeManager::HandleEndPIE);
+	FEditorDelegates::NewCurrentLevel.AddRaw(this, &FNOSSceneTreeManager::OnNewCurrentLevel);
+	FEditorDelegates::MapChange.AddRaw(this, &FNOSSceneTreeManager::OnMapChange);
 
-	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FMZSceneTreeManager::OnPropertyChanged);
+	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FNOSSceneTreeManager::OnPropertyChanged);
 	FCoreUObjectDelegates::PostLoadMapWithWorld.AddLambda([this](UWorld* World)
 	{
-		if(World == FMZSceneTreeManager::daWorld)
+		if(World == FNOSSceneTreeManager::daWorld)
 		{
 			RescanScene();
-			SendNodeUpdate(FMZClient::NodeId);
+			SendNodeUpdate(FNOSClient::NodeId);
 		}
 	});
 
-	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FMZSceneTreeManager::OnPostWorldInit);
-	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FMZSceneTreeManager::OnPreWorldFinishDestroy);
+	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSSceneTreeManager::OnPostWorldInit);
+	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSSceneTreeManager::OnPreWorldFinishDestroy);
 	
 #ifdef VIEWPORT_TEXTURE
-	UMZViewportClient::MZViewportDestroyedDelegate.AddRaw(this, &FMZSceneTreeManager::DisconnectViewportTexture);
+	UNOSViewportClient::NOSViewportDestroyedDelegate.AddRaw(this, &FNOSSceneTreeManager::DisconnectViewportTexture);
 	//custom pins
 	{
-		auto mzprop = MZPropertyManager.CreateProperty(nullptr, UMZViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
-		if(mzprop) {
-			MZPropertyManager.CreatePortal(mzprop->Id, mz::fb::ShowAs::INPUT_PIN);
-			mzprop->PinShowAs = mz::fb::ShowAs::INPUT_PIN;
-			CustomProperties.Add(mzprop->Id, mzprop);
-			ViewportTextureProperty = mzprop.Get();
+		auto nosprop = NOSPropertyManager.CreateProperty(nullptr, UNOSViewportClient::StaticClass()->FindPropertyByName("ViewportTexture"));
+		if(nosprop) {
+			NOSPropertyManager.CreatePortal(nosprop->Id, nos::fb::ShowAs::INPUT_PIN);
+			nosprop->PinShowAs = nos::fb::ShowAs::INPUT_PIN;
+			CustomProperties.Add(nosprop->Id, nosprop);
+			ViewportTextureProperty = nosprop.Get();
 		}
 	}
 #endif
 
 	//custom functions 
 	{
-		MZCustomFunction* mzcf = new MZCustomFunction;
+		NOSCustomFunction* noscf = new NOSCustomFunction;
 		FString UniqueFunctionName("Refresh Scene Outliner");
-		mzcf->Id = StringToFGuid(UniqueFunctionName);
+		noscf->Id = StringToFGuid(UniqueFunctionName);
 
 		FString AlwaysUpdatePinName("Always Update Scene Outliner");
 		FGuid alwaysUpdateId = StringToFGuid(UniqueFunctionName + AlwaysUpdatePinName);
-		mzcf->Params.Add(alwaysUpdateId, "Always Update Scene Outliner");
-		mzcf->Serialize = [funcid = mzcf->Id, alwaysUpdateId, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		noscf->Params.Add(alwaysUpdateId, "Always Update Scene Outliner");
+		noscf->Serialize = [funcid = noscf->Id, alwaysUpdateId, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<nos::fb::Node>
 			{
 				std::vector<uint8_t> data;
 				data.push_back(AlwaysUpdateOnActorSpawns ? 1 : 0);
-				std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-					mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&alwaysUpdateId, TCHAR_TO_ANSI(TEXT("Always Update Scene Outliner")), TCHAR_TO_ANSI(TEXT("bool")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin, 0, 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
+				std::vector<flatbuffers::Offset<nos::fb::Pin>> spawnPins = {
+					nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&alwaysUpdateId, TCHAR_TO_ANSI(TEXT("Always Update Scene Outliner")), TCHAR_TO_ANSI(TEXT("bool")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  nos::fb::PinContents::JobPin, 0, 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
 					"Update scene outliner when an actor is spawned instead of waiting for refreshing.\nDecreases performance for dynamic scenes."),
 				};
-				return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Refresh Scene Outliner", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control"
+				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Refresh Scene Outliner", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
 				, 0, false, nullptr, 0, "Add actors spawned since last refresh to the scene outliner.");
 			};
-		mzcf->Function = [this, alwaysUpdateId = alwaysUpdateId](TMap<FGuid, std::vector<uint8>> properties)
+		noscf->Function = [this, alwaysUpdateId = alwaysUpdateId](TMap<FGuid, std::vector<uint8>> properties)
 			{
 				AddToBeAddedActors();
 				AlwaysUpdateOnActorSpawns = static_cast<bool>(properties[alwaysUpdateId][0]);
 			};
-		CustomFunctions.Add(mzcf->Id, mzcf);
+		CustomFunctions.Add(noscf->Id, noscf);
 	}
 	{
-		MZCustomFunction* mzcf = new MZCustomFunction;
+		NOSCustomFunction* noscf = new NOSCustomFunction;
 		FString UniqueFunctionName("Spawn Actor");
-		MZSpawnActorFunctionPinIds PinIds(UniqueFunctionName);
-		mzcf->Id = StringToFGuid(UniqueFunctionName);
-		mzcf->Params.Add(PinIds.ActorPinId, "Spawn Actor");
-		mzcf->Serialize = [funcid = mzcf->Id, PinIds](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		NOSSpawnActorFunctionPinIds PinIds(UniqueFunctionName);
+		noscf->Id = StringToFGuid(UniqueFunctionName);
+		noscf->Params.Add(PinIds.ActorPinId, "Spawn Actor");
+		noscf->Serialize = [funcid = noscf->Id, PinIds](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<nos::fb::Node>
 		{
 			std::string empty = "None";
 			auto data = std::vector<uint8_t>(empty.begin(), empty.end());
 			data.push_back(0);
 			
-			std::vector<flatbuffers::Offset<mz::fb::Pin>> spawnPins = {
-				mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&PinIds.ActorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", mz::fb::CreateVisualizerDirect(fbb, mz::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  mz::fb::PinContents::JobPin),
+			std::vector<flatbuffers::Offset<nos::fb::Pin>> spawnPins = {
+				nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&PinIds.ActorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", nos::fb::CreateVisualizerDirect(fbb, nos::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  nos::fb::PinContents::JobPin),
 			};
 			FillSpawnActorFunctionTransformPins(fbb, spawnPins, PinIds);
-			return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control");
+			return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control");
 		};
-		mzcf->Function = [this, PinIds](TMap<FGuid, std::vector<uint8>> properties)
+		noscf->Function = [this, PinIds](TMap<FGuid, std::vector<uint8>> properties)
 		{
 			FString SpawnTag((char*)properties.FindChecked(PinIds.ActorPinId).data());
 			if(SpawnTag.IsEmpty())
 			{
 				return;
 			}
-			AActor* SpawnedActor = MZActorManager->SpawnActor(SpawnTag, GetSpawnActorParameters(properties, PinIds));
+			AActor* SpawnedActor = NOSActorManager->SpawnActor(SpawnTag, GetSpawnActorParameters(properties, PinIds));
 			LOGF("Actor with tag %s is spawned", *SpawnTag);
 		};
-		CustomFunctions.Add(mzcf->Id, mzcf);
+		CustomFunctions.Add(noscf->Id, noscf);
 	}
 	{
-		MZCustomFunction* mzcf = new MZCustomFunction;
+		NOSCustomFunction* noscf = new NOSCustomFunction;
 		FString UniqueFunctionName("Reload Level");
-		mzcf->Id = StringToFGuid(UniqueFunctionName);
-		mzcf->Serialize = [funcid = mzcf->Id, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<mz::fb::Node>
+		noscf->Id = StringToFGuid(UniqueFunctionName);
+		noscf->Serialize = [funcid = noscf->Id, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<nos::fb::Node>
 			{
-				return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&funcid, "Reload Level", "UE5.UE5", false, true, 0, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, "Control"
+				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Reload Level", "UE5.UE5", false, true, 0, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
 				, 0, false, nullptr, 0, "Reload current level");
 			};
-		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
+		noscf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 			{
 				if(daWorld && daWorld->GetCurrentLevel())
 				{
 					UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
 				}
 			};
-		CustomFunctions.Add(mzcf->Id, mzcf);
+		CustomFunctions.Add(noscf->Id, noscf);
 	}
 
-	LOG("MZSceneTreeManager module successfully loaded.");
+	LOG("NOSSceneTreeManager module successfully loaded.");
 }
 
-void FMZSceneTreeManager::ShutdownModule()
+void FNOSSceneTreeManager::ShutdownModule()
 {
-	LOG("MZSceneTreeManager module successfully shut down.");
+	LOG("NOSSceneTreeManager module successfully shut down.");
 }
 
-bool FMZSceneTreeManager::Tick(float dt)
+bool FNOSSceneTreeManager::Tick(float dt)
 {
 	//TODO check after merge
-	//if (MZClient)
+	//if (NOSClient)
 	//{
-	//	MZTextureShareManager::GetInstance()->EnqueueCommands(MZClient->AppServiceClient);
+	//	NOSTextureShareManager::GetInstance()->EnqueueCommands(NOSClient->AppServiceClient);
 	//}
 
 	return true;
 }
 
-void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const* appNode)
+void FNOSSceneTreeManager::OnNOSConnected(nos::fb::Node const* appNode)
 {
 	if(!appNode)
 	{
@@ -306,63 +306,63 @@ void FMZSceneTreeManager::OnMZConnected(mz::fb::Node const* appNode)
 	//add executable path
 	if(appNode->pins() && appNode->pins()->size() > 0)
 	{
-		std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
+		std::vector<flatbuffers::Offset<nos::PartialPinUpdate>> PinUpdates;
 		flatbuffers::FlatBufferBuilder fb1;
 		for (auto pin : *appNode->pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
+			PinUpdates.push_back(nos::CreatePartialPinUpdate(fb1, pin->id(), 0, nos::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
 		}
-		auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		auto offset = nos::CreatePartialNodeUpdateDirect(fb1, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb1.Finish(offset);
 		auto buf = fb1.Release();
-		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	}
 	RescanScene();
-	SendNodeUpdate(FMZClient::NodeId, false);
+	SendNodeUpdate(FNOSClient::NodeId, false);
 	if((appNode->pins() && appNode->pins()->size() > 0 )|| (appNode->contents_as_Graph()->nodes() && appNode->contents_as_Graph()->nodes()->size() > 0))
 	{
 		LOG("Node import request recieved on connection");
-		OnMZNodeImported(*appNode);
+		OnNOSNodeImported(*appNode);
 	}
 	//else
 		//SendSyncSemaphores(true);
 }
 
-void FMZSceneTreeManager::OnMZNodeUpdated(mz::fb::Node const& appNode)
+void FNOSSceneTreeManager::OnNOSNodeUpdated(nos::fb::Node const& appNode)
 {
 	FString NodeName(appNode.name()->c_str());
-	LOGF("On MZ Node updated for %s", *NodeName);
+	LOGF("On NOS Node updated for %s", *NodeName);
 	
-	if (FMZClient::NodeId != SceneTree.Root->Id)
+	if (FNOSClient::NodeId != SceneTree.Root->Id)
 	{
 		SceneTree.Root->Id = *(FGuid*)appNode.id();
 		RescanScene();
-		SendNodeUpdate(FMZClient::NodeId);
+		SendNodeUpdate(FNOSClient::NodeId);
 		//SendSyncSemaphores(true);
 	}
-	auto texman = MZTextureShareManager::GetInstance();
+	auto texman = NOSTextureShareManager::GetInstance();
 	for (auto& [id, pin] : ParsePins(&appNode))
 	{
 		if (texman->PendingCopyQueue.Contains(id))
 		{
-			auto mzprop = texman->PendingCopyQueue.FindRef(id);
-			auto ShowAs = mzprop->PinShowAs;
-			if(MZPropertyManager.PropertyToPortalPin.Contains(mzprop->Id))
+			auto nosprop = texman->PendingCopyQueue.FindRef(id);
+			auto ShowAs = nosprop->PinShowAs;
+			if(NOSPropertyManager.PropertyToPortalPin.Contains(nosprop->Id))
 			{
-				auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(mzprop->Id); 
-				if(MZPropertyManager.PortalPinsById.Contains(PortalId))
+				auto PortalId = NOSPropertyManager.PropertyToPortalPin.FindRef(nosprop->Id); 
+				if(NOSPropertyManager.PortalPinsById.Contains(PortalId))
 				{
-					auto& Portal = MZPropertyManager.PortalPinsById.FindChecked(PortalId);
+					auto& Portal = NOSPropertyManager.PortalPinsById.FindChecked(PortalId);
 					ShowAs = Portal.ShowAs;
 				}
 			}
-			texman->UpdatePinShowAs(mzprop, ShowAs);
+			texman->UpdatePinShowAs(nosprop, ShowAs);
 		}
 	}
 }
 
-void FMZSceneTreeManager::OnMZNodeSelected(mz::fb::UUID const& nodeId)
+void FNOSSceneTreeManager::OnNOSNodeSelected(nos::fb::UUID const& nodeId)
 {
 	FGuid id = *(FGuid*)&nodeId;
 	if(auto node = SceneTree.GetNode(id))
@@ -379,7 +379,7 @@ void FMZSceneTreeManager::OnMZNodeSelected(mz::fb::UUID const& nodeId)
 	}
 }
 
-void FMZSceneTreeManager::LoadNodesOnPath(FString NodePath)
+void FNOSSceneTreeManager::LoadNodesOnPath(FString NodePath)
 {
 	TArray<FString> NodeNames;
 	NodePath.ParseIntoArray(NodeNames, TEXT("/"));
@@ -423,41 +423,41 @@ bool IsActorDisplayable(const AActor* Actor)
 		//!Actor->IsHidden();
 }
 
-void FMZSceneTreeManager::OnMZConnectionClosed()
+void FNOSSceneTreeManager::OnNOSConnectionClosed()
 {
-	MZActorManager->ClearActors();
-	if(ExecutionState == mz::app::ExecutionState::SYNCED)
+	NOSActorManager->ClearActors();
+	if(ExecutionState == nos::app::ExecutionState::SYNCED)
 	{
-		ExecutionState = mz::app::ExecutionState::IDLE;
-		MZTextureShareManager::GetInstance()->SwitchStateToIdle_GRPCThread(0);
+		ExecutionState = nos::app::ExecutionState::IDLE;
+		NOSTextureShareManager::GetInstance()->SwitchStateToIdle_GRPCThread(0);
 	}
 }
 
-void FMZSceneTreeManager::OnMZPinValueChanged(mz::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
+void FNOSSceneTreeManager::OnNOSPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset)
 {
 	FGuid Id = *(FGuid*)&pinId;
 	if (CustomProperties.Contains(Id))
 	{
-		auto mzprop = CustomProperties.FindRef(Id);
+		auto nosprop = CustomProperties.FindRef(Id);
 		std::vector<uint8_t> copy(size, 0);
 		memcpy(copy.data(), data, size);
 
-		mzprop->SetPropValue((void*)copy.data(), size);
+		nosprop->SetPropValue((void*)copy.data(), size);
 		return;
 	}
 	SetPropertyValue(Id, (void*)data, size);
 }
 
-void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::ShowAs newShowAs)
+void FNOSSceneTreeManager::OnNOSPinShowAsChanged(nos::fb::UUID const& Id, nos::fb::ShowAs newShowAs)
 {
 	FGuid pinId = *(FGuid*)&Id;
 	if (CustomProperties.Contains(pinId))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Custom Property ShowAs changed."));
 	}
-	else if (MZPropertyManager.PropertiesById.Contains(pinId) && !MZPropertyManager.PropertyToPortalPin.Contains(pinId))
+	else if (NOSPropertyManager.PropertiesById.Contains(pinId) && !NOSPropertyManager.PropertyToPortalPin.Contains(pinId))
 	{
-		MZPropertyManager.CreatePortal(pinId, newShowAs);
+		NOSPropertyManager.CreatePortal(pinId, newShowAs);
 	}
 	else
 	{
@@ -465,58 +465,58 @@ void FMZSceneTreeManager::OnMZPinShowAsChanged(mz::fb::UUID const& Id, mz::fb::S
 	}
 
 
-	if (MZPropertyManager.PropertiesById.Contains(pinId))
+	if (NOSPropertyManager.PropertiesById.Contains(pinId))
 	{
-		auto& MzProperty = MZPropertyManager.PropertiesById.FindChecked(pinId);
-		MzProperty->PinShowAs = newShowAs;
-		if (MZPropertyManager.PropertyToPortalPin.Contains(pinId))
+		auto& NosProperty = NOSPropertyManager.PropertiesById.FindChecked(pinId);
+		NosProperty->PinShowAs = newShowAs;
+		if (NOSPropertyManager.PropertyToPortalPin.Contains(pinId))
 		{
-			auto PortalId = MZPropertyManager.PropertyToPortalPin.FindRef(pinId);
-			if (MZPropertyManager.PortalPinsById.Contains(PortalId))
+			auto PortalId = NOSPropertyManager.PropertyToPortalPin.FindRef(pinId);
+			if (NOSPropertyManager.PortalPinsById.Contains(PortalId))
 			{
-				auto& Portal = MZPropertyManager.PortalPinsById.FindChecked(PortalId);
+				auto& Portal = NOSPropertyManager.PortalPinsById.FindChecked(PortalId);
 				Portal.ShowAs = newShowAs;
-				MZClient->AppServiceClient->SendPinShowAsChange(reinterpret_cast<mz::fb::UUID&>(PortalId), newShowAs);
-				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
+				NOSClient->AppServiceClient->SendPinShowAsChange(reinterpret_cast<nos::fb::UUID&>(PortalId), newShowAs);
+				NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NosProperty.Get(), newShowAs);
 			}
 		}
 	}
-	if(MZPropertyManager.PortalPinsById.Contains(pinId))
+	if(NOSPropertyManager.PortalPinsById.Contains(pinId))
 	{
-		auto Portal = MZPropertyManager.PortalPinsById.Find(pinId);
+		auto Portal = NOSPropertyManager.PortalPinsById.Find(pinId);
 		Portal->ShowAs = newShowAs;
-		if(MZPropertyManager.PropertiesById.Contains(Portal->SourceId))
+		if(NOSPropertyManager.PropertiesById.Contains(Portal->SourceId))
 		{
-			auto MzProperty = MZPropertyManager.PropertiesById.FindRef(Portal->SourceId);
+			auto NosProperty = NOSPropertyManager.PropertiesById.FindRef(Portal->SourceId);
 			flatbuffers::FlatBufferBuilder mb;
-			auto offset = mz::CreateAppEventOffset(mb ,mz::CreatePinShowAsChanged(mb, (mz::fb::UUID*)&Portal->SourceId, newShowAs));
+			auto offset = nos::CreateAppEventOffset(mb ,nos::CreatePinShowAsChanged(mb, (nos::fb::UUID*)&Portal->SourceId, newShowAs));
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
-			MZClient->AppServiceClient->Send(*root);
-			MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), newShowAs);
+			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+			NOSClient->AppServiceClient->Send(*root);
+			NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NosProperty.Get(), newShowAs);
 		}
 	}
 }
 
-void FMZSceneTreeManager::OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb::Node const& function)
+void FNOSSceneTreeManager::OnNOSFunctionCalled(nos::fb::UUID const& nodeId, nos::fb::Node const& function)
 {
 	FGuid funcId = *(FGuid*)function.id();
 	TMap<FGuid, std::vector<uint8>> properties = ParsePins(function);
 
 	if (CustomFunctions.Contains(funcId))
 	{
-		auto mzcf = CustomFunctions.FindRef(funcId);
-		mzcf->Function(properties);
+		auto noscf = CustomFunctions.FindRef(funcId);
+		noscf->Function(properties);
 	}
 	else if (RegisteredFunctions.Contains(funcId))
 	{
-		auto mzfunc = RegisteredFunctions.FindRef(funcId);
-		uint8* Parms = (uint8*)FMemory_Alloca_Aligned(mzfunc->Function->ParmsSize, mzfunc->Function->GetMinAlignment());
-		mzfunc->Parameters = Parms;
-		FMemory::Memzero(Parms, mzfunc->Function->ParmsSize);
+		auto nosfunc = RegisteredFunctions.FindRef(funcId);
+		uint8* Parms = (uint8*)FMemory_Alloca_Aligned(nosfunc->Function->ParmsSize, nosfunc->Function->GetMinAlignment());
+		nosfunc->Parameters = Parms;
+		FMemory::Memzero(Parms, nosfunc->Function->ParmsSize);
 
-		for (TFieldIterator<FProperty> It(mzfunc->Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
+		for (TFieldIterator<FProperty> It(nosfunc->Function); It && It->HasAnyPropertyFlags(CPF_Parm); ++It)
 		{
 			FProperty* LocalProp = *It;
 			checkSlow(LocalProp);
@@ -528,24 +528,24 @@ void FMZSceneTreeManager::OnMZFunctionCalled(mz::fb::UUID const& nodeId, mz::fb:
 
 		for (auto [id, val] : properties)
 		{
-			if (MZPropertyManager.PropertiesById.Contains(id))
+			if (NOSPropertyManager.PropertiesById.Contains(id))
 			{
-				auto mzprop = MZPropertyManager.PropertiesById.FindRef(id);
-				mzprop->SetPropValue((void*)val.data(), val.size(), Parms);
+				auto nosprop = NOSPropertyManager.PropertiesById.FindRef(id);
+				nosprop->SetPropValue((void*)val.data(), val.size(), Parms);
 			}
 		}
 
-		mzfunc->Invoke();
+		nosfunc->Invoke();
 		
-		for (auto mzprop : mzfunc->OutProperties)
+		for (auto nosprop : nosfunc->OutProperties)
 		{
-			SendPinValueChanged(mzprop->Id, mzprop->UpdatePinValue(Parms));
+			SendPinValueChanged(nosprop->Id, nosprop->UpdatePinValue(Parms));
 		}
-		mzfunc->Parameters = nullptr;
+		nosfunc->Parameters = nullptr;
 		LOG("Unreal Engine function executed.");
 	}
 }
-void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const& request)
+void FNOSSceneTreeManager::OnNOSContextMenuRequested(nos::ContextMenuRequest const& request)
 {
 	FVector2D pos(request.pos()->x(), request.pos()->y());
 	FGuid itemId = *(FGuid*)request.item_id();
@@ -555,36 +555,36 @@ void FMZSceneTreeManager::OnMZContextMenuRequested(mz::ContextMenuRequest const&
 	{
 		if (auto actorNode = node->GetAsActorNode())
 		{
-			if (!MZClient->IsConnected())
+			if (!NOSClient->IsConnected())
 			{
 				return;
 			}
 			flatbuffers::FlatBufferBuilder mb;
-			std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
-			auto posx = mz::fb::vec2(pos.X, pos.Y);
-			auto offset = mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions);
+			std::vector<flatbuffers::Offset<nos::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
+			auto posx = nos::fb::vec2(pos.X, pos.Y);
+			auto offset = nos::CreateContextMenuUpdateDirect(mb, (nos::fb::UUID*)&itemId, &posx, instigator, &actions);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<mz::ContextMenuUpdate>(buf.data());
-			MZClient->AppServiceClient->SendContextMenuUpdate(*root);
+			auto root = flatbuffers::GetRoot<nos::ContextMenuUpdate>(buf.data());
+			NOSClient->AppServiceClient->SendContextMenuUpdate(*root);
 		}
 	}
-	else if(MZPropertyManager.PortalPinsById.Contains(itemId))
+	else if(NOSPropertyManager.PortalPinsById.Contains(itemId))
 	{
-		auto MzProperty = MZPropertyManager.PortalPinsById.FindRef(itemId);
+		auto NosProperty = NOSPropertyManager.PortalPinsById.FindRef(itemId);
 		
 		flatbuffers::FlatBufferBuilder mb;
-		std::vector<flatbuffers::Offset<mz::ContextMenuItem>> actions = menuActions.SerializePortalPropertyMenuItems(mb);
-		auto posx = mz::fb::vec2(pos.X, pos.Y);
-		auto offset = mz::CreateContextMenuUpdateDirect(mb, (mz::fb::UUID*)&itemId, &posx, instigator, &actions);
+		std::vector<flatbuffers::Offset<nos::ContextMenuItem>> actions = menuActions.SerializePortalPropertyMenuItems(mb);
+		auto posx = nos::fb::vec2(pos.X, pos.Y);
+		auto offset = nos::CreateContextMenuUpdateDirect(mb, (nos::fb::UUID*)&itemId, &posx, instigator, &actions);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<mz::ContextMenuUpdate>(buf.data());
-		MZClient->AppServiceClient->SendContextMenuUpdate(*root);
+		auto root = flatbuffers::GetRoot<nos::ContextMenuUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendContextMenuUpdate(*root);
 	}
 }
 
-void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction const& action)
+void FNOSSceneTreeManager::OnNOSContextMenuCommandFired(nos::ContextMenuAction const& action)
 {
 	FGuid itemId = *(FGuid*)action.item_id();
 	uint32 actionId = action.command();
@@ -600,36 +600,36 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 			menuActions.ExecuteActorAction(actionId, actor);
 		}
 	}
-	else if(MZPropertyManager.PortalPinsById.Contains(itemId))
+	else if(NOSPropertyManager.PortalPinsById.Contains(itemId))
 	{
 		menuActions.ExecutePortalPropertyAction(actionId, this, itemId);
 	}
 }
 
-void FMZSceneTreeManager::OnMZNodeRemoved()
+void FNOSSceneTreeManager::OnNOSNodeRemoved()
 {
-	MZActorManager->ClearActors();
-	MZClient->ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
+	NOSActorManager->ClearActors();
+	NOSClient->ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
 	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
 }
 
-void FMZSceneTreeManager::OnMZStateChanged_GRPCThread(mz::app::ExecutionState newState)
+void FNOSSceneTreeManager::OnNOSStateChanged_GRPCThread(nos::app::ExecutionState newState)
 {
 	if(ExecutionState != newState)
 	{
-		if (newState == mz::app::ExecutionState::SYNCED)
+		if (newState == nos::app::ExecutionState::SYNCED)
 		{
 			ToggleExecutionStateToSynced = true;
 		}
-		else if (newState == mz::app::ExecutionState::IDLE)
+		else if (newState == nos::app::ExecutionState::IDLE)
 		{
 			ExecutionState = newState;
-			MZTextureShareManager::GetInstance()->SwitchStateToIdle_GRPCThread(0);
+			NOSTextureShareManager::GetInstance()->SwitchStateToIdle_GRPCThread(0);
 		}
 	}
 }
 
-void FMZSceneTreeManager::OnMZLoadNodesOnPaths(const TArray<FString>& paths)
+void FNOSSceneTreeManager::OnNOSLoadNodesOnPaths(const TArray<FString>& paths)
 {
 	for(auto path : paths)
 	{
@@ -637,30 +637,30 @@ void FMZSceneTreeManager::OnMZLoadNodesOnPaths(const TArray<FString>& paths)
 	}
 }
 
-void FMZSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues)
+void FNOSSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::InitializationValues InitValues)
 {
 	auto WorldContext = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport);
 	if (World != WorldContext->World())
 	{
 		return;
 	}
-	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorSpawned);
-	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FNOSSceneTreeManager::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FNOSSceneTreeManager::OnActorDestroyed);
 	World->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
 	World->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 	
 	if(GEditor && !GEditor->IsPlaySessionInProgress())
 	{
-		FMZSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+		FNOSSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
 	}
 	else
 	{
-		FMZSceneTreeManager::daWorld = GEngine->GetCurrentPlayWorld();
+		FNOSSceneTreeManager::daWorld = GEngine->GetCurrentPlayWorld();
 	}
 }
 
 
-void FMZSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
+void FNOSSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 {
 	//TODO check if we actually need this function
 	return;
@@ -668,9 +668,9 @@ void FMZSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 	SceneTree.Clear();
 	RegisteredProperties = Pins;
 	PropertiesMap.Empty();
-	MZActorManager->ReAddActorsToSceneTree();
+	NOSActorManager->ReAddActorsToSceneTree();
 	RescanScene(false);
-	SendNodeUpdate(FMZClient::NodeId, false);
+	SendNodeUpdate(FNOSClient::NodeId, false);
 #endif
 }
 
@@ -686,7 +686,7 @@ struct PropUpdate
 	size_t newValSize;
 	void* defVal;
 	size_t defValSize;
-	mz::fb::ShowAs pinShowAs;
+	nos::fb::ShowAs pinShowAs;
 	bool IsPortal;
 };
 
@@ -704,17 +704,17 @@ struct NodeSpawnInfo
 };
 
 
-void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>, NodeSpawnInfo>& spawnedByMediaz)
+void GetNodesSpawnedByNodos(const nos::fb::Node* node, TMap<TPair<FGuid, FGuid>, NodeSpawnInfo>& spawnedByNodos)
 {
-	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_META_DATA_MAP))
+	if (flatbuffers::IsFieldPresent(node, nos::fb::Node::VT_META_DATA_MAP))
 	{
-		if (auto entry = node->meta_data_map()->LookupByKey(MzMetadataKeys::spawnTag))
+		if (auto entry = node->meta_data_map()->LookupByKey(NosMetadataKeys::spawnTag))
 		{
-			if (auto idEntry = node->meta_data_map()->LookupByKey(MzMetadataKeys::ActorGuid))
+			if (auto idEntry = node->meta_data_map()->LookupByKey(NosMetadataKeys::ActorGuid))
 			{
 				NodeSpawnInfo spawnInfo;
 				spawnInfo.SpawnTag = FString(entry->value()->c_str());
-				if(auto dontAttachToRealityParentEntry = node->meta_data_map()->LookupByKey(MzMetadataKeys::DoNotAttachToRealityParent))
+				if(auto dontAttachToRealityParentEntry = node->meta_data_map()->LookupByKey(NosMetadataKeys::DoNotAttachToRealityParent))
 					spawnInfo.DontAttachToRealityParent = strcmp(dontAttachToRealityParentEntry->value()->c_str(), "true") == 0;
 
 				for(auto* entryx: *node->meta_data_map())
@@ -722,69 +722,69 @@ void GetNodesSpawnedByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>,
 					if(entryx)
 						spawnInfo.Metadata.Add({entryx->key()->c_str(), entryx->value()->c_str()});
 				}
-				spawnedByMediaz.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} , spawnInfo);
+				spawnedByNodos.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} , spawnInfo);
 			}
 		}
 	}
-	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), nos::fb::Graph::VT_NODES))
 	{
 		for (auto child : *node->contents_as_Graph()->nodes())
 		{
-			GetNodesSpawnedByMediaz(child, spawnedByMediaz);
+			GetNodesSpawnedByNodos(child, spawnedByNodos);
 		}
 	}
 }
 
-void GetUMGsByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>, FString>& UMGsByMediaz)
+void GetUMGsByNodos(const nos::fb::Node* node, TMap<TPair<FGuid, FGuid>, FString>& UMGsByNodos)
 {
-	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_META_DATA_MAP))
+	if (flatbuffers::IsFieldPresent(node, nos::fb::Node::VT_META_DATA_MAP))
 	{
-		if (auto entry = node->meta_data_map()->LookupByKey(MzMetadataKeys::umgTag))
+		if (auto entry = node->meta_data_map()->LookupByKey(NosMetadataKeys::umgTag))
 		{
-			if (auto idEntry = node->meta_data_map()->LookupByKey(MzMetadataKeys::ActorGuid))
+			if (auto idEntry = node->meta_data_map()->LookupByKey(NosMetadataKeys::ActorGuid))
 			{
-				UMGsByMediaz.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} ,FString(entry->value()->c_str()));
+				UMGsByNodos.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} ,FString(entry->value()->c_str()));
 			}
 		}
 	}
-	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), nos::fb::Graph::VT_NODES))
 	{
 		for (auto child : *node->contents_as_Graph()->nodes())
 		{
-			GetUMGsByMediaz(child, UMGsByMediaz);
+			GetUMGsByNodos(child, UMGsByNodos);
 		}
 	}
 }
 
-void GetLevelSequenceActorsByMediaz(const mz::fb::Node* node, TMap<TPair<FGuid, FGuid>, FString>& LevelSequenceActorsByMediaz)
+void GetLevelSequenceActorsByNodos(const nos::fb::Node* node, TMap<TPair<FGuid, FGuid>, FString>& LevelSequenceActorsByNodos)
 {
-	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_META_DATA_MAP))
+	if (flatbuffers::IsFieldPresent(node, nos::fb::Node::VT_META_DATA_MAP))
 	{
 		if (auto entry = node->meta_data_map()->LookupByKey("LevelSequenceName"))
 		{
-			if (auto idEntry = node->meta_data_map()->LookupByKey(MzMetadataKeys::ActorGuid))
+			if (auto idEntry = node->meta_data_map()->LookupByKey(NosMetadataKeys::ActorGuid))
 			{
-				LevelSequenceActorsByMediaz.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} ,FString(entry->value()->c_str()));
+				LevelSequenceActorsByNodos.Add({FGuid(FString(idEntry->value()->c_str())), *(FGuid*)node->id()} ,FString(entry->value()->c_str()));
 			}
 		}
 	}
-	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), nos::fb::Graph::VT_NODES))
 	{
 		for (auto child : *node->contents_as_Graph()->nodes())
 		{
-			GetUMGsByMediaz(child, LevelSequenceActorsByMediaz);
+			GetUMGsByNodos(child, LevelSequenceActorsByNodos);
 		}
 	}
 }
 
-void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::Node*>& out)
+void GetNodesWithProperty(const nos::fb::Node* node, std::vector<const nos::fb::Node*>& out)
 {
-	if (flatbuffers::IsFieldPresent(node, mz::fb::Node::VT_PINS) && node->pins()->size() > 0)
+	if (flatbuffers::IsFieldPresent(node, nos::fb::Node::VT_PINS) && node->pins()->size() > 0)
 	{
 		out.push_back(node);
 	}
 
-	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), mz::fb::Graph::VT_NODES))
+	if (flatbuffers::IsFieldPresent(node->contents_as_Graph(), nos::fb::Graph::VT_NODES))
 	{
 		for (auto child : *node->contents_as_Graph()->nodes())
 		{
@@ -795,7 +795,7 @@ void GetNodesWithProperty(const mz::fb::Node* node, std::vector<const mz::fb::No
 
 }
 
-void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
+void FNOSSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
 {
 	if (!PropertyChangedEvent.MemberProperty || !PropertyChangedEvent.Property)
 	{
@@ -814,29 +814,29 @@ void FMZSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPrope
 	{
 		return;
 	}
-	if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.Property, ObjectBeingModified}))
+	if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.Property, ObjectBeingModified}))
 	{
-		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.Property, ObjectBeingModified});
-		if(mzprop->TypeName != "mz.fb.Void")
+		auto nosprop = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.Property, ObjectBeingModified});
+		if(nosprop->TypeName != "nos.fb.Void")
 		{
-			mzprop->UpdatePinValue();
-			SendPinValueChanged(mzprop->Id, mzprop->data);
+			nosprop->UpdatePinValue();
+			SendPinValueChanged(nosprop->Id, nosprop->data);
 		}
 		return;
 	}
-	if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.MemberProperty, ObjectBeingModified}))
+	if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.MemberProperty, ObjectBeingModified}))
 	{
-		auto mzprop = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.MemberProperty, ObjectBeingModified});
-		if(mzprop->TypeName != "mz.fb.Void")
+		auto nosprop = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.MemberProperty, ObjectBeingModified});
+		if(nosprop->TypeName != "nos.fb.Void")
 		{
-			mzprop->UpdatePinValue();
-			SendPinValueChanged(mzprop->Id, mzprop->data);
+			nosprop->UpdatePinValue();
+			SendPinValueChanged(nosprop->Id, nosprop->data);
 		}
 		return;
 	}
 }
 
-void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
+void FNOSSceneTreeManager::OnActorSpawned(AActor* InActor)
 {
 	if (IsActorDisplayable(InActor))
 	{
@@ -849,7 +849,7 @@ void FMZSceneTreeManager::OnActorSpawned(AActor* InActor)
 	}
 }
 
-void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
+void FNOSSceneTreeManager::OnActorDestroyed(AActor* InActor)
 {
 	LOGF("%s is destroyed.", *(InActor->GetFName().ToString()));
 	SendActorDeleted(InActor);
@@ -859,38 +859,38 @@ void FMZSceneTreeManager::OnActorDestroyed(AActor* InActor)
 		});
 }
 
-void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
+void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 {
-	//MZActorManager->ClearActors();
-	FMZClient::NodeId = *(FGuid*)appNode.id();
-	SceneTree.Root->Id = FMZClient::NodeId;
+	//NOSActorManager->ClearActors();
+	FNOSClient::NodeId = *(FGuid*)appNode.id();
+	SceneTree.Root->Id = FNOSClient::NodeId;
 
 	auto node = &appNode;
 
-	std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
+	std::vector<flatbuffers::Offset<nos::PartialPinUpdate>> PinUpdates;
 	flatbuffers::FlatBufferBuilder fb1;
 	if(node->pins() && node->pins()->size() > 0)
 	{
 		for (auto pin : *node->pins())
 		{
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(fb1, pin->id(), 0, mz::fb::CreateOrphanStateDirect(fb1, true, "Object not found in the scene")));
+			PinUpdates.push_back(nos::CreatePartialPinUpdate(fb1, pin->id(), 0, nos::fb::CreateOrphanStateDirect(fb1, true, "Object not found in the scene")));
 		}
 	}
-	auto offset = mz::CreatePartialNodeUpdateDirect(fb1, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+	auto offset = nos::CreatePartialNodeUpdateDirect(fb1, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 	fb1.Finish(offset);
 	auto buf = fb1.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	flatbuffers::FlatBufferBuilder fb3;
-	auto offset2 = mz::CreatePartialNodeUpdateDirect(fb3, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES);
+	auto offset2 = nos::CreatePartialNodeUpdateDirect(fb3, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::CLEAR_FUNCTIONS | nos::ClearFlags::CLEAR_NODES);
 	fb3.Finish(offset2);
 	auto buf2 = fb3.Release();
-	auto root2 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf2.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root2 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf2.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 
-	std::vector<const mz::fb::Node*> nodesWithProperty;
+	std::vector<const nos::fb::Node*> nodesWithProperty;
 	GetNodesWithProperty(node, nodesWithProperty);
 	std::vector<PropUpdate> updates;
 	for (auto nodeW : nodesWithProperty)
@@ -899,7 +899,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		for (auto prop : *nodeW->pins())
 		{
 			
-			if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_META_DATA_MAP))
+			if (flatbuffers::IsFieldPresent(prop, nos::fb::Pin::VT_META_DATA_MAP))
 			{
 				FString componentName;
 				FString displayName;
@@ -909,13 +909,13 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 				char* defcopy = nullptr;
 				size_t valsize = 0;
 				size_t defsize = 0;
-				if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_DATA))
+				if (flatbuffers::IsFieldPresent(prop, nos::fb::Pin::VT_DATA))
 				{
 					valcopy = new char[prop->data()->size()];
 					valsize = prop->data()->size();
 					memcpy(valcopy, prop->data()->data(), prop->data()->size());
 				}
-				if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_DEF))
+				if (flatbuffers::IsFieldPresent(prop, nos::fb::Pin::VT_DEF))
 				{
 					defcopy = new char[prop->def()->size()];
 					defsize = prop->def()->size();
@@ -944,12 +944,12 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 					}
 				}
 
-				if (flatbuffers::IsFieldPresent(prop, mz::fb::Pin::VT_NAME))
+				if (flatbuffers::IsFieldPresent(prop, nos::fb::Pin::VT_NAME))
 				{
 					displayName = FString(prop->name()->c_str());
 				}
 
-				bool IsPortal = prop->contents_type() == mz::fb::PinContents::PortalPin;
+				bool IsPortal = prop->contents_type() == nos::fb::PinContents::PortalPin;
 				
 				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal});
 			}
@@ -957,11 +957,11 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
-	TMap<TPair<FGuid, FGuid>, NodeSpawnInfo> spawnedByMediaz; //old guid (imported) x spawn tag
-	GetNodesSpawnedByMediaz(node, spawnedByMediaz);
+	TMap<TPair<FGuid, FGuid>, NodeSpawnInfo> spawnedByNodos; //old guid (imported) x spawn tag
+	GetNodesSpawnedByNodos(node, spawnedByNodos);
 
-	TMap<TPair<FGuid, FGuid>, FString> UMGsByMediaz; //old guid (imported) x spawn tag
-	GetUMGsByMediaz(node, UMGsByMediaz);
+	TMap<TPair<FGuid, FGuid>, FString> UMGsByNodos; //old guid (imported) x spawn tag
+	GetUMGsByNodos(node, UMGsByNodos);
 
 	UWorld* World = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 
@@ -975,31 +975,31 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	}
 
 	FGuid OldParentTransformId = {};
-	for (auto [oldGuid, spawnInfo] : spawnedByMediaz)
+	for (auto [oldGuid, spawnInfo] : spawnedByNodos)
 	{
 		if(spawnInfo.SpawnTag == "RealityParentTransform")
 		{
-			AActor* spawnedActor = MZActorManager->SpawnActor(spawnInfo.SpawnTag);
+			AActor* spawnedActor = NOSActorManager->SpawnActor(spawnInfo.SpawnTag);
 			sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
-			MZActorManager->ParentTransformActor = MZActorReference(spawnedActor);
-			MZActorManager->ParentTransformActor->GetRootComponent()->SetMobility(EComponentMobility::Static);
+			NOSActorManager->ParentTransformActor = NOSActorReference(spawnedActor);
+			NOSActorManager->ParentTransformActor->GetRootComponent()->SetMobility(EComponentMobility::Static);
 			OldParentTransformId = oldGuid.Key;
 		}
 	}
 	if(OldParentTransformId.IsValid())
 	{
 		// NodeAndActorGuid nog;
-		// for(auto& [key, _]: spawnedByMediaz)
+		// for(auto& [key, _]: spawnedByNodos)
 		// {
 		// 	if(key.key == OldParentTransformId)
 		// 	{
 		// 		nog = key;
 		// 	}	
 		// }
-		//spawnedByMediaz.Remove(nog);
+		//spawnedByNodos.Remove(nog);
 	}
 		
-	for (auto [oldGuid, spawnInfo] : spawnedByMediaz)
+	for (auto [oldGuid, spawnInfo] : spawnedByNodos)
 	{
 		if(spawnInfo.SpawnTag == "RealityParentTransform")
 		{
@@ -1008,7 +1008,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		if (!sceneActorMap.Contains(oldGuid.Key))
 		{
 			///spawn
-			AActor* spawnedActor = MZActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent}, spawnInfo.Metadata);
+			AActor* spawnedActor = NOSActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent}, spawnInfo.Metadata);
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -1016,13 +1016,13 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		}
 	}
 
-	for (auto [oldGuid, umgTag] : UMGsByMediaz)
+	for (auto [oldGuid, umgTag] : UMGsByNodos)
 	{
 		if (!sceneActorMap.Contains(oldGuid.Key))
 		{
 			////
-			UUserWidget* newWidget = MZAssetManager->CreateUMGFromTag(umgTag);
-			AActor* spawnedActor = MZActorManager->SpawnUMGRenderManager(umgTag, newWidget);
+			UUserWidget* newWidget = NOSAssetManager->CreateUMGFromTag(umgTag);
+			AActor* spawnedActor = NOSActorManager->SpawnUMGRenderManager(umgTag, newWidget);
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -1047,7 +1047,7 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 		{
 			continue;
 		}
-		TSharedPtr<MZProperty> mzprop = nullptr;
+		TSharedPtr<NOSProperty> nosprop = nullptr;
 
 		FProperty* PropertyToUpdate = FindFProperty<FProperty>(*update.PropertyPath);
 		if(!PropertyToUpdate->IsValidLowLevel())
@@ -1065,45 +1065,45 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			}
 			if(IsResultUObject)
 			{
-				mzprop = MZPropertyFactory::CreateProperty((UObject*) UnknownContainer, PropertyToUpdate);
+				nosprop = NOSPropertyFactory::CreateProperty((UObject*) UnknownContainer, PropertyToUpdate);
 			}
 			else
 			{
-				mzprop = MZPropertyFactory::CreateProperty(nullptr, PropertyToUpdate, FString(), (uint8*)UnknownContainer);
+				nosprop = NOSPropertyFactory::CreateProperty(nullptr, PropertyToUpdate, FString(), (uint8*)UnknownContainer);
 			}
 		}
 		else
 		{
-			mzprop = MZPropertyFactory::CreateProperty(Container, PropertyToUpdate);
+			nosprop = NOSPropertyFactory::CreateProperty(Container, PropertyToUpdate);
 		}
-		if(!mzprop)
+		if(!nosprop)
 		{
 			continue;
 		}
 		
 		if (update.newValSize > 0)
 		{
-			mzprop->SetPropValue(update.newVal, update.newValSize);
+			nosprop->SetPropValue(update.newVal, update.newValSize);
 		}
 		if (!update.displayName.IsEmpty())
 		{
-			mzprop->DisplayName = update.displayName;
+			nosprop->DisplayName = update.displayName;
 		}
-		mzprop->UpdatePinValue();
-		mzprop->PinShowAs = update.pinShowAs;
-		if (mzprop && update.defValSize > 0)
+		nosprop->UpdatePinValue();
+		nosprop->PinShowAs = update.pinShowAs;
+		if (nosprop && update.defValSize > 0)
 		{
-			mzprop->default_val = std::vector<uint8>(update.defValSize, 0);
-			memcpy(mzprop->default_val.data(), update.defVal, update.defValSize);
+			nosprop->default_val = std::vector<uint8>(update.defValSize, 0);
+			memcpy(nosprop->default_val.data(), update.defVal, update.defValSize);
 		}
 	}
 
 	RescanScene(true);
-	SendNodeUpdate(FMZClient::NodeId, false);
+	SendNodeUpdate(FNOSClient::NodeId, false);
 
 	PinUpdates.clear();
 	flatbuffers::FlatBufferBuilder fb2;
-	std::vector<MZPortal> NewPortals;
+	std::vector<NOSPortal> NewPortals;
 	for (auto const& update : updates)
 	{
 		FGuid ActorId = update.actorId;
@@ -1144,29 +1144,29 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 			{
 				continue;
 			}
-			if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyToUpdate, UnknownContainer}))
+			if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyToUpdate, UnknownContainer}))
 			{
-				auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
-				PinUpdates.push_back(mz::CreatePartialPinUpdate(fb2, (mz::fb::UUID*)&update.pinId,  (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(fb2, false)));
-				MZPortal NewPortal{update.pinId ,MzProperty->Id};
+				auto NosProperty = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
+				PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
+				NOSPortal NewPortal{update.pinId ,NosProperty->Id};
 				NewPortal.DisplayName = FString("");
-				UObject* parent = MzProperty->GetRawObjectContainer();
+				UObject* parent = NosProperty->GetRawObjectContainer();
 				while (parent)
 				{
 					NewPortal.DisplayName = parent->GetFName().ToString() + FString(".") + NewPortal.DisplayName;
 					parent = parent->GetTypedOuter<AActor>();
 				}
 
-				NewPortal.DisplayName += MzProperty->DisplayName;
-				NewPortal.TypeName = FString(MzProperty->TypeName.c_str());
-				NewPortal.CategoryName = MzProperty->CategoryName;
+				NewPortal.DisplayName += NosProperty->DisplayName;
+				NewPortal.TypeName = FString(NosProperty->TypeName.c_str());
+				NewPortal.CategoryName = NosProperty->CategoryName;
 				NewPortal.ShowAs = update.pinShowAs;
 
-				MZPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
-				MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, NewPortal.Id);
+				NOSPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
+				NOSPropertyManager.PropertyToPortalPin.Add(NosProperty->Id, NewPortal.Id);
 				NewPortals.push_back(NewPortal);
-				MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), update.pinShowAs);
-				MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MzProperty->Id, update.pinShowAs);
+				NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NosProperty.Get(), update.pinShowAs);
+				NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NosProperty->Id, update.pinShowAs);
 			}
 			
 		}
@@ -1185,88 +1185,88 @@ void FMZSceneTreeManager::OnMZNodeImported(mz::fb::Node const& appNode)
 	}
 	if (!PinUpdates.empty())
 	{
-		auto offset3 = mz::CreatePartialNodeUpdateDirect(fb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		auto offset3 = nos::CreatePartialNodeUpdateDirect(fb2, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb2.Finish(offset3);
 		auto buf3 = fb2.Release();
-		auto root3 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf3.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root3);
+		auto root3 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf3.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root3);
 	}
 	for (auto& Portal : NewPortals)
 	{
-		if(MZPropertyManager.PropertiesById.Contains(Portal.SourceId))
+		if(NOSPropertyManager.PropertiesById.Contains(Portal.SourceId))
 		{
 			flatbuffers::FlatBufferBuilder fb4;
-			auto SourceProperty = MZPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+			auto SourceProperty = NOSPropertyManager.PropertiesById.FindRef(Portal.SourceId);
 			auto UpdatedMetadata = SourceProperty->SerializeMetaData(fb4);
-			auto offset4 = mz::CreateAppEventOffset(fb4, mz::app::CreatePinMetadataUpdateDirect(fb4, (mz::fb::UUID*)&Portal.Id, &UpdatedMetadata  ,true));
+			auto offset4 = nos::CreateAppEventOffset(fb4, nos::app::CreatePinMetadataUpdateDirect(fb4, (nos::fb::UUID*)&Portal.Id, &UpdatedMetadata  ,true));
 			fb4.Finish(offset4);
 			auto buf4 = fb4.Release();
-			auto root4 = flatbuffers::GetRoot<mz::app::AppEvent>(buf4.data());
-			MZClient->AppServiceClient->Send(*root4);
+			auto root4 = flatbuffers::GetRoot<nos::app::AppEvent>(buf4.data());
+			NOSClient->AppServiceClient->Send(*root4);
 		}
 	}
 	//SendSyncSemaphores(true);
-	LOG("Node from MediaZ successfully imported");
+	LOG("Node from Nodos successfully imported");
 }
 
-void FMZSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t size)
+void FNOSSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t size)
 {
-	if (!MZPropertyManager.PropertiesById.Contains(pinId))
+	if (!NOSPropertyManager.PropertiesById.Contains(pinId))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("The property with given id is not found."));
 		return;
 	}
 
-	auto mzprop = MZPropertyManager.PropertiesById.FindRef(pinId);
-	if(!mzprop->GetRawContainer())
+	auto nosprop = NOSPropertyManager.PropertiesById.FindRef(pinId);
+	if(!nosprop->GetRawContainer())
 	{
 		return;
 	}
-	if (!MZPropertyManager.PropertyToPortalPin.Contains(pinId))
+	if (!NOSPropertyManager.PropertyToPortalPin.Contains(pinId))
 	{
-		MZPropertyManager.CreatePortal(pinId, mz::fb::ShowAs::PROPERTY);
+		NOSPropertyManager.CreatePortal(pinId, nos::fb::ShowAs::PROPERTY);
 	}	
 	
 }
 
 #ifdef VIEWPORT_TEXTURE
-void FMZSceneTreeManager::ConnectViewportTexture()
+void FNOSSceneTreeManager::ConnectViewportTexture()
 {
-	auto viewport = Cast<UMZViewportClient>(GEngine->GameViewport);
+	auto viewport = Cast<UNOSViewportClient>(GEngine->GameViewport);
 	if (IsValid(viewport) && ViewportTextureProperty)
 	{
-		auto mzprop = ViewportTextureProperty;
-		mzprop->ObjectPtr = viewport;
+		auto nosprop = ViewportTextureProperty;
+		nosprop->ObjectPtr = viewport;
 
-		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(mzprop);
-		mzprop->data = mz::Buffer::From(tex);
+		auto tex = NOSTextureShareManager::GetInstance()->AddTexturePin(nosprop);
+		nosprop->data = nos::Buffer::From(tex);
 	}
 }
 
-void FMZSceneTreeManager::DisconnectViewportTexture()
+void FNOSSceneTreeManager::DisconnectViewportTexture()
 {
 	if (ViewportTextureProperty) {
-		MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+		NOSTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
 		ViewportTextureProperty->ObjectPtr = nullptr;
-		auto tex = MZTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
-		ViewportTextureProperty->data = mz::Buffer::From
+		auto tex = NOSTextureShareManager::GetInstance()->AddTexturePin(ViewportTextureProperty);
+		ViewportTextureProperty->data = nos::Buffer::From
 		(tex);
-		MZTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
+		NOSTextureShareManager::GetInstance()->TextureDestroyed(ViewportTextureProperty);
 	}
 }
 #endif
 
-void FMZSceneTreeManager::RescanScene(bool reset)
+void FNOSSceneTreeManager::RescanScene(bool reset)
 {
 	if (reset)
 	{
 		Reset();
 	}
 
-	UWorld* World = FMZSceneTreeManager::daWorld;
+	UWorld* World = FNOSSceneTreeManager::daWorld;
 
 	flatbuffers::FlatBufferBuilder fbb;
-	std::vector<flatbuffers::Offset<mz::fb::Node>> actorNodes;
+	std::vector<flatbuffers::Offset<nos::fb::Node>> actorNodes;
 	TArray<AActor*> ActorsInScene;
 	if (IsValid(World))
 	{
@@ -1296,7 +1296,7 @@ void FMZSceneTreeManager::RescanScene(bool reset)
 			auto newNode = SceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
 			if (newNode)
 			{
-				newNode->actor = MZActorReference(*ActorItr);
+				newNode->actor = NOSActorReference(*ActorItr);
 			}
 		}
 #ifdef VIEWPORT_TEXTURE
@@ -1324,7 +1324,7 @@ uint32_t SwapEndian(uint32_t num)
 		((num << 24) & 0xff000000); // byte 0 to byte 3
 }
 
-FString UEIdToMZIDString(FGuid Guid)
+FString UEIdToNOSIDString(FGuid Guid)
 {
 
 	uint32 A = SwapEndian(Guid.A);
@@ -1336,7 +1336,7 @@ FString UEIdToMZIDString(FGuid Guid)
 	return result;
 }
 
-bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
+bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 {
 	auto treeNode = SceneTree.GetNode(nodeId);
 
@@ -1353,7 +1353,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			return false;
 		}
 		bool ColoredChilds = false;
-		if(actorNode->mzMetaData.Contains(MzMetadataKeys::NodeColor))
+		if(actorNode->nosMetaData.Contains(NosMetadataKeys::NodeColor))
 		{
 			ColoredChilds = true;
 		}
@@ -1372,16 +1372,16 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-			auto mzprop = MZPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty, FString(""));
-			if (!mzprop)
+			auto nosprop = NOSPropertyManager.CreateProperty(actorNode->actor.Get(), AProperty, FString(""));
+			if (!nosprop)
 			{
 				AProperty = AProperty->PropertyLinkNext;
 				continue;
 			}
-			//RegisteredProperties.Add(mzprop->Id, mzprop);
-			actorNode->Properties.push_back(mzprop);
+			//RegisteredProperties.Add(nosprop->Id, nosprop);
+			actorNode->Properties.push_back(nosprop);
 
-			for (auto it : mzprop->childProperties)
+			for (auto it : nosprop->childProperties)
 			{
 				//RegisteredProperties.Add(it->Id, it);
 				actorNode->Properties.push_back(it);
@@ -1392,19 +1392,19 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 
 		auto Components = actorNode->actor->GetComponents();
 
-		for(auto MzProp : actorNode->Properties)
+		for(auto NosProp : actorNode->Properties)
 		{
-			if(MzProp->EditConditionProperty)
+			if(NosProp->EditConditionProperty)
 			{
 				for(auto prop : actorNode->Properties)
 				{
-					if(prop->Property == MzProp->EditConditionProperty)
+					if(prop->Property == NosProp->EditConditionProperty)
 					{
 						
-						MzProp->mzMetaDataMap.Add(MzMetadataKeys::EditConditionPropertyId, UEIdToMZIDString(prop->Id));
+						NosProp->nosMetaDataMap.Add(NosMetadataKeys::EditConditionPropertyId, UEIdToNOSIDString(prop->Id));
 						
-						UE_LOG(LogMZSceneTreeManager, Warning, TEXT("%s has edit condition named %s with pind id %s"), *MzProp->DisplayName, *prop->DisplayName,
-							*MzProp->mzMetaDataMap[MzMetadataKeys::EditConditionPropertyId]);
+						UE_LOG(LogNOSSceneTreeManager, Warning, TEXT("%s has edit condition named %s with pind id %s"), *NosProp->DisplayName, *prop->DisplayName,
+							*NosProp->nosMetaDataMap[NosMetadataKeys::EditConditionPropertyId]);
 					}
 				}
 			}
@@ -1413,7 +1413,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 		
 		//ITERATE PROPERTIES END
 
-#ifdef MZ_POPULATE_UNREAL_FUNCTIONS 
+#ifdef NOS_POPULATE_UNREAL_FUNCTIONS 
 		//ITERATE FUNCTIONS BEGIN
 		auto ActorComponent = actorNode->actor->GetRootComponent();
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
@@ -1433,22 +1433,22 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				auto OwnerClass = UEFunction->GetOwnerClass();
 				if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
 				{
-					continue; // export only BP functions //? what we will show in mediaz
+					continue; // export only BP functions //? what we will show in Nodos
 				}
 
-				TSharedPtr<MZFunction> mzfunc(new MZFunction(actorNode->actor.Get(), UEFunction));
+				TSharedPtr<NOSFunction> nosfunc(new NOSFunction(actorNode->actor.Get(), UEFunction));
 
 				// Parse all function parameters.
 				bool bNotSupported = false;
 				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 				{
-					if (auto mzprop = MZPropertyManager.CreateProperty(nullptr, *PropIt))
+					if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt))
 					{
-						mzfunc->Properties.push_back(mzprop);
-						//RegisteredProperties.Add(mzprop->Id, mzprop);			
+						nosfunc->Properties.push_back(nosprop);
+						//RegisteredProperties.Add(nosprop->Id, nosprop);			
 						if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
 						{
-							mzfunc->OutProperties.push_back(mzprop);
+							nosfunc->OutProperties.push_back(nosprop);
 						}
 					}
 					else
@@ -1462,8 +1462,8 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 					continue;
 				}
 
-				actorNode->Functions.push_back(mzfunc);
-				RegisteredFunctions.Add(mzfunc->Id, mzfunc);
+				actorNode->Functions.push_back(nosfunc);
+				RegisteredFunctions.Add(nosfunc->Id, nosfunc);
 			}
 		}
 		//ITERATE FUNCTIONS END
@@ -1536,7 +1536,7 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 						}
 						if(ColoredChilds)
 						{
-							NewParentHandle->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
+							NewParentHandle->nosMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
 						}
 						NewParentHandle->Children.clear();
 						OutArray.Add(NewParentHandle);
@@ -1561,9 +1561,9 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			{
 				if(ColoredChilds)
 				{
-					RootHandle->mzMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
+					RootHandle->nosMetaData.Add("NodeColor", HEXCOLOR_Reality_Node);
 				}
-				actorNode->mzMetaData.FindOrAdd("ViewPinsOf") = UEIdToMZIDString(RootHandle->Id); 
+				actorNode->nosMetaData.FindOrAdd("ViewPinsOf") = UEIdToNOSIDString(RootHandle->Id); 
 				// Clear the loading child
 				RootHandle->Children.clear();
 				OutArray.Add(RootHandle);
@@ -1608,13 +1608,13 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 				continue;
 			}
 
-			auto mzprop = MZPropertyManager.CreateProperty(Component.Get(), Property, FString(""));
-			if (mzprop)
+			auto nosprop = NOSPropertyManager.CreateProperty(Component.Get(), Property, FString(""));
+			if (nosprop)
 			{
-				//RegisteredProperties.Add(mzprop->Id, mzprop);
-				ComponentNode->Properties.push_back(mzprop);
+				//RegisteredProperties.Add(nosprop->Id, nosprop);
+				ComponentNode->Properties.push_back(nosprop);
 
-				for (auto it : mzprop->childProperties)
+				for (auto it : nosprop->childProperties)
 				{
 					//RegisteredProperties.Add(it->Id, it);
 					ComponentNode->Properties.push_back(it);
@@ -1623,17 +1623,17 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 			}
 		}
 		
-		for(auto MzProp : ComponentNode->Properties)
+		for(auto NosProp : ComponentNode->Properties)
 		{
-			if(MzProp->EditConditionProperty)
+			if(NosProp->EditConditionProperty)
 			{
 				for(auto prop : ComponentNode->Properties)
 				{
-					if(prop->Property == MzProp->EditConditionProperty)
+					if(prop->Property == NosProp->EditConditionProperty)
 					{
-						MzProp->mzMetaDataMap.Add(MzMetadataKeys::EditConditionPropertyId, UEIdToMZIDString(prop->Id));
-						UE_LOG(LogMZSceneTreeManager, Warning, TEXT("%s has edit condition named %s with pind id %s"), *MzProp->DisplayName, *prop->DisplayName,
-							*MzProp->mzMetaDataMap[MzMetadataKeys::EditConditionPropertyId]);
+						NosProp->nosMetaDataMap.Add(NosMetadataKeys::EditConditionPropertyId, UEIdToNOSIDString(prop->Id));
+						UE_LOG(LogNOSSceneTreeManager, Warning, TEXT("%s has edit condition named %s with pind id %s"), *NosProp->DisplayName, *prop->DisplayName,
+							*NosProp->nosMetaDataMap[NosMetadataKeys::EditConditionPropertyId]);
 					}
 				}
 			}
@@ -1645,10 +1645,10 @@ bool FMZSceneTreeManager::PopulateNode(FGuid nodeId)
 }
 
 
-void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
+void FNOSSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 {
-	LOGF("Sending node update to MediaZ with id %s", *nodeId.ToString());
-	if (!MZClient->IsConnected() || !nodeId.IsValid())
+	LOGF("Sending node update to Nodos with id %s", *nodeId.ToString());
+	if (!NOSClient->IsConnected() || !nodeId.IsValid())
 	{
 		return;
 	}
@@ -1658,26 +1658,26 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 		if (!bResetRootPins)
 		{
 			flatbuffers::FlatBufferBuilder mb;
-			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
-			std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+			std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
+			std::vector<flatbuffers::Offset<nos::fb::Node>> graphFunctions;
 			for (auto& [_, cfunc] : CustomFunctions)
 			{
 				graphFunctions.push_back(cfunc->Serialize(mb));
 			}
 		
-			std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
-			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+			std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
+			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::ClearFlags::CLEAR_FUNCTIONS | nos::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-			MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 			return;
 		}
 
 		flatbuffers::FlatBufferBuilder mb = flatbuffers::FlatBufferBuilder();
-		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
-		std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+		std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = SceneTree.Root->SerializeChildren(mb);
+		std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins;
 		for (auto& [_, property] : CustomProperties)
 		{
 			graphPins.push_back(property->Serialize(mb));
@@ -1686,19 +1686,19 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 		{
 			graphPins.push_back(pin->Serialize(mb));
 		}
-		std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+		std::vector<flatbuffers::Offset<nos::fb::Node>> graphFunctions;
 		for (auto& [_, cfunc] : CustomFunctions)
 		{
 			graphFunctions.push_back(cfunc->Serialize(mb));
 
 		}
 		
-		std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
-		auto offset =  mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)(&nodeId), mz::ClearFlags::ANY & ~mz::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+		std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
+		auto offset =  nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)(&nodeId), nos::ClearFlags::ANY & ~nos::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 		return;
 	}
@@ -1708,8 +1708,8 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 		return;
 	}
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = treeNode->SerializeChildren(mb);
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+	std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = treeNode->SerializeChildren(mb);
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins;
 	if (treeNode->GetAsActorNode())
 	{
 		graphPins = treeNode->GetAsActorNode()->SerializePins(mb);
@@ -1718,69 +1718,69 @@ void FMZSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 	{
 		graphPins = treeNode->GetAsSceneComponentNode()->SerializePins(mb);
 	}
-	std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+	std::vector<flatbuffers::Offset<nos::fb::Node>> graphFunctions;
 	if (treeNode->GetAsActorNode())
 	{
-		for (auto mzfunc : treeNode->GetAsActorNode()->Functions)
+		for (auto nosfunc : treeNode->GetAsActorNode()->Functions)
 		{
-			graphFunctions.push_back(mzfunc->Serialize(mb));
+			graphFunctions.push_back(nosfunc->Serialize(mb));
 		}
 	}
 	auto metadata = treeNode->SerializeMetaData(mb);
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS | mz::ClearFlags::CLEAR_FUNCTIONS | mz::ClearFlags::CLEAR_NODES | mz::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::ClearFlags::CLEAR_PINS | nos::ClearFlags::CLEAR_FUNCTIONS | nos::ClearFlags::CLEAR_NODES | nos::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
-void FMZSceneTreeManager::SendEngineFunctionUpdate()
+void FNOSSceneTreeManager::SendEngineFunctionUpdate()
 {
-	if (!MZClient || !MZClient->IsConnected())
+	if (!NOSClient || !NOSClient->IsConnected())
 	{
 		return;
 	}
 	flatbuffers::FlatBufferBuilder mb = flatbuffers::FlatBufferBuilder();
-	std::vector<flatbuffers::Offset<mz::fb::Node>> graphFunctions;
+	std::vector<flatbuffers::Offset<nos::fb::Node>> graphFunctions;
 	for (auto& [_, cfunc] : CustomFunctions)
 	{
 		graphFunctions.push_back(cfunc->Serialize(mb));
 
 	}
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
-	auto offset =  mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)(&FMZClient::NodeId), mz::ClearFlags::CLEAR_FUNCTIONS, 0, 0, 0, &graphFunctions, 0, 0, 0, 0, &metadata);
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
+	auto offset =  nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)(&FNOSClient::NodeId), nos::ClearFlags::CLEAR_FUNCTIONS, 0, 0, 0, &graphFunctions, 0, 0, 0, 0, &metadata);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
-void FMZSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
+void FNOSSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uint8> data)
 {
-	if (!MZClient->IsConnected() || data.empty())
+	if (!NOSClient->IsConnected() || data.empty())
 	{
 		return;
 	}
 
 	flatbuffers::FlatBufferBuilder mb;
-	auto offset = mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&propertyId, &data);
+	auto offset = nos::CreatePinValueChangedDirect(mb, (nos::fb::UUID*)&propertyId, &data);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PinValueChanged>(buf.data());
-	MZClient->AppServiceClient->NotifyPinValueChanged(*root);
+	auto root = flatbuffers::GetRoot<nos::PinValueChanged>(buf.data());
+	NOSClient->AppServiceClient->NotifyPinValueChanged(*root);
 }
 
-void FMZSceneTreeManager::SendPinUpdate()
+void FNOSSceneTreeManager::SendPinUpdate()
 {
-	if (!MZClient->IsConnected())
+	if (!NOSClient->IsConnected())
 	{
 		return;
 	}
 
-	auto nodeId = FMZClient::NodeId;
+	auto nodeId = FNOSClient::NodeId;
 
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins;
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins;
 	for (auto& [_, pin] : CustomProperties)
 	{
 		graphPins.push_back(pin->Serialize(mb));
@@ -1789,59 +1789,59 @@ void FMZSceneTreeManager::SendPinUpdate()
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&nodeId, mz::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0);
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 }
 
-void FMZSceneTreeManager::RemovePortal(FGuid PortalId)
+void FNOSSceneTreeManager::RemovePortal(FGuid PortalId)
 {
 	LOG("Portal is removed.");
 	
-	if(!MZPropertyManager.PortalPinsById.Contains(PortalId))
+	if(!NOSPropertyManager.PortalPinsById.Contains(PortalId))
 	{
 		return;
 	}
-	auto Portal = MZPropertyManager.PortalPinsById.FindRef(PortalId);
-	MZPropertyManager.PortalPinsById.Remove(Portal.Id);
-	MZPropertyManager.PropertyToPortalPin.Remove(Portal.SourceId);
+	auto Portal = NOSPropertyManager.PortalPinsById.FindRef(PortalId);
+	NOSPropertyManager.PortalPinsById.Remove(Portal.Id);
+	NOSPropertyManager.PropertyToPortalPin.Remove(Portal.SourceId);
 
-	if(!MZClient->IsConnected())
+	if(!NOSClient->IsConnected())
 	{
 		return;
 	}
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<mz::fb::UUID> pinsToDelete;
-	pinsToDelete.push_back(*(mz::fb::UUID*)&Portal.Id);
+	std::vector<nos::fb::UUID> pinsToDelete;
+	pinsToDelete.push_back(*(nos::fb::UUID*)&Portal.Id);
 
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
-void FMZSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<MZProperty> const& mzprop)
+void FNOSSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<NOSProperty> const& nosprop)
 {
-	if (!MZClient->IsConnected())
+	if (!NOSClient->IsConnected())
 	{
 		return;
 	}
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { mzprop->Serialize(mb) };
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins = { nosprop->Serialize(mb) };
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&NodeId, nos::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	return;
 }
 
-void FMZSceneTreeManager::SendActorAddedOnUpdate(AActor* actor, FString spawnTag)
+void FNOSSceneTreeManager::SendActorAddedOnUpdate(AActor* actor, FString spawnTag)
 {
 	if (AlwaysUpdateOnActorSpawns)
 	{
@@ -1851,9 +1851,9 @@ void FMZSceneTreeManager::SendActorAddedOnUpdate(AActor* actor, FString spawnTag
 	ActorsToBeAdded.Add(TWeakObjectPtr<AActor>(actor));
 }
 
-void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
+void FNOSSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 {
-	if(!FMZClient::NodeId.IsValid())
+	if(!FNOSClient::NodeId.IsValid())
 	{
 		return;
 	}
@@ -1870,19 +1870,19 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 			}
 			if (!spawnTag.IsEmpty())
 			{
-				newNode->mzMetaData.Add(MzMetadataKeys::spawnTag, spawnTag);
+				newNode->nosMetaData.Add(NosMetadataKeys::spawnTag, spawnTag);
 			}
-			if (!MZClient->IsConnected())
+			if (!NOSClient->IsConnected())
 			{
 				return;
 			}
 			flatbuffers::FlatBufferBuilder mb;
-			std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&parentNode->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+			std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { newNode->Serialize(mb) };
+			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&parentNode->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-			MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 		}
 	}
@@ -1896,36 +1896,36 @@ void FMZSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 		}
 		if (!spawnTag.IsEmpty())
 		{
-			newNode->mzMetaData.Add(MzMetadataKeys::spawnTag, spawnTag);
+			newNode->nosMetaData.Add(NosMetadataKeys::spawnTag, spawnTag);
 		}
-		if (!MZClient->IsConnected())
+		if (!NOSClient->IsConnected())
 		{
 			return;
 		}
 
 		flatbuffers::FlatBufferBuilder mb;
-		std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-		auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+		std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+		auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	}
 
 	return;
 }
 
-void FMZSceneTreeManager::RemoveProperties(TreeNode* Node,
-	TSet<TSharedPtr<MZProperty>>& PropertiesToRemove)
+void FNOSSceneTreeManager::RemoveProperties(TreeNode* Node,
+	TSet<TSharedPtr<NOSProperty>>& PropertiesToRemove)
 {
 	if (auto componentNode = Node->GetAsSceneComponentNode())
 	{
 		for (auto& prop : componentNode->Properties)
 		{
 			PropertiesToRemove.Add(prop);
-			MZPropertyManager.PropertiesById.Remove(prop->Id);
-			MZPropertyManager.PropertiesByPropertyAndContainer.Remove({prop->Property, prop->GetRawObjectContainer()});
+			NOSPropertyManager.PropertiesById.Remove(prop->Id);
+			NOSPropertyManager.PropertiesByPropertyAndContainer.Remove({prop->Property, prop->GetRawObjectContainer()});
 		}
 	}
 	else if (auto actorNode = Node->GetAsActorNode())
@@ -1933,8 +1933,8 @@ void FMZSceneTreeManager::RemoveProperties(TreeNode* Node,
 		for (auto& prop : actorNode->Properties)
 		{
 			PropertiesToRemove.Add(prop);
-			MZPropertyManager.PropertiesById.Remove(prop->Id);
-			MZPropertyManager.PropertiesByPropertyAndContainer.Remove({prop->Property, prop->GetRawObjectContainer()});
+			NOSPropertyManager.PropertiesById.Remove(prop->Id);
+			NOSPropertyManager.PropertiesByPropertyAndContainer.Remove({prop->Property, prop->GetRawObjectContainer()});
 		}
 	}
 	for (auto& child : Node->Children)
@@ -1943,9 +1943,9 @@ void FMZSceneTreeManager::RemoveProperties(TreeNode* Node,
 	}
 }
 
-void FMZSceneTreeManager::CheckPins(TSet<UObject*>& RemovedObjects,
-	TSet<TSharedPtr<MZProperty>>& PinsToRemove,
-	TSet<TSharedPtr<MZProperty>>& PropertiesToRemove)
+void FNOSSceneTreeManager::CheckPins(TSet<UObject*>& RemovedObjects,
+	TSet<TSharedPtr<NOSProperty>>& PinsToRemove,
+	TSet<TSharedPtr<NOSProperty>>& PropertiesToRemove)
 {
 	for (auto& [id, pin] : Pins)
 	{
@@ -1961,40 +1961,40 @@ void FMZSceneTreeManager::CheckPins(TSet<UObject*>& RemovedObjects,
 	}
 }
 
-void FMZSceneTreeManager::Reset()
+void FNOSSceneTreeManager::Reset()
 {
-	MZTextureShareManager::GetInstance()->Reset();
+	NOSTextureShareManager::GetInstance()->Reset();
 	ActorsToBeAdded.Empty();
 	SceneTree.Clear();
 	Pins.Empty();
-	MZPropertyManager.Reset();
-	MZActorManager->ReAddActorsToSceneTree();
+	NOSPropertyManager.Reset();
+	NOSActorManager->ReAddActorsToSceneTree();
 }
 
-void FMZSceneTreeManager::SendActorDeleted(AActor* Actor)
+void FNOSSceneTreeManager::SendActorDeleted(AActor* Actor)
 {
 	if (auto node = SceneTree.GetNode(Actor))
 	{
 		//delete properties
 		// can be optimized by using raw pointers
-		TSet<TSharedPtr<MZProperty>> propertiesToRemove;
+		TSet<TSharedPtr<NOSProperty>> propertiesToRemove;
 		RemoveProperties(node, propertiesToRemove);
 		TSet<FGuid> PropertiesWithPortals;
 		TSet<FGuid> PortalsToRemove;
-		auto texman = MZTextureShareManager::GetInstance();
+		auto texman = NOSTextureShareManager::GetInstance();
 		for (auto prop : propertiesToRemove)
 		{
-			if(prop->TypeName == "mz.fb.Texture")
+			if(prop->TypeName == "nos.fb.Texture")
 			{
 				texman->TextureDestroyed(prop.Get());
 			}
-			if (!MZPropertyManager.PropertyToPortalPin.Contains(prop->Id))
+			if (!NOSPropertyManager.PropertyToPortalPin.Contains(prop->Id))
 			{
 				continue;
 			}
-			auto portalId = MZPropertyManager.PropertyToPortalPin.FindRef(prop->Id);
+			auto portalId = NOSPropertyManager.PropertyToPortalPin.FindRef(prop->Id);
 			PropertiesWithPortals.Add(prop->Id);
-			if (!MZPropertyManager.PortalPinsById.Contains(portalId))
+			if (!NOSPropertyManager.PortalPinsById.Contains(portalId))
 			{
 				continue;
 			}
@@ -2002,15 +2002,15 @@ void FMZSceneTreeManager::SendActorDeleted(AActor* Actor)
 		}
 		for (auto PropertyId : PropertiesWithPortals)
 		{
-			MZPropertyManager.PropertyToPortalPin.Remove(PropertyId);
+			NOSPropertyManager.PropertyToPortalPin.Remove(PropertyId);
 		}
 		for (auto PortalId : PortalsToRemove)
 		{
-			MZPropertyManager.PortalPinsById.Remove(PortalId);
+			NOSPropertyManager.PortalPinsById.Remove(PortalId);
 		}
 
 		//delete from parent
-		FGuid parentId = FMZClient::NodeId;
+		FGuid parentId = FNOSClient::NodeId;
 		if (auto parent = node->Parent)
 		{
 			parentId = parent->Id;
@@ -2030,43 +2030,43 @@ void FMZSceneTreeManager::SendActorDeleted(AActor* Actor)
 		//delete from map
 		SceneTree.RemoveNode(node->Id);
 
-		if (!MZClient->IsConnected())
+		if (!NOSClient->IsConnected())
 		{
 			return;
 		}
 
 		if (!PortalsToRemove.IsEmpty())
 		{
-			std::vector<mz::fb::UUID> pinsToDelete;
+			std::vector<nos::fb::UUID> pinsToDelete;
 			for (auto portalId : PortalsToRemove)
 			{
-				pinsToDelete.push_back(*(mz::fb::UUID*)&portalId);
+				pinsToDelete.push_back(*(nos::fb::UUID*)&portalId);
 			}
 			flatbuffers::FlatBufferBuilder mb;
-			auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-			MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 		}
 
 		flatbuffers::FlatBufferBuilder mb2;
-		std::vector<mz::fb::UUID> graphNodes = { *(mz::fb::UUID*)&node->Id };
-		auto offset = mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&parentId, mz::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
+		std::vector<nos::fb::UUID> graphNodes = { *(nos::fb::UUID*)&node->Id };
+		auto offset = nos::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&parentId, nos::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
 		mb2.Finish(offset);
 		auto buf = mb2.Release();
-		auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	}
 }
 
-void FMZSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
+void FNOSSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
 {
 	LOGF("Populating all childs of %s", *actor->GetFName().ToString());
 	FGuid ActorId = actor->GetActorGuid();
 	PopulateAllChildsOfActor(ActorId);
 }
-void FMZSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId)
+void FNOSSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId)
 {
 	LOGF("Populating all childs of actor with id %s", *ActorId.ToString());
 	if (PopulateNode(SceneTree.GetNodeIdActorId(ActorId)))
@@ -2091,7 +2091,7 @@ void FMZSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId)
 	}
 }
 
-void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode)
+void FNOSSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode)
 {
 	if (!SceneComponentNode)
 	{
@@ -2116,13 +2116,13 @@ void FMZSceneTreeManager::PopulateAllChildsOfSceneComponentNode(SceneComponentNo
 	}
 }
 
-void FMZSceneTreeManager::SendSyncSemaphores(bool RenewSemaphores)
+void FNOSSceneTreeManager::SendSyncSemaphores(bool RenewSemaphores)
 {
-	if(!FMZClient::NodeId.IsValid())
+	if(!FNOSClient::NodeId.IsValid())
 	{
-		UE_LOG(LogMZSceneTreeManager, Error, TEXT("Sending sync semaphores with non-valid node Id, a deadlock might happen!"));
+		UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Sending sync semaphores with non-valid node Id, a deadlock might happen!"));
 	}
-	auto TextureShareManager = MZTextureShareManager::GetInstance();
+	auto TextureShareManager = NOSTextureShareManager::GetInstance();
 	if(RenewSemaphores)
 	{
 		TextureShareManager->RenewSemaphores();
@@ -2132,11 +2132,11 @@ void FMZSceneTreeManager::SendSyncSemaphores(bool RenewSemaphores)
 	uint64_t outputSemaphore = (uint64_t)TextureShareManager->SyncSemaphoresExportHandles.OutputSemaphore;
 
 	flatbuffers::FlatBufferBuilder mb;
-	auto offset = mz::CreateAppEventOffset(mb, mz::app::CreateSetSyncSemaphores(mb, (mz::fb::UUID*)&FMZClient::NodeId, FPlatformProcess::GetCurrentProcessId(), inputSemaphore, outputSemaphore));
+	auto offset = nos::CreateAppEventOffset(mb, nos::app::CreateSetSyncSemaphores(mb, (nos::fb::UUID*)&FNOSClient::NodeId, FPlatformProcess::GetCurrentProcessId(), inputSemaphore, outputSemaphore));
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
-	MZClient->AppServiceClient->Send(*root);
+	auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+	NOSClient->AppServiceClient->Send(*root);
 }
 
 struct PortalSourceContainerInfo
@@ -2148,75 +2148,75 @@ struct PortalSourceContainerInfo
 	FProperty* Property;
 };
 
-void FMZSceneTreeManager::HandleWorldChange()
+void FNOSSceneTreeManager::HandleWorldChange()
 {
 	LOG("Handling world change.");
 	SceneTree.Clear();
-	MZTextureShareManager::GetInstance()->Reset();
+	NOSTextureShareManager::GetInstance()->Reset();
 
-	TArray<TTuple<PortalSourceContainerInfo, MZPortal>> Portals;
+	TArray<TTuple<PortalSourceContainerInfo, NOSPortal>> Portals;
 	TSet<FGuid> ActorsToRescan;
 
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<mz::fb::UUID> graphPins;// = { *(mz::fb::UUID*)&node->Id };
-	std::vector<flatbuffers::Offset<mz::PartialPinUpdate>> PinUpdates;
+	std::vector<nos::fb::UUID> graphPins;// = { *(nos::fb::UUID*)&node->Id };
+	std::vector<flatbuffers::Offset<nos::PartialPinUpdate>> PinUpdates;
 
-	for (auto [id, portal] : MZPropertyManager.PortalPinsById)
+	for (auto [id, portal] : NOSPropertyManager.PortalPinsById)
 	{
-		if (!MZPropertyManager.PropertiesById.Contains(portal.SourceId))
+		if (!NOSPropertyManager.PropertiesById.Contains(portal.SourceId))
 		{
 			continue;
 		}
-		auto MzProperty = MZPropertyManager.PropertiesById.FindRef(portal.SourceId);
+		auto NosProperty = NOSPropertyManager.PropertiesById.FindRef(portal.SourceId);
 
 		
-		PortalSourceContainerInfo ContainerInfo; //= { .ComponentName = "", .PropertyPath =  PropertyPath, .Property = MzProperty->Property};
-		ContainerInfo.Property = MzProperty->Property;
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::PropertyPath))
+		PortalSourceContainerInfo ContainerInfo; //= { .ComponentName = "", .PropertyPath =  PropertyPath, .Property = NosProperty->Property};
+		ContainerInfo.Property = NosProperty->Property;
+		if(NosProperty->nosMetaDataMap.Contains(NosMetadataKeys::PropertyPath))
 		{
-			ContainerInfo.PropertyPath = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
+			ContainerInfo.PropertyPath = NosProperty->nosMetaDataMap.FindRef(NosMetadataKeys::PropertyPath);
 		}
 		
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::ContainerPath))
+		if(NosProperty->nosMetaDataMap.Contains(NosMetadataKeys::ContainerPath))
 		{
-			ContainerInfo.ContainerPath = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::ContainerPath);
+			ContainerInfo.ContainerPath = NosProperty->nosMetaDataMap.FindRef(NosMetadataKeys::ContainerPath);
 		}
 		
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::actorId))
+		if(NosProperty->nosMetaDataMap.Contains(NosMetadataKeys::actorId))
 		{
-			FString ActorIdString = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::actorId);
+			FString ActorIdString = NosProperty->nosMetaDataMap.FindRef(NosMetadataKeys::actorId);
 			FGuid ActorId;
 			FGuid::Parse(ActorIdString, ActorId);
 			ContainerInfo.ActorId = ActorId;
 			ActorsToRescan.Add(ActorId);
 		}
 		
-		if(MzProperty->mzMetaDataMap.Contains(MzMetadataKeys::component))
+		if(NosProperty->nosMetaDataMap.Contains(NosMetadataKeys::component))
 		{
-			FString ComponentName = MzProperty->mzMetaDataMap.FindRef(MzMetadataKeys::component);
+			FString ComponentName = NosProperty->nosMetaDataMap.FindRef(NosMetadataKeys::component);
 			ContainerInfo.ComponentName = ComponentName;
 		}
 		
 		Portals.Add({ContainerInfo, portal});
-		graphPins.push_back(*(mz::fb::UUID*)&portal.Id);
-		PinUpdates.push_back(mz::CreatePartialPinUpdate(mb, (mz::fb::UUID*)&portal.Id, 0, mz::fb::CreateOrphanStateDirect(mb, true, "Object not found in the world")));
+		graphPins.push_back(*(nos::fb::UUID*)&portal.Id);
+		PinUpdates.push_back(nos::CreatePartialPinUpdate(mb, (nos::fb::UUID*)&portal.Id, 0, nos::fb::CreateOrphanStateDirect(mb, true, "Object not found in the world")));
 	}
 
-	if (!MZClient->IsConnected())
+	if (!NOSClient->IsConnected())
 	{
 		return;
 	}
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	PinUpdates.clear();
 
-	MZPropertyManager.Reset(false);
-	MZActorManager->ReAddActorsToSceneTree();
+	NOSPropertyManager.Reset(false);
+	NOSActorManager->ReAddActorsToSceneTree();
 	RescanScene(false);
-	SendNodeUpdate(FMZClient::NodeId, false);
+	SendNodeUpdate(FNOSClient::NodeId, false);
 
 
 	for (auto ActorId : ActorsToRescan)
@@ -2225,61 +2225,61 @@ void FMZSceneTreeManager::HandleWorldChange()
 	}
 
 	flatbuffers::FlatBufferBuilder mbb;
-	std::vector<mz::fb::UUID> PinsToRemove;
+	std::vector<nos::fb::UUID> PinsToRemove;
 	for (auto& [containerInfo, portal] : Portals)
 	{
 		UObject* ObjectContainer = FindContainer(containerInfo.ActorId, containerInfo.ComponentName);
 		bool discard;
 		void* UnknownContainer = FindContainerFromContainerPath(ObjectContainer, containerInfo.ContainerPath, discard);
 		UnknownContainer = UnknownContainer ? UnknownContainer : ObjectContainer;
-		if (MZPropertyManager.PropertiesByPropertyAndContainer.Contains({containerInfo.Property,UnknownContainer}))
+		if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({containerInfo.Property,UnknownContainer}))
 		{
-			auto MzProperty = MZPropertyManager.PropertiesByPropertyAndContainer.FindRef({containerInfo.Property,UnknownContainer});
+			auto NosProperty = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({containerInfo.Property,UnknownContainer});
 			bool notOrphan = false;
-			if (MZPropertyManager.PortalPinsById.Contains(portal.Id))
+			if (NOSPropertyManager.PortalPinsById.Contains(portal.Id))
 			{
-				auto pPortal = MZPropertyManager.PortalPinsById.Find(portal.Id);
-				pPortal->SourceId = MzProperty->Id;
+				auto pPortal = NOSPropertyManager.PortalPinsById.Find(portal.Id);
+				pPortal->SourceId = NosProperty->Id;
 			}
-			portal.SourceId = MzProperty->Id;
-			MzProperty->PinShowAs = portal.ShowAs;
-			MZTextureShareManager::GetInstance()->UpdatePinShowAs(MzProperty.Get(), MzProperty->PinShowAs);
-			MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MzProperty->Id, MzProperty->PinShowAs);
-			MZPropertyManager.PropertyToPortalPin.Add(MzProperty->Id, portal.Id);
-			PinUpdates.push_back(mz::CreatePartialPinUpdate(mbb, (mz::fb::UUID*)&portal.Id, (mz::fb::UUID*)&MzProperty->Id, mz::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
+			portal.SourceId = NosProperty->Id;
+			NosProperty->PinShowAs = portal.ShowAs;
+			NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NosProperty.Get(), NosProperty->PinShowAs);
+			NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NosProperty->Id, NosProperty->PinShowAs);
+			NOSPropertyManager.PropertyToPortalPin.Add(NosProperty->Id, portal.Id);
+			PinUpdates.push_back(nos::CreatePartialPinUpdate(mbb, (nos::fb::UUID*)&portal.Id, (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
 		}
 		else
 		{
-			PinsToRemove.push_back(*(mz::fb::UUID*)&portal.Id);
+			PinsToRemove.push_back(*(nos::fb::UUID*)&portal.Id);
 		}
 
 	}
 	
 	if (!PinUpdates.empty())
 	{
-		auto offset1 = 	mz::CreatePartialNodeUpdateDirect(mbb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		auto offset1 = 	nos::CreatePartialNodeUpdateDirect(mbb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		mbb.Finish(offset1);
 		auto buf1 = mbb.Release();
-		auto root1 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf1.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root1);
+		auto root1 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf1.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root1);
 	}
 	if(!PinsToRemove.empty())
 	{
 		flatbuffers::FlatBufferBuilder mb2;
-		auto offset2 = mz::CreatePartialNodeUpdateDirect(mb2, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, &PinsToRemove);
+		auto offset2 = nos::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &PinsToRemove);
 		mb2.Finish(offset2);
 		auto buf2 = mb2.Release();
-		auto root2 = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf2.data());
-		MZClient->AppServiceClient->SendPartialNodeUpdate(*root2);
+		auto root2 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf2.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root2);
 	}
 
 	LOG("World change handled");
 }
 
-UObject* FMZSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName)
+UObject* FNOSSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName)
 {
 	UObject* Container = nullptr;
-	UWorld* World = FMZSceneTreeManager::daWorld;
+	UWorld* World = FNOSSceneTreeManager::daWorld;
 	for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
 	{
 		if(ActorItr->GetActorGuid() == ActorId)
@@ -2296,7 +2296,7 @@ UObject* FMZSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName
 	return Container;	
 }
 
-void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath, bool& IsResultUObject)
+void* FNOSSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer, FString ContainerPath, bool& IsResultUObject)
 {
 	if(!BaseContainer)
 	{
@@ -2338,52 +2338,52 @@ void* FMZSceneTreeManager::FindContainerFromContainerPath(UObject* BaseContainer
 	return Container;
 }
 
-void FMZSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
+void FNOSSceneTreeManager::HandleBeginPIE(bool bIsSimulating)
 {
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	WorldName = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World()->GetMapName();
-	FMZSceneTreeManager::daWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
+	FNOSSceneTreeManager::daWorld = GEngine->GetWorldContextFromGameViewport(GEngine->GameViewport)->World();
 	
 	HandleWorldChange();
 
-	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorSpawned);
-	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
-	FMZSceneTreeManager::daWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
-	FMZSceneTreeManager::daWorld->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FNOSSceneTreeManager::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FNOSSceneTreeManager::OnActorDestroyed);
+	FNOSSceneTreeManager::daWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	FNOSSceneTreeManager::daWorld->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 }
 
-void FMZSceneTreeManager::HandleEndPIE(bool bIsSimulating)
+void FNOSSceneTreeManager::HandleEndPIE(bool bIsSimulating)
 {
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
-	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
+	FNOSSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 	HandleWorldChange();
 
-	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorSpawned);
-	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FMZSceneTreeManager::OnActorDestroyed);
-	FMZSceneTreeManager::daWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
-	FMZSceneTreeManager::daWorld->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
+	FOnActorSpawned::FDelegate ActorSpawnedDelegate = FOnActorSpawned::FDelegate::CreateRaw(this, &FNOSSceneTreeManager::OnActorSpawned);
+	FOnActorDestroyed::FDelegate ActorDestroyedDelegate = FOnActorDestroyed::FDelegate::CreateRaw(this, &FNOSSceneTreeManager::OnActorDestroyed);
+	FNOSSceneTreeManager::daWorld->AddOnActorSpawnedHandler(ActorSpawnedDelegate);
+	FNOSSceneTreeManager::daWorld->AddOnActorDestroyedHandler(ActorDestroyedDelegate);
 }
 
 
-AActor* FMZActorManager::GetParentTransformActor()
+AActor* FNOSActorManager::GetParentTransformActor()
 {
 	if(!ParentTransformActor.Get())
 	{
-		ParentTransformActor = MZActorReference(SpawnActor("RealityParentTransform"));
+		ParentTransformActor = NOSActorReference(SpawnActor("RealityParentTransform"));
 		ParentTransformActor->GetRootComponent()->SetMobility(EComponentMobility::Static);
 	}
 
 	return ParentTransformActor.Get();
 }
 
-AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Params, TMap<FString, FString> Metadata)
+AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters Params, TMap<FString, FString> Metadata)
 {
-	if (!MZAssetManager)
+	if (!NOSAssetManager)
 	{
 		return nullptr;
 	}
 
-	AActor* SpawnedActor = MZAssetManager->SpawnFromTag(SpawnTag, Params.SpawnTransform, Metadata);
+	AActor* SpawnedActor = NOSAssetManager->SpawnFromTag(SpawnTag, Params.SpawnTransform, Metadata);
 	if (!SpawnedActor)
 	{
 		return nullptr;
@@ -2400,47 +2400,47 @@ AActor* FMZActorManager::SpawnActor(FString SpawnTag, MZSpawnActorParameters Par
 
 	for(auto& [key, value] : Metadata)
 		savedMetadata.Add({ key, value});
-	savedMetadata.Add({ MzMetadataKeys::spawnTag, SpawnTag});
-	savedMetadata.Add({ MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
-	savedMetadata.Add({ MzMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
-	savedMetadata.Add(MzMetadataKeys::DoNotAttachToRealityParent, FString(Params.SpawnActorToWorldCoords ? "true" : "false"));
+	savedMetadata.Add({ NosMetadataKeys::spawnTag, SpawnTag});
+	savedMetadata.Add({ NosMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
+	savedMetadata.Add({ NosMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
+	savedMetadata.Add(NosMetadataKeys::DoNotAttachToRealityParent, FString(Params.SpawnActorToWorldCoords ? "true" : "false"));
 	SavedActorData savedData = {savedMetadata};
-	Actors.Add({ MZActorReference(SpawnedActor), savedData});
+	Actors.Add({ NOSActorReference(SpawnedActor), savedData});
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), SpawnedActor, mostRecentParent);
 	for(auto& [key, value] : Metadata)
-		ActorNode->mzMetaData.Add({ key, value});
-	ActorNode->mzMetaData.Add({ MzMetadataKeys::spawnTag, SpawnTag});
-	ActorNode->mzMetaData.Add(MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
-	ActorNode->mzMetaData.Add({ MzMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
-	ActorNode->mzMetaData.Add(MzMetadataKeys::DoNotAttachToRealityParent, FString(Params.SpawnActorToWorldCoords ? "true" : "false"));
+		ActorNode->nosMetaData.Add({ key, value});
+	ActorNode->nosMetaData.Add({ NosMetadataKeys::spawnTag, SpawnTag});
+	ActorNode->nosMetaData.Add(NosMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
+	ActorNode->nosMetaData.Add({ NosMetadataKeys::ActorGuid, SpawnedActor->GetActorGuid().ToString()});
+	ActorNode->nosMetaData.Add(NosMetadataKeys::DoNotAttachToRealityParent, FString(Params.SpawnActorToWorldCoords ? "true" : "false"));
 	
-	if (!MZClient->IsConnected())
+	if (!NOSClient->IsConnected())
 	{
 		return SpawnedActor;
 	}
 
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	return SpawnedActor;
 }
 
-AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)
+AActor* FNOSActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widget)
 {
 
-	if (!MZAssetManager)
+	if (!NOSAssetManager)
 	{
 		return nullptr;
 	}
 
 	FString SpawnTag("CustomUMGRenderManager");
-	AActor* UMGManager = MZAssetManager->SpawnFromTag(SpawnTag);
+	AActor* UMGManager = NOSAssetManager->SpawnFromTag(SpawnTag);
 	if (!UMGManager)
 	{
 		return nullptr;
@@ -2448,48 +2448,48 @@ AActor* FMZActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* widg
 	UMGManager->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);	
 	UMGManager->Rename(*MakeUniqueObjectName(nullptr, AActor::StaticClass(), FName(umgTag)).ToString());
 
-//	Cast<AMZUMGRenderManager>(UMGManager)->Widget = widget;
+//	Cast<ANOSUMGRenderManager>(UMGManager)->Widget = widget;
 	FObjectProperty* WidgetProperty = FindFProperty<FObjectProperty>(UMGManager->GetClass(), "Widget");
 	if (WidgetProperty != nullptr)
 		WidgetProperty->SetObjectPropertyValue_InContainer(UMGManager, widget);
 
 	ActorIds.Add(UMGManager->GetActorGuid());
 	TMap<FString, FString> savedMetadata;
-	savedMetadata.Add({ MzMetadataKeys::umgTag, umgTag});
-	savedMetadata.Add({ MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
-	savedMetadata.Add({ MzMetadataKeys::ActorGuid, UMGManager->GetActorGuid().ToString()});
+	savedMetadata.Add({ NosMetadataKeys::umgTag, umgTag});
+	savedMetadata.Add({ NosMetadataKeys::NodeColor, HEXCOLOR_Reality_Node});
+	savedMetadata.Add({ NosMetadataKeys::ActorGuid, UMGManager->GetActorGuid().ToString()});
 	SavedActorData savedData = {savedMetadata};
-	Actors.Add({ MZActorReference(UMGManager), savedData});
+	Actors.Add({ NOSActorReference(UMGManager), savedData});
 	TSharedPtr<TreeNode> mostRecentParent;
 	TSharedPtr<ActorNode> ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), UMGManager, mostRecentParent);
-	ActorNode->mzMetaData.Add(MzMetadataKeys::umgTag, umgTag);
-	ActorNode->mzMetaData.Add(MzMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
-	ActorNode->mzMetaData.Add({ MzMetadataKeys::ActorGuid, UMGManager->GetActorGuid().ToString()});
+	ActorNode->nosMetaData.Add(NosMetadataKeys::umgTag, umgTag);
+	ActorNode->nosMetaData.Add(NosMetadataKeys::NodeColor, HEXCOLOR_Reality_Node);
+	ActorNode->nosMetaData.Add({ NosMetadataKeys::ActorGuid, UMGManager->GetActorGuid().ToString()});
 
 
-	if (!MZClient->IsConnected())
+	if (!NOSClient->IsConnected())
 	{
 		return UMGManager;
 	}
 
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&mostRecentParent->Parent->Id, mz::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	return UMGManager;
 }
 
-void FMZActorManager::ClearActors()
+void FNOSActorManager::ClearActors()
 {
 	LOG("Clearing all actors");
 
-	if(MZClient)
+	if(NOSClient)
 	{
-		MZClient->ExecuteConsoleCommand(TEXT("mediaz.viewport.disableViewport 0"));
+		NOSClient->ExecuteConsoleCommand(TEXT("Nodos.viewport.disableViewport 0"));
 	}
 	
 	// Remove/destroy actors from Editor and PIE worlds.
@@ -2506,9 +2506,9 @@ void FMZActorManager::ClearActors()
 			actor->Destroy(false, false);
 	}
 	// When Play starts then actors are duplicated from Editor world into newly created PIE world.
-	if (FMZSceneTreeManager::daWorld)
+	if (FNOSSceneTreeManager::daWorld)
 	{
-		EWorldType::Type CurrentWorldType = FMZSceneTreeManager::daWorld->WorldType.GetValue();
+		EWorldType::Type CurrentWorldType = FNOSSceneTreeManager::daWorld->WorldType.GetValue();
 		if (CurrentWorldType == EWorldType::PIE)
 		{
 			// Actor was removed from PIE world. Remove him also from Editor world.
@@ -2534,7 +2534,7 @@ void FMZActorManager::ClearActors()
 	SceneTree.Clear();
 }
 
-void FMZActorManager::ReAddActorsToSceneTree()
+void FNOSActorManager::ReAddActorsToSceneTree()
 {
 	for (auto& [Actor, SavedData] : Actors)
 	{
@@ -2549,27 +2549,27 @@ void FMZActorManager::ReAddActorsToSceneTree()
 			auto ActorNode = SceneTree.AddActor(NAME_Reality_FolderName.ToString(), actor);
 			for(auto [key, value] : SavedData.Metadata)
 			{
-				ActorNode->mzMetaData.Add(key, value);
+				ActorNode->nosMetaData.Add(key, value);
 			}
 		}
 		else
 		{
-			Actor = MZActorReference();
+			Actor = NOSActorReference();
 		}
 	}
-	Actors = Actors.FilterByPredicate([](const TPair<MZActorReference, SavedActorData>& Actor)
+	Actors = Actors.FilterByPredicate([](const TPair<NOSActorReference, SavedActorData>& Actor)
 		{
 			return Actor.Key;
 		});
 }
 
-void FMZActorManager::RegisterDelegates()
+void FNOSActorManager::RegisterDelegates()
 {
-	FEditorDelegates::PreSaveWorldWithContext.AddRaw(this, &FMZActorManager::PreSave);
-	FEditorDelegates::PostSaveWorldWithContext.AddRaw(this, &FMZActorManager::PostSave);
+	FEditorDelegates::PreSaveWorldWithContext.AddRaw(this, &FNOSActorManager::PreSave);
+	FEditorDelegates::PostSaveWorldWithContext.AddRaw(this, &FNOSActorManager::PostSave);
 }
 
-void FMZActorManager::PreSave(UWorld* World, FObjectPreSaveContext Context)
+void FNOSActorManager::PreSave(UWorld* World, FObjectPreSaveContext Context)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{
@@ -2583,7 +2583,7 @@ void FMZActorManager::PreSave(UWorld* World, FObjectPreSaveContext Context)
 	}
 }
 
-void FMZActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
+void FNOSActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
 {
 	for (auto [Actor, spawnTag] : Actors)
 	{
@@ -2596,29 +2596,29 @@ void FMZActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
 	}
 }
 
-FMZPropertyManager::FMZPropertyManager()
+FNOSPropertyManager::FNOSPropertyManager()
 {
 }
 
-void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
+void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 {
 	if (!PropertiesById.Contains(PropertyId))
 	{
 		return;
 	}
-	auto MZProperty = PropertiesById.FindRef(PropertyId);
+	auto NOSProperty = PropertiesById.FindRef(PropertyId);
 
-	if(!CheckPinShowAs(MZProperty->PinCanShowAs, ShowAs))
+	if(!CheckPinShowAs(NOSProperty->PinCanShowAs, ShowAs))
 	{
 		LOG("Pin can't be shown as the wanted type!");
 		return;
 	}
-	MZTextureShareManager::GetInstance()->UpdatePinShowAs(MZProperty.Get(), ShowAs);
-	MZClient->AppServiceClient->SendPinShowAsChange((mz::fb::UUID&)MZProperty->Id, ShowAs);
+	NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NOSProperty.Get(), ShowAs);
+	NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NOSProperty->Id, ShowAs);
 	
-	MZPortal NewPortal{StringToFGuid(MZProperty->Id.ToString()) ,PropertyId};
+	NOSPortal NewPortal{StringToFGuid(NOSProperty->Id.ToString()) ,PropertyId};
 	NewPortal.DisplayName = FString("");
-	UObject* parent = MZProperty->GetRawObjectContainer();
+	UObject* parent = NOSProperty->GetRawObjectContainer();
 	FString parentName = "";
 	while (parent)
 	{
@@ -2632,61 +2632,61 @@ void FMZPropertyManager::CreatePortal(FGuid PropertyId, mz::fb::ShowAs ShowAs)
 	}
 	NewPortal.DisplayName =  parentName + NewPortal.DisplayName;
 
-	NewPortal.DisplayName += MZProperty->DisplayName;
-	NewPortal.TypeName = FString(MZProperty->TypeName.c_str());
-	NewPortal.CategoryName = MZProperty->CategoryName;
+	NewPortal.DisplayName += NOSProperty->DisplayName;
+	NewPortal.TypeName = FString(NOSProperty->TypeName.c_str());
+	NewPortal.CategoryName = NOSProperty->CategoryName;
 	NewPortal.ShowAs = ShowAs;
 
 	PortalPinsById.Add(NewPortal.Id, NewPortal);
 	PropertyToPortalPin.Add(PropertyId, NewPortal.Id);
 
-	if (!MZClient->IsConnected())
+	if (!NOSClient->IsConnected())
 	{
 		return;
 	}
 	flatbuffers::FlatBufferBuilder mb;
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal, MZProperty.Get()) };
-	auto offset = mz::CreatePartialNodeUpdateDirect(mb, (mz::fb::UUID*)&FMZClient::NodeId, mz::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal, NOSProperty.Get()) };
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<mz::PartialNodeUpdate>(buf.data());
-	MZClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
-void FMZPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container, mz::fb::ShowAs ShowAs)
+void FNOSPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container, nos::fb::ShowAs ShowAs)
 {
 	if (PropertiesByPropertyAndContainer.Contains({uproperty, Container}))
 	{
-		auto MzProperty =PropertiesByPropertyAndContainer.FindRef({uproperty, Container});
-		if(!CheckPinShowAs(MzProperty->PinCanShowAs, ShowAs))
+		auto NosProperty =PropertiesByPropertyAndContainer.FindRef({uproperty, Container});
+		if(!CheckPinShowAs(NosProperty->PinCanShowAs, ShowAs))
 		{
 			LOG("Pin can't be shown as the wanted type!");
 			return;
 		}
-		CreatePortal(MzProperty->Id, ShowAs);
+		CreatePortal(NosProperty->Id, ShowAs);
 	}
 }
 
-TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
+TSharedPtr<NOSProperty> FNOSPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
 {
-	TSharedPtr<MZProperty> MzProperty = MZPropertyFactory::CreateProperty(container, uproperty, parentCategory);
-	if (!MzProperty)
+	TSharedPtr<NOSProperty> NosProperty = NOSPropertyFactory::CreateProperty(container, uproperty, parentCategory);
+	if (!NosProperty)
 	{
 		return nullptr;
 	}
-	PropertiesById.Add(MzProperty->Id, MzProperty);
-	PropertiesByPropertyAndContainer.Add({MzProperty->Property, container}, MzProperty);
+	PropertiesById.Add(NosProperty->Id, NosProperty);
+	PropertiesByPropertyAndContainer.Add({NosProperty->Property, container}, NosProperty);
 
-	// if (MzProperty->ActorContainer)
+	// if (NosProperty->ActorContainer)
 	// {
-	// 	ActorsPropertyIds.FindOrAdd(MzProperty->ActorContainer.Get()->GetActorGuid()).Add(MzProperty->Id);
+	// 	ActorsPropertyIds.FindOrAdd(NosProperty->ActorContainer.Get()->GetActorGuid()).Add(NosProperty->Id);
 	// }
-	// else if (MzProperty->ComponentContainer)
+	// else if (NosProperty->ComponentContainer)
 	// {
-	// 	ActorsPropertyIds.FindOrAdd(MzProperty->ComponentContainer.Actor.Get()->GetActorGuid()).Add(MzProperty->Id);
+	// 	ActorsPropertyIds.FindOrAdd(NosProperty->ComponentContainer.Actor.Get()->GetActorGuid()).Add(NosProperty->Id);
 	// }
 
-	for (auto Child : MzProperty->childProperties)
+	for (auto Child : NosProperty->childProperties)
 	{
 		PropertiesById.Add(Child->Id, Child);
 		PropertiesByPropertyAndContainer.Add({Child->Property, Child->GetRawContainer()}, Child);
@@ -2701,30 +2701,30 @@ TSharedPtr<MZProperty> FMZPropertyManager::CreateProperty(UObject* container, FP
 		// }
 	}
 
-	return MzProperty;
+	return NosProperty;
 }
 
-void FMZPropertyManager::SetPropertyValue()
+void FNOSPropertyManager::SetPropertyValue()
 {
 }
 
-bool FMZPropertyManager::CheckPinShowAs(mz::fb::CanShowAs CanShowAs, mz::fb::ShowAs ShowAs)
+bool FNOSPropertyManager::CheckPinShowAs(nos::fb::CanShowAs CanShowAs, nos::fb::ShowAs ShowAs)
 {
-	if(ShowAs == mz::fb::ShowAs::INPUT_PIN)
+	if(ShowAs == nos::fb::ShowAs::INPUT_PIN)
 	{
-		return (CanShowAs == mz::fb::CanShowAs::INPUT_OUTPUT) || 
-				(CanShowAs == mz::fb::CanShowAs::INPUT_PIN_OR_PROPERTY) || 
-				(CanShowAs == mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY) || 
-				(CanShowAs == mz::fb::CanShowAs::INPUT_PIN_ONLY); 
+		return (CanShowAs == nos::fb::CanShowAs::INPUT_OUTPUT) || 
+				(CanShowAs == nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY) || 
+				(CanShowAs == nos::fb::CanShowAs::INPUT_OUTPUT_PROPERTY) || 
+				(CanShowAs == nos::fb::CanShowAs::INPUT_PIN_ONLY); 
 	}
-	if(ShowAs == mz::fb::ShowAs::OUTPUT_PIN)
+	if(ShowAs == nos::fb::ShowAs::OUTPUT_PIN)
 	{
-		return (CanShowAs == mz::fb::CanShowAs::INPUT_OUTPUT) || 
-				(CanShowAs == mz::fb::CanShowAs::OUTPUT_PIN_OR_PROPERTY) || 
-				(CanShowAs == mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY) || 
-				(CanShowAs == mz::fb::CanShowAs::OUTPUT_PIN_ONLY); 
+		return (CanShowAs == nos::fb::CanShowAs::INPUT_OUTPUT) || 
+				(CanShowAs == nos::fb::CanShowAs::OUTPUT_PIN_OR_PROPERTY) || 
+				(CanShowAs == nos::fb::CanShowAs::INPUT_OUTPUT_PROPERTY) || 
+				(CanShowAs == nos::fb::CanShowAs::OUTPUT_PIN_ONLY); 
 	}
-	if(ShowAs == mz::fb::ShowAs::PROPERTY)
+	if(ShowAs == nos::fb::ShowAs::PROPERTY)
 	{
 		// we show every pin as property to begin with, may change in the future
 		return true;
@@ -2732,17 +2732,17 @@ bool FMZPropertyManager::CheckPinShowAs(mz::fb::CanShowAs CanShowAs, mz::fb::Sho
 	return true;
 }
 
-void FMZPropertyManager::ActorDeleted(FGuid DeletedActorId)
+void FNOSPropertyManager::ActorDeleted(FGuid DeletedActorId)
 {
 }
 
-flatbuffers::Offset<mz::fb::Pin> FMZPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, MZPortal Portal, MZProperty* SourceProperty)
+flatbuffers::Offset<nos::fb::Pin> FNOSPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, NOSPortal Portal, NOSProperty* SourceProperty)
 {
 	auto SerializedMetadata = SourceProperty->SerializeMetaData(fbb);
-	return mz::fb::CreatePinDirect(fbb, (mz::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, SourceProperty->PinCanShowAs, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, SourceProperty->ReadOnly, 0, false, &SerializedMetadata, 0, mz::fb::PinContents::PortalPin, mz::fb::CreatePortalPin(fbb, (mz::fb::UUID*)&Portal.SourceId).Union(), 0, false, mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*SourceProperty->ToolTipText), TCHAR_TO_UTF8(*Portal.DisplayName));
+	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, SourceProperty->PinCanShowAs, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, SourceProperty->ReadOnly, 0, false, &SerializedMetadata, 0, nos::fb::PinContents::PortalPin, nos::fb::CreatePortalPin(fbb, (nos::fb::UUID*)&Portal.SourceId).Union(), 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*SourceProperty->ToolTipText), TCHAR_TO_UTF8(*Portal.DisplayName));
 }
 
-void FMZPropertyManager::Reset(bool ResetPortals)
+void FNOSPropertyManager::Reset(bool ResetPortals)
 {
 	if (ResetPortals)
 	{
@@ -2755,56 +2755,56 @@ void FMZPropertyManager::Reset(bool ResetPortals)
 	PropertiesByPropertyAndContainer.Empty();
 }
 
-void FMZPropertyManager::OnBeginFrame()
+void FNOSPropertyManager::OnBeginFrame()
 {
 	for (auto [id, portal] : PortalPinsById)
 	{
-		if (portal.ShowAs == mz::fb::ShowAs::OUTPUT_PIN || 
+		if (portal.ShowAs == nos::fb::ShowAs::OUTPUT_PIN || 
 		    !PropertiesById.Contains(portal.SourceId))
 		{
 			continue;
 		}
 		
-		auto MzProperty = PropertiesById.FindRef(portal.SourceId);
+		auto NosProperty = PropertiesById.FindRef(portal.SourceId);
 
-		if (portal.TypeName == "mz.fb.Texture")
+		if (portal.TypeName == "nos.fb.Texture")
 		{
-			MZTextureShareManager::GetInstance()->UpdateTexturePin(MzProperty.Get(), portal.ShowAs);
+			NOSTextureShareManager::GetInstance()->UpdateTexturePin(NosProperty.Get(), portal.ShowAs);
 			continue;
 		}
 
-		auto shouldWait = portal.ShowAs == mz::fb::ShowAs::INPUT_PIN && portal.TypeName == "mz.fb.Track";
-		auto buffer = MZClient->EventDelegates->Pop(*((mz::fb::UUID*)&MzProperty->Id), shouldWait, MZTextureShareManager::GetInstance()->FrameCounter);
+		auto shouldWait = portal.ShowAs == nos::fb::ShowAs::INPUT_PIN && portal.TypeName == "nos.fb.Track";
+		auto buffer = NOSClient->EventDelegates->Pop(*((nos::fb::UUID*)&NosProperty->Id), shouldWait, NOSTextureShareManager::GetInstance()->FrameCounter);
 		if (!buffer.IsEmpty())
 		{
-			MzProperty->SetPropValue(buffer.data(), buffer.size());
+			NosProperty->SetPropValue(buffer.data(), buffer.size());
 		}
 	}
 }
 
-void FMZPropertyManager::OnEndFrame()
+void FNOSPropertyManager::OnEndFrame()
 {
 	// TODO: copy and dirty CPU out pins
 }
 
-std::vector<flatbuffers::Offset<mz::ContextMenuItem>> ContextMenuActions::SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::ContextMenuItem>> ContextMenuActions::SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> result;
+	std::vector<flatbuffers::Offset<nos::ContextMenuItem>> result;
 	int command = 0;
 	for (auto item : ActorMenu)
 	{
-		result.push_back(mz::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
+		result.push_back(nos::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
 	}
 	return result;
 }
 
-std::vector<flatbuffers::Offset<mz::ContextMenuItem>> ContextMenuActions::SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb)
+std::vector<flatbuffers::Offset<nos::ContextMenuItem>> ContextMenuActions::SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::ContextMenuItem>> result;
+	std::vector<flatbuffers::Offset<nos::ContextMenuItem>> result;
 	int command = 0;
 	for (auto item : PortalPropertyMenu)
 	{
-		result.push_back(mz::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
+		result.push_back(nos::CreateContextMenuItemDirect(fbb, TCHAR_TO_UTF8(*item.Key), command++, 0));
 	}
 	return result;
 }
@@ -2817,9 +2817,9 @@ ContextMenuActions::ContextMenuActions()
 			actor->GetWorld()->EditorDestroyActor(actor, false);
 		});
 	ActorMenu.Add(deleteAction);
-	TPair<FString, std::function<void(class FMZSceneTreeManager*, FGuid)>> PortalDeleteAction(FString("Delete Bookmark"), [](class FMZSceneTreeManager* MZSceneTreeManager,FGuid id)
+	TPair<FString, std::function<void(class FNOSSceneTreeManager*, FGuid)>> PortalDeleteAction(FString("Delete Bookmark"), [](class FNOSSceneTreeManager* NOSSceneTreeManager,FGuid id)
 		{
-			MZSceneTreeManager->RemovePortal(id);	
+			NOSSceneTreeManager->RemovePortal(id);	
 		});
 	PortalPropertyMenu.Add(PortalDeleteAction);
 }
@@ -2831,10 +2831,10 @@ void ContextMenuActions::ExecuteActorAction(uint32 command, AActor* actor)
 		ActorMenu[command].Value(actor);
 	}
 }
-void ContextMenuActions::ExecutePortalPropertyAction(uint32 command, class FMZSceneTreeManager* MZSceneTreeManager, FGuid PortalId)
+void ContextMenuActions::ExecutePortalPropertyAction(uint32 command, class FNOSSceneTreeManager* NOSSceneTreeManager, FGuid PortalId)
 {
 	if (PortalPropertyMenu.IsValidIndex(command))
 	{
-		PortalPropertyMenu[command].Value(MZSceneTreeManager, PortalId);
+		PortalPropertyMenu[command].Value(NOSSceneTreeManager, PortalId);
 	}
 }

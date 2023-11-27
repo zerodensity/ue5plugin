@@ -2,13 +2,13 @@
 
 #include <concrt.h>
 
-class MZGPUFailSafeRunnable final : public FRunnable
+class NOSGPUFailSafeRunnable final : public FRunnable
 {
 public:
 
-	MZGPUFailSafeRunnable(struct ID3D12CommandQueue* _CmdQueue, struct ID3D12Device* Device);
+	NOSGPUFailSafeRunnable(struct ID3D12CommandQueue* _CmdQueue, struct ID3D12Device* Device);
 
-	virtual ~MZGPUFailSafeRunnable();
+	virtual ~NOSGPUFailSafeRunnable();
 
 	virtual void Stop() override;
 

@@ -4,16 +4,16 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "MZEditorTickableActor.generated.h"
+#include "NOSEditorTickableActor.generated.h"
 
 UCLASS()
-class MZCLIENT_API AMZEditorTickableActor : public AActor
+class NOSCLIENT_API ANOSEditorTickableActor : public AActor
 {
 	GENERATED_BODY()
 	
 public:	
 	// Sets default values for this actor's properties
-	AMZEditorTickableActor();
+	ANOSEditorTickableActor();
 
 protected:
 	// Called when the game starts or when spawned

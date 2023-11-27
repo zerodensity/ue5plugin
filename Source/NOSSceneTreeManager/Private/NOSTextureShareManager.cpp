@@ -1,6 +1,6 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZTextureShareManager.h"
+#include "NOSTextureShareManager.h"
 
 #include "HardwareInfo.h"
 
@@ -19,32 +19,32 @@
 #include "ID3D12DynamicRHI.h"
 #include "D3D12CommandContext.h"
 #include "RHI.h"
-#include "MZActorProperties.h"
+#include "NOSActorProperties.h"
 
-#include "MZClient.h"
+#include "NOSClient.h"
 
 #include <Builtins_generated.h>
 
-#include "MZGPUFailSafe.h"
+#include "NOSGPUFailSafe.h"
 
 
-MZTextureShareManager* MZTextureShareManager::singleton;
+NOSTextureShareManager* NOSTextureShareManager::singleton;
 
 //#define FAIL_SAFE_THREAD
 //#define DEBUG_FRAME_SYNC_LOG
 
-mzTextureInfo GetResourceInfo(MZProperty* mzprop)
+nosTextureInfo GetResourceInfo(NOSProperty* nosprop)
 {
-	UObject* obj = mzprop->GetRawObjectContainer();
-	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
+	UObject* obj = nosprop->GetRawObjectContainer();
+	FObjectProperty* prop = CastField<FObjectProperty>(nosprop->Property);
 
 	if (!obj)
 	{
-		return mzTextureInfo{
+		return nosTextureInfo{
 			.Width = 1600,
 			.Height = 900,
-			.Format = mzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
-			.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST) 
+			.Format = nosFormat::NOS_FORMAT_R16G16B16A16_SFLOAT,
+			.Usage = (nosImageUsage)(NOS_IMAGE_USAGE_RENDER_TARGET | NOS_IMAGE_USAGE_SAMPLED | NOS_IMAGE_USAGE_TRANSFER_SRC | NOS_IMAGE_USAGE_TRANSFER_DST) 
 		};
 	}
 
@@ -52,86 +52,86 @@ mzTextureInfo GetResourceInfo(MZProperty* mzprop)
 
 	if (!trt2d)
 	{
-		return mzTextureInfo{
+		return nosTextureInfo{
 			.Width = 1600,
 			.Height = 900,
-			.Format = mzFormat::MZ_FORMAT_R16G16B16A16_SFLOAT,
-			.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST)
+			.Format = nosFormat::NOS_FORMAT_R16G16B16A16_SFLOAT,
+			.Usage = (nosImageUsage)(NOS_IMAGE_USAGE_RENDER_TARGET | NOS_IMAGE_USAGE_SAMPLED | NOS_IMAGE_USAGE_TRANSFER_SRC | NOS_IMAGE_USAGE_TRANSFER_DST)
 		};
 	}
 
-	mzTextureInfo info = {
+	nosTextureInfo info = {
 		.Width = (uint32_t)trt2d->GetSurfaceWidth(),
 		.Height = (uint32_t)trt2d->GetSurfaceHeight(),
-		.Usage = (mzImageUsage)(MZ_IMAGE_USAGE_RENDER_TARGET | MZ_IMAGE_USAGE_SAMPLED | MZ_IMAGE_USAGE_TRANSFER_SRC | MZ_IMAGE_USAGE_TRANSFER_DST),
+		.Usage = (nosImageUsage)(NOS_IMAGE_USAGE_RENDER_TARGET | NOS_IMAGE_USAGE_SAMPLED | NOS_IMAGE_USAGE_TRANSFER_SRC | NOS_IMAGE_USAGE_TRANSFER_DST),
 	};
 
 	switch (trt2d->RenderTargetFormat)
 	{
 	case ETextureRenderTargetFormat::RTF_R8:
-		info.Format = MZ_FORMAT_R8_UNORM;
+		info.Format = NOS_FORMAT_R8_UNORM;
 		break;
 	case ETextureRenderTargetFormat::RTF_RG8:
-		info.Format = MZ_FORMAT_R8G8_UNORM;
+		info.Format = NOS_FORMAT_R8G8_UNORM;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA8:
-		info.Format = MZ_FORMAT_R8G8B8A8_UNORM;
+		info.Format = NOS_FORMAT_R8G8B8A8_UNORM;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA8_SRGB:
-		info.Format = MZ_FORMAT_R8G8B8A8_SRGB;
+		info.Format = NOS_FORMAT_R8G8B8A8_SRGB;
 		break;
 
 	case ETextureRenderTargetFormat::RTF_R16f:
-		info.Format = MZ_FORMAT_R16_SFLOAT;
+		info.Format = NOS_FORMAT_R16_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RG16f:
-		info.Format = MZ_FORMAT_R16G16_SFLOAT;
+		info.Format = NOS_FORMAT_R16G16_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA16f:
-		info.Format = MZ_FORMAT_R16G16B16A16_SFLOAT;
+		info.Format = NOS_FORMAT_R16G16B16A16_SFLOAT;
 		break;
 
 	case ETextureRenderTargetFormat::RTF_R32f:
-		info.Format = MZ_FORMAT_R32_SFLOAT;
+		info.Format = NOS_FORMAT_R32_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RG32f:
-		info.Format = MZ_FORMAT_R32G32_SFLOAT;
+		info.Format = NOS_FORMAT_R32G32_SFLOAT;
 		break;
 	case ETextureRenderTargetFormat::RTF_RGBA32f:
-		info.Format = MZ_FORMAT_R32G32B32A32_SFLOAT;
+		info.Format = NOS_FORMAT_R32G32B32A32_SFLOAT;
 		break;
 
 	case ETextureRenderTargetFormat::RTF_RGB10A2:
-		info.Format = MZ_FORMAT_A2R10G10B10_UNORM_PACK32;
+		info.Format = NOS_FORMAT_A2R10G10B10_UNORM_PACK32;
 		break;
 	}
 
 	return info;
 }
 
-MZTextureShareManager::MZTextureShareManager()
+NOSTextureShareManager::NOSTextureShareManager()
 {
 	Initiate();
 }
 
-MZTextureShareManager* MZTextureShareManager::GetInstance()
+NOSTextureShareManager* NOSTextureShareManager::GetInstance()
 {
 	if (singleton == nullptr) {
-		singleton = new MZTextureShareManager();
+		singleton = new NOSTextureShareManager();
 	}
 	return singleton;
 }
 
-MZTextureShareManager::~MZTextureShareManager()
+NOSTextureShareManager::~NOSTextureShareManager()
 {
 }
 
-mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
+nos::fb::TTexture NOSTextureShareManager::AddTexturePin(NOSProperty* nosprop)
 {
 	ResourceInfo copyInfo;
-	mz::fb::TTexture texture;
+	nos::fb::TTexture texture;
 
-	if(!CreateTextureResource(mzprop, texture, copyInfo))
+	if(!CreateTextureResource(nosprop, texture, copyInfo))
 	{
 		return texture;
 	}
@@ -139,27 +139,27 @@ mz::fb::TTexture MZTextureShareManager::AddTexturePin(MZProperty* mzprop)
 
 	{
 		//start property pins as output pins
-		Copies.Add(mzprop, copyInfo);
+		Copies.Add(nosprop, copyInfo);
 	}
 	return texture;
 }
 
-bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TTexture& Texture, ResourceInfo& Resource)
+bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::fb::TTexture& Texture, ResourceInfo& Resource)
 	{
-	mzTextureInfo info = GetResourceInfo(mzprop);
-	UObject* obj = mzprop->GetRawObjectContainer();
-	FObjectProperty* prop = CastField<FObjectProperty>(mzprop->Property);
+	nosTextureInfo info = GetResourceInfo(nosprop);
+	UObject* obj = nosprop->GetRawObjectContainer();
+	FObjectProperty* prop = CastField<FObjectProperty>(nosprop->Property);
 	UTextureRenderTarget2D* trt2d = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 	if(!trt2d)
 	{
-		mzprop->IsOrphan = true;
-		mzprop->OrphanMessage = "No texture resource bound to property!";
+		nosprop->IsOrphan = true;
+		nosprop->OrphanMessage = "No texture resource bound to property!";
 		return false;
 	}
 	
-	UTextureRenderTarget2D* NewRenderTarget2D = NewObject<UTextureRenderTarget2D>(GetTransientPackage(), *(mzprop->DisplayName +FGuid::NewGuid().ToString()), RF_MarkAsRootSet);
+	UTextureRenderTarget2D* NewRenderTarget2D = NewObject<UTextureRenderTarget2D>(GetTransientPackage(), *(nosprop->DisplayName +FGuid::NewGuid().ToString()), RF_MarkAsRootSet);
 	check(NewRenderTarget2D);
-	NewRenderTarget2D->Rename(*(mzprop->DisplayName +FGuid::NewGuid().ToString()));
+	NewRenderTarget2D->Rename(*(nosprop->DisplayName +FGuid::NewGuid().ToString()));
 	NewRenderTarget2D->RenderTargetFormat = trt2d->RenderTargetFormat;
 	NewRenderTarget2D->ClearColor = trt2d->ClearColor;
 	NewRenderTarget2D->bAutoGenerateMips = 0;
@@ -180,16 +180,16 @@ bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TT
 	FD3D12Texture* Result((FD3D12Texture*)RHITexture->GetTextureBaseRHI());
 	
 	ID3D12Resource* DXResource = Result->GetResource()->GetResource();
-    DXResource->SetName(*mzprop->DisplayName);
+    DXResource->SetName(*nosprop->DisplayName);
 	
     HANDLE handle;
-    MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(DXResource, 0, GENERIC_ALL, 0, &handle));
+    NOS_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(DXResource, 0, GENERIC_ALL, 0, &handle));
 	
-	Texture.size = mz::fb::SizePreset::CUSTOM;
+	Texture.size = nos::fb::SizePreset::CUSTOM;
 	Texture.width = info.Width;
 	Texture.height = info.Height;
-	Texture.format = mz::fb::Format(info.Format);
-	Texture.usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
+	Texture.format = nos::fb::Format(info.Format);
+	Texture.usage = nos::fb::ImageUsage(info.Usage) | nos::fb::ImageUsage::SAMPLED;
 	Texture.type = 0x00000040;
 	Texture.memory = (u64)handle;
 	Texture.pid = FPlatformProcess::GetCurrentProcessId();
@@ -199,23 +199,23 @@ bool MZTextureShareManager::CreateTextureResource(MZProperty* mzprop, mz::fb::TT
 	Texture.handle = 0;
 	Texture.semaphore = 0;
 
-	Resource.SrcMzp = mzprop;
+	Resource.SrcNosp = nosprop;
 	Resource.DstResource = NewRenderTarget2D;
-	Resource.ShowAs = mzprop->PinShowAs;
+	Resource.ShowAs = nosprop->PinShowAs;
 	return true;
 }
 
 
-void MZTextureShareManager::UpdateTexturePin(MZProperty* mzprop, mz::fb::ShowAs RealShowAs)
+void NOSTextureShareManager::UpdateTexturePin(NOSProperty* nosprop, nos::fb::ShowAs RealShowAs)
 {
-	UpdatePinShowAs(mzprop, RealShowAs);
+	UpdatePinShowAs(nosprop, RealShowAs);
 }
 
-bool MZTextureShareManager::UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTexture& Texture)
+bool NOSTextureShareManager::UpdateTexturePin(NOSProperty* NosProperty, nos::fb::TTexture& Texture)
 {
-	mzTextureInfo info = GetResourceInfo(MzProperty);
+	nosTextureInfo info = GetResourceInfo(NosProperty);
 
-	auto resourceInfo = Copies.Find(MzProperty);
+	auto resourceInfo = Copies.Find(NosProperty);
 	if (resourceInfo == nullptr)
 		return false;
 
@@ -224,8 +224,8 @@ bool MZTextureShareManager::UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTe
 
 	bool changed = false;
 
-	mz::fb::Format fmt = mz::fb::Format(info.Format);
-	mz::fb::ImageUsage usage = mz::fb::ImageUsage(info.Usage) | mz::fb::ImageUsage::SAMPLED;
+	nos::fb::Format fmt = nos::fb::Format(info.Format);
+	nos::fb::ImageUsage usage = nos::fb::ImageUsage(info.Usage) | nos::fb::ImageUsage::SAMPLED;
 
 	if (Texture.width != info.Width ||
 		Texture.height != info.Height ||
@@ -235,29 +235,29 @@ bool MZTextureShareManager::UpdateTexturePin(MZProperty* MzProperty, mz::fb::TTe
 		changed = true;
 		
 		ResourcesToDelete.Enqueue({resourceInfo->DstResource, GFrameCounter});
-		mz::fb::ShowAs tmp = resourceInfo->ShowAs;
-		if(!CreateTextureResource(MzProperty, Texture, *resourceInfo))
+		nos::fb::ShowAs tmp = resourceInfo->ShowAs;
+		if(!CreateTextureResource(NosProperty, Texture, *resourceInfo))
 		{
 			return changed;
 		}
 		
 		resourceInfo->ShowAs = tmp;
-		Copies[MzProperty] = *resourceInfo;
+		Copies[NosProperty] = *resourceInfo;
 	}
 
 	return changed;
 }
 
-void MZTextureShareManager::UpdatePinShowAs(MZProperty* MzProperty, mz::fb::ShowAs NewShowAs)
+void NOSTextureShareManager::UpdatePinShowAs(NOSProperty* NosProperty, nos::fb::ShowAs NewShowAs)
 {
-	if(Copies.Contains(MzProperty))
+	if(Copies.Contains(NosProperty))
 	{
-		auto resourceInfo = Copies.Find(MzProperty);
+		auto resourceInfo = Copies.Find(NosProperty);
 		resourceInfo->ShowAs = NewShowAs;
 	}
 }
 
-void MZTextureShareManager::TextureDestroyed(MZProperty* textureProp)
+void NOSTextureShareManager::TextureDestroyed(NOSProperty* textureProp)
 {
 	Copies.Remove(textureProp);
 	
@@ -288,13 +288,13 @@ static bool ImportSharedFence(uint64_t pid, HANDLE handle, ID3D12Device* pDevice
        return true;
 }
 
-void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTarget2D*, ResourceInfo>& FilteredCopies)
+void FilterCopies(nos::fb::ShowAs FilterShowAs, TMap<NOSProperty*, ResourceInfo>& Copies, TMap<UTextureRenderTarget2D*, ResourceInfo>& FilteredCopies)
 {
-	for (auto [mzprop, info] : Copies)
+	for (auto [nosprop, info] : Copies)
 	{
-		UObject* obj = mzprop->GetRawObjectContainer();
+		UObject* obj = nosprop->GetRawObjectContainer();
 		if (!obj) continue;
-		auto prop = CastField<FObjectProperty>(mzprop->Property);
+		auto prop = CastField<FObjectProperty>(nosprop->Property);
 		if (!prop) continue;
 		auto URT = Cast<UTextureRenderTarget2D>(prop->GetObjectPropertyValue(prop->ContainerPtrToValuePtr<UTextureRenderTarget2D>(obj)));
 		if (!URT) continue;
@@ -303,31 +303,31 @@ void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& 
 		 {
 		 	//todo texture is changed update it
 		 	
-			const mz::fb::Texture* tex = flatbuffers::GetRoot<mz::fb::Texture>(mzprop->data.data());
-			mz::fb::TTexture texture;
+			const nos::fb::Texture* tex = flatbuffers::GetRoot<nos::fb::Texture>(nosprop->data.data());
+			nos::fb::TTexture texture;
 			tex->UnPackTo(&texture);
 
-		 	auto TextureShareManager = MZTextureShareManager::GetInstance();
-			if (TextureShareManager->UpdateTexturePin(mzprop, texture))
+		 	auto TextureShareManager = NOSTextureShareManager::GetInstance();
+			if (TextureShareManager->UpdateTexturePin(nosprop, texture))
 			{
-				// data = mz::Buffer::From(texture);
+				// data = nos::Buffer::From(texture);
 				flatbuffers::FlatBufferBuilder fb;
-				auto offset = mz::fb::CreateTexture(fb, &texture);
+				auto offset = nos::fb::CreateTexture(fb, &texture);
 				fb.Finish(offset);
-				mz::Buffer buffer = fb.Release();
-				mzprop->data = buffer;
+				nos::Buffer buffer = fb.Release();
+				nosprop->data = buffer;
 				
-				if (!TextureShareManager->MZClient->IsConnected() || mzprop->data.empty())
+				if (!TextureShareManager->NOSClient->IsConnected() || nosprop->data.empty())
 				{
 					return;
 				}
 				
 				flatbuffers::FlatBufferBuilder mb;
-				auto offset2 = mz::CreatePinValueChangedDirect(mb, (mz::fb::UUID*)&mzprop->Id, &mzprop->data);
+				auto offset2 = nos::CreatePinValueChangedDirect(mb, (nos::fb::UUID*)&nosprop->Id, &nosprop->data);
 				mb.Finish(offset2);
 				auto buf = mb.Release();
-				auto root = flatbuffers::GetRoot<mz::PinValueChanged>(buf.data());
-				TextureShareManager->MZClient->AppServiceClient->NotifyPinValueChanged(*root);
+				auto root = flatbuffers::GetRoot<nos::PinValueChanged>(buf.data());
+				TextureShareManager->NOSClient->AppServiceClient->NotifyPinValueChanged(*root);
 			}
 		 }
 			
@@ -338,12 +338,12 @@ void FilterCopies(mz::fb::ShowAs FilterShowAs, TMap<MZProperty*, ResourceInfo>& 
 	}
 }
 
-void MZTextureShareManager::SetupFences(FRHICommandListImmediate& RHICmdList, mz::fb::ShowAs CopyShowAs,
+void NOSTextureShareManager::SetupFences(FRHICommandListImmediate& RHICmdList, nos::fb::ShowAs CopyShowAs,
 	TMap<ID3D12Fence*, u64>& SignalGroup, uint64_t frameNumber)
 {
-	if(ExecutionState == mz::app::ExecutionState::SYNCED)
+	if(ExecutionState == nos::app::ExecutionState::SYNCED)
 	{
-		if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
+		if(CopyShowAs == nos::fb::ShowAs::INPUT_PIN)
 		{
 			RHICmdList.EnqueueLambda([CmdQueue = CmdQueue,InputFence = InputFence, frameNumber](FRHICommandList& ExecutingCmdList)
 			{
@@ -356,7 +356,7 @@ void MZTextureShareManager::SetupFences(FRHICommandListImmediate& RHICmdList, mz
 #endif
 			
 		}
-		else if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
+		else if (CopyShowAs == nos::fb::ShowAs::OUTPUT_PIN)
 		{
 			RHICmdList.EnqueueLambda([CmdQueue = CmdQueue, OutputFence = OutputFence, frameNumber = frameNumber](FRHICommandList& ExecutingCmdList)
 			{
@@ -372,7 +372,7 @@ void MZTextureShareManager::SetupFences(FRHICommandListImmediate& RHICmdList, mz
 	}
 }
 
-void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProperty*, ResourceInfo>& CopyMap)
+void NOSTextureShareManager::ProcessCopies(nos::fb::ShowAs CopyShowAs, TMap<NOSProperty*, ResourceInfo>& CopyMap)
 {
 	{
 		if (CopyMap.IsEmpty())
@@ -384,17 +384,17 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 	FilterCopies(CopyShowAs, CopyMap, CopiesFiltered);
 
 	//auto cmdData = GetNewCommandList();
-	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+	ENQUEUE_RENDER_COMMAND(FNOSClient_CopyOnTick)(
 		[this, CopyShowAs, CopiesFiltered, frameNumber = FrameCounter](FRHICommandListImmediate& RHICmdList)
 		{
-			if (CopyShowAs == mz::fb::ShowAs::OUTPUT_PIN)
+			if (CopyShowAs == nos::fb::ShowAs::OUTPUT_PIN)
 			{
-				FString EventLabel("MediaZ Output Copies");
+				FString EventLabel("Nodos Output Copies");
 				RHICmdList.PushEvent(*EventLabel, FColor::Red);
 			}
 			else
 			{
-				FString EventLabel("MediaZ Input Copies");
+				FString EventLabel("Nodos Input Copies");
 				RHICmdList.PushEvent(*EventLabel, FColor::Red);
 			}
 			TMap<ID3D12Fence*, u64> SignalGroup;
@@ -405,7 +405,7 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 				CopyInfo.Size = FIntVector(pin.DstResource->SizeX, pin.DstResource->SizeY, 1);
 				FRHITexture* dst = pin.DstResource->GetRenderTargetResource()->GetRenderTargetTexture();
 				FRHITexture* src = URT->GetRenderTargetResource()->GetRenderTargetTexture();
-				if(CopyShowAs == mz::fb::ShowAs::INPUT_PIN)
+				if(CopyShowAs == nos::fb::ShowAs::INPUT_PIN)
 				{
 					Swap(dst, src);
 				}
@@ -422,14 +422,14 @@ void MZTextureShareManager::ProcessCopies(mz::fb::ShowAs CopyShowAs, TMap<MZProp
 		});
 }
 
-void MZTextureShareManager::OnBeginFrame()
+void NOSTextureShareManager::OnBeginFrame()
 {
-	ProcessCopies(mz::fb::ShowAs::INPUT_PIN, Copies);
+	ProcessCopies(nos::fb::ShowAs::INPUT_PIN, Copies);
 }
 
-void MZTextureShareManager::OnEndFrame()
+void NOSTextureShareManager::OnEndFrame()
 {
-	ProcessCopies(mz::fb::ShowAs::OUTPUT_PIN, Copies);
+	ProcessCopies(nos::fb::ShowAs::OUTPUT_PIN, Copies);
 	FrameCounter++;
 	while(!ResourcesToDelete.IsEmpty())
 	{
@@ -447,29 +447,29 @@ void MZTextureShareManager::OnEndFrame()
 			break;
 		}
 	}
-	// ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+	// ENQUEUE_RENDER_COMMAND(FNOSClient_CopyOnTick)(
 	// 	[this, FrameCount = GFrameCounter](FRHICommandListImmediate& RHICmdList)
 	// 	{
 	// 	});
 }
 
-bool MZTextureShareManager::SwitchStateToSynced()
+bool NOSTextureShareManager::SwitchStateToSynced()
 {
 	FScopeLock Lock(&CriticalSectionState);
 	RenewSemaphores();
-	ENQUEUE_RENDER_COMMAND(FMZClient_CopyOnTick)(
+	ENQUEUE_RENDER_COMMAND(FNOSClient_CopyOnTick)(
 		[this](FRHICommandListImmediate& RHICmdList)
 		{
-			ExecutionState = mz::app::ExecutionState::SYNCED;
+			ExecutionState = nos::app::ExecutionState::SYNCED;
 		});
 
 	return true;
 }
 
-void MZTextureShareManager::SwitchStateToIdle_GRPCThread(u64 LastFrameNumber)
+void NOSTextureShareManager::SwitchStateToIdle_GRPCThread(u64 LastFrameNumber)
 {
 	FScopeLock Lock(&CriticalSectionState);
-	ExecutionState = mz::app::ExecutionState::IDLE;
+	ExecutionState = nos::app::ExecutionState::IDLE;
 	for(int i = 0; i < 2; i++)
 	{
 		if (InputFence && OutputFence)
@@ -482,13 +482,13 @@ void MZTextureShareManager::SwitchStateToIdle_GRPCThread(u64 LastFrameNumber)
 	FrameCounter = 0;
 }
 
-void MZTextureShareManager::Reset()
+void NOSTextureShareManager::Reset()
 {
 	Copies.Empty();
 	PendingCopyQueue.Empty();
 }
 
-void MZTextureShareManager::Initiate()
+void NOSTextureShareManager::Initiate()
 {
 	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
 	if ("D3D12" != hwinfo)
@@ -496,7 +496,7 @@ void MZTextureShareManager::Initiate()
 		return;
 	}
 
-	MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
+	NOSClient = &FModuleManager::LoadModuleChecked<FNOSClient>("NOSClient");
 	
 	// Create DX resources
 	Dev = (ID3D12Device*)GetID3D12DynamicRHI()->RHIGetNativeDevice();
@@ -505,8 +505,8 @@ void MZTextureShareManager::Initiate()
 	
 	
 #ifdef FAIL_SAFE_THREAD 
-			FailSafeRunnable = new MZGPUFailSafeRunnable(CmdQueue, Dev);
-			FailSafeThread = FRunnableThread::Create(FailSafeRunnable, TEXT("MZGPUFailSafeThread"));
+			FailSafeRunnable = new NOSGPUFailSafeRunnable(CmdQueue, Dev);
+			FailSafeThread = FRunnableThread::Create(FailSafeRunnable, TEXT("NOSGPUFailSafeThread"));
 
 			FCoreDelegates::OnEnginePreExit.AddLambda([this]()
 			{
@@ -521,7 +521,7 @@ void MZTextureShareManager::Initiate()
 	RenewSemaphores();
 }
 
-void MZTextureShareManager::RenewSemaphores()
+void NOSTextureShareManager::RenewSemaphores()
 {
 	if (InputFence)
 	{
@@ -541,8 +541,8 @@ void MZTextureShareManager::RenewSemaphores()
 	
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&InputFence));
 	Dev->CreateFence(0, D3D12_FENCE_FLAG_SHARED, IID_PPV_ARGS(&OutputFence));
-	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(InputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.InputSemaphore));
-	MZ_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(OutputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.OutputSemaphore));
+	NOS_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(InputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.InputSemaphore));
+	NOS_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(OutputFence, 0, GENERIC_ALL, 0, &SyncSemaphoresExportHandles.OutputSemaphore));
 }
 
 	

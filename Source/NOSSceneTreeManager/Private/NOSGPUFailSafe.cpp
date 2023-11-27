@@ -1,24 +1,24 @@
-#include "MZGPUFailSafe.h"
-#include "MZTextureShareManager.h"
-#include "MZSceneTreeManager.h"
+#include "NOSGPUFailSafe.h"
+#include "NOSTextureShareManager.h"
+#include "NOSSceneTreeManager.h"
 
-MZGPUFailSafeRunnable::MZGPUFailSafeRunnable(ID3D12CommandQueue* _CmdQueue, ID3D12Device* Device) : CmdQueue(_CmdQueue)
+NOSGPUFailSafeRunnable::NOSGPUFailSafeRunnable(ID3D12CommandQueue* _CmdQueue, ID3D12Device* Device) : CmdQueue(_CmdQueue)
 {
 	Device->CreateFence(0, D3D12_FENCE_FLAG_NONE, IID_PPV_ARGS(&Fence));
 	Event = CreateEventA(0, 0, 0, 0);
 }
 
-MZGPUFailSafeRunnable::~MZGPUFailSafeRunnable()
+NOSGPUFailSafeRunnable::~NOSGPUFailSafeRunnable()
 {
 	bExit = true;
 }
 
-void MZGPUFailSafeRunnable::Stop()
+void NOSGPUFailSafeRunnable::Stop()
 {
 	bExit = true;
 }
 
-uint32 MZGPUFailSafeRunnable::Run()
+uint32 NOSGPUFailSafeRunnable::Run()
 {
 	while (!bExit)
 	{
@@ -31,12 +31,12 @@ uint32 MZGPUFailSafeRunnable::Run()
 			if(WaitForSingleObject(Event, 2000) == WAIT_TIMEOUT)
 			{
 				UE_LOG(LogTemp, Error, TEXT("GPU 2 sec timeout, trying to recover shortly..."));
-				auto MZSceneTreeManager = &FModuleManager::LoadModuleChecked<FMZSceneTreeManager>("MZSceneTreeManager");
-				MZSceneTreeManager->ExecutionState = mz::app::ExecutionState::IDLE; 
-				auto TextureManager = MZTextureShareManager::GetInstance();
+				auto NOSSceneTreeManager = &FModuleManager::LoadModuleChecked<FNOSSceneTreeManager>("NOSSceneTreeManager");
+				NOSSceneTreeManager->ExecutionState = nos::app::ExecutionState::IDLE; 
+				auto TextureManager = NOSTextureShareManager::GetInstance();
 				if(TextureManager->InputFence && TextureManager->OutputFence)
 				{
-					TextureManager->ExecutionState = mz::app::ExecutionState::IDLE;
+					TextureManager->ExecutionState = nos::app::ExecutionState::IDLE;
 					for(int i = 0; i < 5; i++)
 					{
 						TextureManager->InputFence->Signal(UINT64_MAX);
@@ -44,14 +44,14 @@ uint32 MZGPUFailSafeRunnable::Run()
 						FPlatformProcess::Sleep(0.2);
 					}
 				}
-				if(MZSceneTreeManager->MZClient)
+				if(NOSSceneTreeManager->NOSClient)
 				{
 					flatbuffers::FlatBufferBuilder mb;
-					auto offset = mz::CreateAppEventOffset(mb ,mz::app::CreateRecoverSync(mb, (mz::fb::UUID*)&FMZClient::NodeId));
+					auto offset = nos::CreateAppEventOffset(mb ,nos::app::CreateRecoverSync(mb, (nos::fb::UUID*)&FNOSClient::NodeId));
 					mb.Finish(offset);
 					auto buf = mb.Release();
-					auto root = flatbuffers::GetRoot<mz::app::AppEvent>(buf.data());
-					MZSceneTreeManager->MZClient->AppServiceClient->Send(*root);
+					auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+					NOSSceneTreeManager->NOSClient->AppServiceClient->Send(*root);
 				}
 			}
 			else

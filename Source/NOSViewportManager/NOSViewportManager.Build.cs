@@ -8,9 +8,9 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZViewportManager : ModuleRules
+public class NOSViewportManager : ModuleRules
 {
-	public MZViewportManager(ReadOnlyTargetRules Target) : base(Target)
+	public NOSViewportManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
 		{

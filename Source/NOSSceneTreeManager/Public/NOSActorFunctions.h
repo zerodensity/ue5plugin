@@ -3,11 +3,11 @@
  */
 
 #pragma once
-#include "MZActorProperties.h"
+#include "NOSActorProperties.h"
 
-struct MZSCENETREEMANAGER_API MZFunction
+struct NOSSCENETREEMANAGER_API NOSFunction
 {
-	MZFunction(UObject* container, UFunction* function);
+	NOSFunction(UObject* container, UFunction* function);
 
 	UFunction* Function;
 	UObject* Container;
@@ -16,25 +16,25 @@ struct MZSCENETREEMANAGER_API MZFunction
 	FString CategoryName;
 	FGuid Id;
 	uint8* Parameters = nullptr;
-	std::vector<TSharedPtr<MZProperty>> Properties;
-	std::vector<TSharedPtr<MZProperty>> OutProperties;
+	std::vector<TSharedPtr<NOSProperty>> Properties;
+	std::vector<TSharedPtr<NOSProperty>> OutProperties;
 
-	flatbuffers::Offset<mz::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
+	flatbuffers::Offset<nos::fb::Node> Serialize(flatbuffers::FlatBufferBuilder& fbb);
 
 	void Invoke();
 };
 
-struct MZSCENETREEMANAGER_API MZCustomFunction
+struct NOSSCENETREEMANAGER_API NOSCustomFunction
 {
 	FGuid Id;
 	std::function<void(TMap<FGuid, std::vector<uint8>> pins)> Function;
 	TMap<FGuid, std::string> Params;
-	std::function<flatbuffers::Offset<mz::fb::Node>(flatbuffers::FlatBufferBuilder& fbb)> Serialize;
+	std::function<flatbuffers::Offset<nos::fb::Node>(flatbuffers::FlatBufferBuilder& fbb)> Serialize;
 };
 
-struct MZSCENETREEMANAGER_API MZSpawnActorFunctionPinIds
+struct NOSSCENETREEMANAGER_API NOSSpawnActorFunctionPinIds
 {
-	MZSpawnActorFunctionPinIds(FString UniqueFunctionName) : FunctionName(UniqueFunctionName)
+	NOSSpawnActorFunctionPinIds(FString UniqueFunctionName) : FunctionName(UniqueFunctionName)
 	{
 		ActorPinId = StringToFGuid(FunctionName + "Actor List");
 		SpawnToWorldCoordsPinId = StringToFGuid(FunctionName + "Spawn To World Coordinates");
@@ -51,14 +51,14 @@ struct MZSCENETREEMANAGER_API MZSpawnActorFunctionPinIds
 	FGuid SpawnScalePinId;
 };
 
-struct MZSCENETREEMANAGER_API MZSpawnActorParameters
+struct NOSSCENETREEMANAGER_API NOSSpawnActorParameters
 {
 	bool SpawnActorToWorldCoords = false;
 	FTransform SpawnTransform = FTransform::Identity;
 };
 
-void MZSCENETREEMANAGER_API FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
-                                                                std::vector<flatbuffers::Offset<mz::fb::Pin>>&SpawnPins,
-                                                                MZSpawnActorFunctionPinIds const& PinIds);
+void NOSSCENETREEMANAGER_API FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
+                                                                std::vector<flatbuffers::Offset<nos::fb::Pin>>&SpawnPins,
+                                                                NOSSpawnActorFunctionPinIds const& PinIds);
 
-MZSpawnActorParameters MZSCENETREEMANAGER_API GetSpawnActorParameters(TMap<FGuid, std::vector<uint8>> const& Pins, MZSpawnActorFunctionPinIds const& PinIds);
+NOSSpawnActorParameters NOSSCENETREEMANAGER_API GetSpawnActorParameters(TMap<FGuid, std::vector<uint8>> const& Pins, NOSSpawnActorFunctionPinIds const& PinIds);

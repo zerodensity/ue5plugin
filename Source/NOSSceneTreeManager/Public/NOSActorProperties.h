@@ -8,29 +8,29 @@
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
 #include "AppEvents_generated.h"
-#include "MZTrack.h"
-#include "MZClient.h"
+#include "NOSTrack.h"
+#include "NOSClient.h"
 
-namespace MzMetadataKeys
+namespace NosMetadataKeys
 {
-#define MZ_METADATA_KEY(key) inline const char* key = #key;
-		MZ_METADATA_KEY(DoNotAttachToRealityParent);
-		MZ_METADATA_KEY(spawnTag);
-		MZ_METADATA_KEY(ActorGuid);
-		MZ_METADATA_KEY(umgTag);
-		MZ_METADATA_KEY(PropertyPath);
-		MZ_METADATA_KEY(ContainerPath);
-		MZ_METADATA_KEY(component);
-		MZ_METADATA_KEY(actorId);
-		MZ_METADATA_KEY(EditConditionPropertyId);
-		MZ_METADATA_KEY(PinHidden);
-		MZ_METADATA_KEY(PinnedCategories);
-		MZ_METADATA_KEY(NodeColor);
+#define NOS_METADATA_KEY(key) inline const char* key = #key;
+		NOS_METADATA_KEY(DoNotAttachToRealityParent);
+		NOS_METADATA_KEY(spawnTag);
+		NOS_METADATA_KEY(ActorGuid);
+		NOS_METADATA_KEY(umgTag);
+		NOS_METADATA_KEY(PropertyPath);
+		NOS_METADATA_KEY(ContainerPath);
+		NOS_METADATA_KEY(component);
+		NOS_METADATA_KEY(actorId);
+		NOS_METADATA_KEY(EditConditionPropertyId);
+		NOS_METADATA_KEY(PinHidden);
+		NOS_METADATA_KEY(PinnedCategories);
+		NOS_METADATA_KEY(NodeColor);
 };
 
 inline FGuid StringToFGuid(FString string)
 {
-	string = FMZClient::AppKey + string;
+	string = FNOSClient::AppKey + string;
 	FString HexHash = FMD5::HashAnsiString(*string);
 	TArray<uint8> BinKey;
 	BinKey.AddUninitialized(HexHash.Len() / 2);
@@ -43,13 +43,13 @@ inline FGuid StringToFGuid(FString string)
 	return id;
 }
 
-class MZStructProperty;
+class NOSStructProperty;
 
-class MZSCENETREEMANAGER_API MZActorReference
+class NOSSCENETREEMANAGER_API NOSActorReference
 {
 public:
-	MZActorReference(TObjectPtr<AActor> actor);
-	MZActorReference();
+	NOSActorReference(TObjectPtr<AActor> actor);
+	NOSActorReference();
 	
 	AActor* Get();
 	
@@ -75,12 +75,12 @@ private:
 	
 };
 
-class MZSCENETREEMANAGER_API MZComponentReference
+class NOSSCENETREEMANAGER_API NOSComponentReference
 {
 
 public:
-	MZComponentReference(TObjectPtr<UActorComponent> actorComponent);
-	MZComponentReference();
+	NOSComponentReference(TObjectPtr<UActorComponent> actorComponent);
+	NOSComponentReference();
 
 	UActorComponent* Get();
 	AActor* GetOwnerActor();
@@ -95,7 +95,7 @@ public:
 	}
 
 	bool UpdateActualComponentPointer();
-	MZActorReference Actor;
+	NOSActorReference Actor;
 	bool InvalidReference = false;
 
 private:
@@ -108,10 +108,10 @@ private:
 
 };
 
-class MZSCENETREEMANAGER_API MZProperty : public TSharedFromThis<MZProperty>
+class NOSSCENETREEMANAGER_API NOSProperty : public TSharedFromThis<NOSProperty>
 {
 public:
-	MZProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	NOSProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr);
 
 	void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 	UObject* GetRawObjectContainer();
@@ -120,14 +120,14 @@ public:
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr);
 	//std::vector<uint8> GetValue(uint8* customContainer = nullptr);
 	void MarkState();
-	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
-	std::vector<flatbuffers::Offset<mz::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
-	virtual flatbuffers::Offset<mz::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) {return 0;};
+	virtual flatbuffers::Offset<nos::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb);
+	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb);
+	virtual flatbuffers::Offset<nos::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) {return 0;};
 	
 	FProperty* Property;
 
-	MZActorReference ActorContainer;
-	MZComponentReference ComponentContainer;
+	NOSActorReference ActorContainer;
+	NOSComponentReference ComponentContainer;
 	UObject* ObjectPtr = nullptr;
 	uint8* StructPtr = nullptr;
 
@@ -145,18 +145,18 @@ public:
 	FString OrphanMessage = " ";
 	std::string TypeName;
 	FGuid Id;
-	std::vector<uint8_t> data; //wrt mediaZ standarts
-	std::vector<uint8_t> default_val; //wrt mediaZ standarts
-	std::vector<uint8_t> min_val; //wrt mediaZ standarts
-	std::vector<uint8_t> max_val; //wrt mediaZ standarts
-	mz::fb::ShowAs PinShowAs = mz::fb::ShowAs::PROPERTY;
-	mz::fb::CanShowAs PinCanShowAs = mz::fb::CanShowAs::INPUT_OUTPUT_PROPERTY;
-	std::vector<TSharedPtr<MZProperty>> childProperties;
-	TMap<FString, FString> mzMetaDataMap;
+	std::vector<uint8_t> data; //wrt Nodos standarts
+	std::vector<uint8_t> default_val; //wrt Nodos standarts
+	std::vector<uint8_t> min_val; //wrt Nodos standarts
+	std::vector<uint8_t> max_val; //wrt Nodos standarts
+	nos::fb::ShowAs PinShowAs = nos::fb::ShowAs::PROPERTY;
+	nos::fb::CanShowAs PinCanShowAs = nos::fb::CanShowAs::INPUT_OUTPUT_PROPERTY;
+	std::vector<TSharedPtr<NOSProperty>> childProperties;
+	TMap<FString, FString> nosMetaDataMap;
 	bool transient = false;
 	bool IsChanged = false;
 
-	virtual ~MZProperty() {}
+	virtual ~NOSProperty() {}
 protected:
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr);
 	virtual void SetProperty_InCont(void* container, void* val);
@@ -166,12 +166,12 @@ private:
 
 };
 
-template<typename T, mz::tmp::StrLiteral LitType, typename CppType = T::TCppType>
+template<typename T, nos::tmp::StrLiteral LitType, typename CppType = T::TCppType>
 requires std::is_base_of_v<FProperty, T>
-class MZNumericProperty : public MZProperty {
+class NOSNumericProperty : public NOSProperty {
 public:
-	MZNumericProperty(UObject* container, T* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr) :
-		MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
+	NOSNumericProperty(UObject* container, T* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr) :
+		NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(CppType), 0);
 		TypeName = LitType.val;
@@ -202,23 +202,23 @@ protected:
 	}
 };
 
-using MZBoolProperty = MZNumericProperty<FBoolProperty, "bool">;
-using MZFloatProperty = MZNumericProperty<FFloatProperty, "float">;
-using MZDoubleProperty = MZNumericProperty<FDoubleProperty, "double">;
-using MZInt8Property = MZNumericProperty<FInt8Property, "byte">;
-using MZInt16Property = MZNumericProperty<FInt16Property, "short">;
-using MZIntProperty = MZNumericProperty<FIntProperty, "int">;
-using MZInt64Property = MZNumericProperty<FInt64Property, "long">;
-using MZByteProperty = MZNumericProperty<FByteProperty, "ubyte">;
-using MZUInt16Property = MZNumericProperty<FUInt16Property, "ushort">;
-using MZUInt32Property = MZNumericProperty<FUInt32Property, "uint">;
-using MZUInt64Property = MZNumericProperty<FUInt64Property, "ulong">;
+using NOSBoolProperty = NOSNumericProperty<FBoolProperty, "bool">;
+using NOSFloatProperty = NOSNumericProperty<FFloatProperty, "float">;
+using NOSDoubleProperty = NOSNumericProperty<FDoubleProperty, "double">;
+using NOSInt8Property = NOSNumericProperty<FInt8Property, "byte">;
+using NOSInt16Property = NOSNumericProperty<FInt16Property, "short">;
+using NOSIntProperty = NOSNumericProperty<FIntProperty, "int">;
+using NOSInt64Property = NOSNumericProperty<FInt64Property, "long">;
+using NOSByteProperty = NOSNumericProperty<FByteProperty, "ubyte">;
+using NOSUInt16Property = NOSNumericProperty<FUInt16Property, "ushort">;
+using NOSUInt32Property = NOSNumericProperty<FUInt32Property, "uint">;
+using NOSUInt64Property = NOSNumericProperty<FUInt64Property, "ulong">;
 
-class MZEnumProperty : public MZProperty
+class NOSEnumProperty : public NOSProperty
 {
 public:
-	MZEnumProperty(UObject* container, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
+	NOSEnumProperty(UObject* container, FEnumProperty* enumprop, FNumericProperty* numericprop,  UEnum* uenum, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, (FProperty*)(enumprop ? (FProperty*)enumprop : (FProperty*)numericprop), parentCategory, StructPtr, parentProperty), Enum(uenum), IndexProp(numericprop), EnumProperty(enumprop)
 	{
 		data = std::vector<uint8_t>(1, 0); 
 		TypeName = "string";
@@ -238,34 +238,34 @@ public:
 			NameList.push_back(TCHAR_TO_UTF8(*name));
 		}
 
-		auto offset = mz::app::CreateUpdateStringList(mb, mz::fb::CreateStringList(mb, mb.CreateString(TCHAR_TO_UTF8(*Enum->GetFName().ToString())), mb.CreateVectorOfStrings(NameList)));
+		auto offset = nos::app::CreateUpdateStringList(mb, nos::fb::CreateStringList(mb, mb.CreateString(TCHAR_TO_UTF8(*Enum->GetFName().ToString())), mb.CreateVectorOfStrings(NameList)));
 		mb.Finish(offset);
 
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<mz::app::UpdateStringList>(buf.data());
-		auto MZClient = &FModuleManager::LoadModuleChecked<FMZClient>("MZClient");
-		MZClient->AppServiceClient->UpdateStringList(*root);
+		auto root = flatbuffers::GetRoot<nos::app::UpdateStringList>(buf.data());
+		auto NOSClient = &FModuleManager::LoadModuleChecked<FNOSClient>("NOSClient");
+		NOSClient->AppServiceClient->UpdateStringList(*root);
 	}
 
-	FString MediaZListName;
+	FString NodosListName;
 	TMap<FString, int64> NameMap;
 	FString CurrentName;
 	int64 CurrentValue;
 	UEnum* Enum;
 	FNumericProperty* IndexProp;
 	FEnumProperty* EnumProperty;
-	virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
-	virtual flatbuffers::Offset<mz::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) override;
+	virtual flatbuffers::Offset<nos::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	virtual flatbuffers::Offset<nos::fb::Visualizer> SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override; 
 
 };
 
-class MZTextProperty : public MZProperty
+class NOSTextProperty : public NOSProperty
 {
 public:
-	MZTextProperty(UObject* container, FTextProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), textprop(uproperty) 
+	NOSTextProperty(UObject* container, FTextProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), textprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
@@ -277,11 +277,11 @@ public:
 
 };
 
-class MZNameProperty : public MZProperty
+class NOSNameProperty : public NOSProperty
 {
 public:
-	MZNameProperty(UObject* container, FNameProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), nameprop(uproperty) 
+	NOSNameProperty(UObject* container, FNameProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), nameprop(uproperty) 
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
@@ -293,11 +293,11 @@ public:
 
 };
 
-class MZStringProperty : public MZProperty
+class NOSStringProperty : public NOSProperty
 {
 public:
-	MZStringProperty(UObject* container, FStrProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), stringprop(uproperty)
+	NOSStringProperty(UObject* container, FStrProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), stringprop(uproperty)
 	{
 		data = std::vector<uint8_t>(1, 0);
 		TypeName = "string";
@@ -309,10 +309,10 @@ public:
 
 };
 
-class MZObjectProperty : public MZProperty
+class NOSObjectProperty : public NOSProperty
 {
 public:
-	MZObjectProperty(UObject* container, FObjectProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	NOSObjectProperty(UObject* container, FObjectProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr);
 	
 
 	FObjectProperty* objectprop;
@@ -321,22 +321,22 @@ public:
 
 };
 
-class MZStructProperty : public MZProperty
+class NOSStructProperty : public NOSProperty
 {
 public:
-	MZStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr);
+	NOSStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr);
 
 	FStructProperty* structprop;
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override { return std::vector<uint8>(); }
 };
 
-template<typename T, mz::tmp::StrLiteral LitType>
-class MZCustomStructProperty : public MZProperty 
+template<typename T, nos::tmp::StrLiteral LitType>
+class NOSCustomStructProperty : public NOSProperty 
 {
 public:
-	MZCustomStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	NOSCustomStructProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(T), 0);
 		TypeName = LitType.val;
@@ -350,19 +350,19 @@ protected:
 	}
 };
 
-using MZVec2Property = MZCustomStructProperty<FVector2D, "mz.fb.vec2d">;
-using MZVec3Property = MZCustomStructProperty<FVector, "mz.fb.vec3d">;
-using MZVec4Property = MZCustomStructProperty < FVector4, "mz.fb.vec4d">;
-using MZVec4FProperty = MZCustomStructProperty < FVector4f, "mz.fb.vec4">;
+using NOSVec2Property = NOSCustomStructProperty<FVector2D, "nos.fb.vec2d">;
+using NOSVec3Property = NOSCustomStructProperty<FVector, "nos.fb.vec3d">;
+using NOSVec4Property = NOSCustomStructProperty < FVector4, "nos.fb.vec4d">;
+using NOSVec4FProperty = NOSCustomStructProperty < FVector4f, "nos.fb.vec4">;
 
-class MZRotatorProperty : public MZProperty
+class NOSRotatorProperty : public NOSProperty
 {
 public:
-	MZRotatorProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	NOSRotatorProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(FVector), 0);
-		TypeName = "mz.fb.vec3d";
+		TypeName = "nos.fb.vec3d";
 	}
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
@@ -373,19 +373,19 @@ protected:
 
 
 
-class MZTrackProperty : public MZProperty
+class NOSTrackProperty : public NOSProperty
 {
 public:
-	MZTrackProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	NOSTrackProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		
 		data = std::vector<uint8_t>(1, 0);
-		TypeName = "mz.fb.Track";
+		TypeName = "nos.fb.Track";
 	}
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
-	//virtual flatbuffers::Offset<mz::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
+	//virtual flatbuffers::Offset<nos::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override;
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 
 	FStructProperty* structprop;
@@ -394,14 +394,14 @@ protected:
 };
 
 
-class MZTransformProperty : public MZProperty
+class NOSTransformProperty : public NOSProperty
 {
 public:
-	MZTransformProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, MZStructProperty* parentProperty = nullptr)
-		: MZProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
+	NOSTransformProperty(UObject* container, FStructProperty* uproperty, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), structprop(uproperty)
 	{
 		data = std::vector<uint8_t>(72, 0);
-		TypeName = "mz.fb.Transform";
+		TypeName = "nos.fb.Transform";
 	}
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
@@ -413,12 +413,12 @@ protected:
 };
 
 
-class  MZSCENETREEMANAGER_API  MZPropertyFactory
+class  NOSSCENETREEMANAGER_API  NOSPropertyFactory
 {
 public:
-	static TSharedPtr<MZProperty> CreateProperty(UObject* Container, 
+	static TSharedPtr<NOSProperty> CreateProperty(UObject* Container, 
 		FProperty* UProperty, 
 		FString ParentCategory = FString(), 
 		uint8* StructPtr = nullptr, 
-		MZStructProperty* ParentProperty = nullptr);
+		NOSStructProperty* ParentProperty = nullptr);
 };

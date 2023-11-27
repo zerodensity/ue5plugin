@@ -5,11 +5,11 @@
 #pragma once
 #include "CoreMinimal.h"
 
-class MZVIEWPORTMANAGER_API FMZViewportManager : public IModuleInterface
+class NOSVIEWPORTMANAGER_API FNOSViewportManager : public IModuleInterface
 {
 public:
 	//Empty constructor
-	FMZViewportManager();
+	FNOSViewportManager();
 
 	//Called on startup of the module on Unreal Engine start
 	virtual void StartupModule() override;

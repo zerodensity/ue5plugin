@@ -1,17 +1,17 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZViewportManager.h"
+#include "NOSViewportManager.h"
 
-FMZViewportManager::FMZViewportManager()
+FNOSViewportManager::FNOSViewportManager()
 {
 }
 
-void FMZViewportManager::StartupModule()
+void FNOSViewportManager::StartupModule()
 {
 }
 
-void FMZViewportManager::ShutdownModule()
+void FNOSViewportManager::ShutdownModule()
 {
 }
 
-IMPLEMENT_MODULE(FMZViewportManager, MZViewportManager)
+IMPLEMENT_MODULE(FNOSViewportManager, NOSViewportManager)

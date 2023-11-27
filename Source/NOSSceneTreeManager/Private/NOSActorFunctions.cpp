@@ -1,9 +1,9 @@
 // Copyright MediaZ AS. All Rights Reserved.
 
-#include "MZActorFunctions.h"
+#include "NOSActorFunctions.h"
 
 
-MZFunction::MZFunction(UObject* container, UFunction* function)
+NOSFunction::NOSFunction(UObject* container, UFunction* function)
 {
 	Function = function;
 	Container = container;
@@ -21,52 +21,52 @@ MZFunction::MZFunction(UObject* container, UFunction* function)
 	CategoryName = function->HasMetaData(NAME_Category) ? function->GetMetaData(NAME_Category) : "Default";
 }
 
-flatbuffers::Offset<mz::fb::Node> MZFunction::Serialize(flatbuffers::FlatBufferBuilder& fbb)
+flatbuffers::Offset<nos::fb::Node> NOSFunction::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
-	std::vector<flatbuffers::Offset<mz::fb::Pin>> pins;
+	std::vector<flatbuffers::Offset<nos::fb::Pin>> pins;
 	for (auto property : Properties)
 	{
 		pins.push_back(property->Serialize(fbb));
 	}
-	return mz::fb::CreateNodeDirect(fbb, (mz::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_UTF8(*Function->GetClass()->GetFName().ToString()), false, true, &pins, 0, mz::fb::NodeContents::Job, mz::fb::CreateJob(fbb, mz::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FMZClient::AppKey), 0, TCHAR_TO_UTF8(*CategoryName));
+	return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_UTF8(*Function->GetClass()->GetFName().ToString()), false, true, &pins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, TCHAR_TO_UTF8(*CategoryName));
 }
 
-void MZFunction::Invoke() // runs in game thread
+void NOSFunction::Invoke() // runs in game thread
 {
 	Container->Modify();
 	Container->ProcessEvent(Function, Parameters);
 }
 
 void FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
-	std::vector<flatbuffers::Offset<mz::fb::Pin>>& SpawnPins,
-	MZSpawnActorFunctionPinIds const& PinIds)
+	std::vector<flatbuffers::Offset<nos::fb::Pin>>& SpawnPins,
+	NOSSpawnActorFunctionPinIds const& PinIds)
 {
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnToWorldCoordsPinId,
+	SpawnPins.push_back(nos::fb::CreatePinDirect(Fbb, (nos::fb::UUID*)&PinIds.SpawnToWorldCoordsPinId,
 	                                            TCHAR_TO_ANSI(TEXT("Spawn To World Coordinates")),
-	                                            TCHAR_TO_ANSI(TEXT("bool")), mz::fb::ShowAs::PROPERTY,
-	                                            mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-	                                            0, 0, 0, 0, mz::fb::PinContents::JobPin, 0, 0, false,
-	                                            mz::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
+	                                            TCHAR_TO_ANSI(TEXT("bool")), nos::fb::ShowAs::PROPERTY,
+	                                            nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+	                                            0, 0, 0, 0, nos::fb::PinContents::JobPin, 0, 0, false,
+	                                            nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
 	                                            "Set actor spawn transform with respect to the world transform. If set to false, it keeps the relative transform with respect to the parent actor."));
 
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnLocationPinId,
+	SpawnPins.push_back(nos::fb::CreatePinDirect(Fbb, (nos::fb::UUID*)&PinIds.SpawnLocationPinId,
 												TCHAR_TO_ANSI(TEXT("Spawn Location")),
-												TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-												0, 0, 0, 0, mz::fb::PinContents::JobPin));
+												TCHAR_TO_ANSI(TEXT("nos.fb.vec3d")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+												0, 0, 0, 0, nos::fb::PinContents::JobPin));
 	
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnRotationPinId,
+	SpawnPins.push_back(nos::fb::CreatePinDirect(Fbb, (nos::fb::UUID*)&PinIds.SpawnRotationPinId,
 													TCHAR_TO_ANSI(TEXT("Spawn Rotation")),
-													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-													0, 0, 0, 0, mz::fb::PinContents::JobPin));
+													TCHAR_TO_ANSI(TEXT("nos.fb.vec3d")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
+													0, 0, 0, 0, nos::fb::PinContents::JobPin));
 	FVector3d SpawnScale = FVector3d(1, 1, 1);
 	std::vector<uint8_t> SpawnScaleData((uint8_t*)&SpawnScale, (uint8_t*)&SpawnScale + sizeof(FVector3d));
-	SpawnPins.push_back(mz::fb::CreatePinDirect(Fbb, (mz::fb::UUID*)&PinIds.SpawnScalePinId,
+	SpawnPins.push_back(nos::fb::CreatePinDirect(Fbb, (nos::fb::UUID*)&PinIds.SpawnScalePinId,
 													TCHAR_TO_ANSI(TEXT("Spawn Scale")),
-													TCHAR_TO_ANSI(TEXT("mz.fb.vec3d")), mz::fb::ShowAs::PROPERTY, mz::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &SpawnScaleData, 0, 0, 0, 0, 0, 0,
-													0, 0, 0, 0, mz::fb::PinContents::JobPin));
+													TCHAR_TO_ANSI(TEXT("nos.fb.vec3d")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &SpawnScaleData, 0, 0, 0, 0, 0, 0,
+													0, 0, 0, 0, nos::fb::PinContents::JobPin));
 }
 
-MZSpawnActorParameters GetSpawnActorParameters(TMap<FGuid, std::vector<uint8>> const& Pins, MZSpawnActorFunctionPinIds const& PinIds)
+NOSSpawnActorParameters GetSpawnActorParameters(TMap<FGuid, std::vector<uint8>> const& Pins, NOSSpawnActorFunctionPinIds const& PinIds)
 {
 	bool SpawnToWorldCoords = *(bool*)Pins.FindChecked(PinIds.SpawnToWorldCoordsPinId).data();
 	FTransform SpawnTransform = FTransform::Identity;

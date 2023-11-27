@@ -8,10 +8,10 @@ using System.Collections.Generic;
 
 using UnrealBuildTool;
 
-public class MZAssetManager : ModuleRules
+public class NOSAssetManager : ModuleRules
 {
 
-	public MZAssetManager(ReadOnlyTargetRules Target) : base(Target)
+	public NOSAssetManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
 		{
@@ -19,11 +19,11 @@ public class MZAssetManager : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = Environment.GetEnvironmentVariable("MZ_SDK_DIR");
+				string SDKdir = Environment.GetEnvironmentVariable("NODOS_SDK_DIR");
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{
-					string errorMessage = "Please update MZ_SDK_DIR environment variable";
+					string errorMessage = "Please update NODOS_SDK_DIR environment variable";
 					System.Console.WriteLine(errorMessage);
 					throw new BuildException(errorMessage);
 				}
@@ -45,7 +45,7 @@ public class MZAssetManager : ModuleRules
                     "TypedElementFramework",
 					"UMG",
 					"UnrealEd",
-					"MZClient",
+					"NOSClient",
 					"LevelSequence",
 					}
 					);
@@ -62,7 +62,7 @@ public class MZAssetManager : ModuleRules
                     "TypedElementFramework",
 					"UMG",
 					"UnrealEd",
-					"MZClient",
+					"NOSClient",
 					"LevelSequence",
 					}
 					);
