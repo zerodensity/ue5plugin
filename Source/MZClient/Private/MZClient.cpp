@@ -648,8 +648,14 @@ void FMZClient::ShutdownModule()
 
 bool FMZClient::Tick(float dt)
 {
+	if (ReloadingLevel > 0)
+	{
+		ReloadingLevel--;
+		return true;
+	}
+	
     TryConnect();
-	while (!TaskQueue.IsEmpty()) {
+	while (!TaskQueue.IsEmpty() && ReloadingLevel <= 0) {
 		Task task;
 		TaskQueue.Dequeue(task);
 		task();

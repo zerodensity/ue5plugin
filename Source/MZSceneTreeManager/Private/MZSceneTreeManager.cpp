@@ -27,7 +27,7 @@ IMPLEMENT_MODULE(FMZSceneTreeManager, MZSceneTreeManager)
 
 UWorld* FMZSceneTreeManager::daWorld = nullptr;
 
-static TAutoConsoleVariable<int32> CVarReloadLevelFrameCount(TEXT("mediaz.ReloadFrameCount"), 0, TEXT("Reload frame count"));
+static TAutoConsoleVariable<int32> CVarReloadLevelFrameCount(TEXT("mediaz.ReloadFrameCount"), 10, TEXT("Reload frame count"));
 
 #define MZ_POPULATE_UNREAL_FUNCTIONS //uncomment if you want to see functions 
 
@@ -104,11 +104,6 @@ void FMZSceneTreeManager::AddToBeAddedActors()
 
 void FMZSceneTreeManager::OnBeginFrame()
 {
-	if (ReloadingLevel > 0)
-	{
-		ReloadingLevel--;
-		return;
-	}
 
 	if(ToggleExecutionStateToSynced)
 	{
@@ -126,11 +121,6 @@ void FMZSceneTreeManager::OnBeginFrame()
 
 void FMZSceneTreeManager::OnEndFrame()
 {
-	if (ReloadingLevel > 0)
-	{
-		return;
-	}
-
 	MZPropertyManager.OnEndFrame();
 	MZTextureShareManager::GetInstance()->OnEndFrame();
 }
@@ -619,7 +609,7 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 void FMZSceneTreeManager::OnMZNodeRemoved()
 {
 	MZActorManager->ClearActors();
-	ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
+	MZClient->ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
 	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
 }
 

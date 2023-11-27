@@ -311,6 +311,5 @@ public:
 
 	bool AlwaysUpdateOnActorSpawns = false;
 	TArray<TWeakObjectPtr<AActor>> ActorsToBeAdded;
-	int ReloadingLevel = 0;
 };
 

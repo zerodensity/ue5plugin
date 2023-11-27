@@ -265,6 +265,8 @@ public:
 	
 	UENodeStatusHandler UENodeStatusHandler;
 
+	int ReloadingLevel = 0;
+	
 protected:
 	void Reset();
 
