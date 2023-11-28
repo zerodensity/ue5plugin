@@ -143,7 +143,7 @@ TSet<FTopLevelAssetPath> FNOSAssetManager::GetAssetPathsOfClass(UClass* ParentCl
 	ContentPaths.Add(TEXT("/Game"));
 	ContentPaths.Add(TEXT("/Script"));
 	ContentPaths.Add(TEXT("/Nodos"));
-	ContentPaths.Add(TEXT("/RealityEngine"));
+	ContentPaths.Add(TEXT("/Reality"));
 	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
 	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
 
