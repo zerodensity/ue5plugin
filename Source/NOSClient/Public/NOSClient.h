@@ -63,8 +63,7 @@ public:
 		std::scoped_lock<std::mutex> lock(Guard);
 		return &Queues[id];
 	}
-
-	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override
+	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint64_t frameNumber) override
 	{
 		if (reset)
 		{
@@ -128,7 +127,7 @@ public:
 	virtual void OnContextMenuRequested(nos::ContextMenuRequest const& request) override;
 	virtual void OnContextMenuCommandFired(nos::ContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
-	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber) override;
+	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint64_t frameNumber) override;
 	virtual void OnPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs) override;
 	virtual void OnExecuteAppInfo(nos::app::AppExecuteInfo const* appExecuteInfo) override; 
 	virtual void OnFunctionCall(nos::fb::UUID const& nodeId, nos::fb::Node const& function) override;

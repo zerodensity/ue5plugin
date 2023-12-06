@@ -318,7 +318,7 @@ void NOSEventDelegates::OnNodeRemoved()
 		});
 }
 
-void NOSEventDelegates::OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint32_t frameNumber)
+void NOSEventDelegates::OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint64_t frameNumber)
 {
 	if (!PluginClient)
 	{

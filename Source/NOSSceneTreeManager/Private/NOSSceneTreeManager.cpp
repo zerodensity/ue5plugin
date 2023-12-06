@@ -217,7 +217,7 @@ void FNOSSceneTreeManager::StartupModule()
 					nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&alwaysUpdateId, TCHAR_TO_ANSI(TEXT("Always Update Scene Outliner")), TCHAR_TO_ANSI(TEXT("bool")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  nos::fb::PinContents::JobPin, 0, 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
 					"Update scene outliner when an actor is spawned instead of waiting for refreshing.\nDecreases performance for dynamic scenes."),
 				};
-				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Refresh Scene Outliner", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
+				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Refresh Scene Outliner", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
 				, 0, false, nullptr, 0, "Add actors spawned since last refresh to the scene outliner.");
 			};
 		noscf->Function = [this, alwaysUpdateId = alwaysUpdateId](TMap<FGuid, std::vector<uint8>> properties)
@@ -243,7 +243,7 @@ void FNOSSceneTreeManager::StartupModule()
 				nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&PinIds.ActorPinId, TCHAR_TO_ANSI(TEXT("Actor List")), TCHAR_TO_ANSI(TEXT("string")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", nos::fb::CreateVisualizerDirect(fbb, nos::fb::VisualizerType::COMBO_BOX, "UE5_ACTOR_LIST"), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  nos::fb::PinContents::JobPin),
 			};
 			FillSpawnActorFunctionTransformPins(fbb, spawnPins, PinIds);
-			return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control");
+			return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Spawn Actor", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control");
 		};
 		noscf->Function = [this, PinIds](TMap<FGuid, std::vector<uint8>> properties)
 		{
@@ -263,7 +263,7 @@ void FNOSSceneTreeManager::StartupModule()
 		noscf->Id = StringToFGuid(UniqueFunctionName);
 		noscf->Serialize = [funcid = noscf->Id, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<nos::fb::Node>
 			{
-				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Reload Level", "UE5.UE5", false, true, 0, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb, nos::fb::JobType::CPU).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
+				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Reload Level", "UE5.UE5", false, true, 0, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
 				, 0, false, nullptr, 0, "Reload current level");
 			};
 		noscf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
@@ -1984,7 +1984,7 @@ void FNOSSceneTreeManager::SendActorDeleted(AActor* Actor)
 		auto texman = NOSTextureShareManager::GetInstance();
 		for (auto prop : propertiesToRemove)
 		{
-			if(prop->TypeName == "nos.fb.Texture")
+			if(prop->TypeName == "nos.sys.vulkan.Texture")
 			{
 				texman->TextureDestroyed(prop.Get());
 			}
@@ -2767,7 +2767,7 @@ void FNOSPropertyManager::OnBeginFrame()
 		
 		auto NosProperty = PropertiesById.FindRef(portal.SourceId);
 
-		if (portal.TypeName == "nos.fb.Texture")
+		if (portal.TypeName == "nos.sys.vulkan.Texture")
 		{
 			NOSTextureShareManager::GetInstance()->UpdateTexturePin(NosProperty.Get(), portal.ShowAs);
 			continue;
@@ -2777,7 +2777,7 @@ void FNOSPropertyManager::OnBeginFrame()
 		auto buffer = NOSClient->EventDelegates->Pop(*((nos::fb::UUID*)&NosProperty->Id), shouldWait, NOSTextureShareManager::GetInstance()->FrameCounter);
 		if (!buffer.IsEmpty())
 		{
-			NosProperty->SetPropValue(buffer.data(), buffer.size());
+			NosProperty->SetPropValue(buffer.Data(), buffer.Size());
 		}
 	}
 }

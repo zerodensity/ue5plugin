@@ -640,7 +640,7 @@ NOSObjectProperty::NOSObjectProperty(UObject* container, FObjectProperty* uprope
 {
 	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 	{
-		TypeName = "nos.fb.Texture";
+		TypeName = "nos.sys.vulkan.Texture";
 		ReadOnly = true;
 		auto tex = NOSTextureShareManager::GetInstance()->AddTexturePin(this);
 		data = nos::Buffer::From(tex);
@@ -766,15 +766,15 @@ std::vector<uint8> NOSObjectProperty::UpdatePinValue(uint8* customContainer)
 
 	if (objectprop->PropertyClass->IsChildOf<UTextureRenderTarget2D>()) // We only support texturetarget2d from object properties
 		{
-		const nos::fb::Texture* tex = flatbuffers::GetRoot<nos::fb::Texture>(data.data());
-		nos::fb::TTexture texture;
+		const nos::sys::vulkan::Texture* tex = flatbuffers::GetRoot<nos::sys::vulkan::Texture>(data.data());
+		nos::sys::vulkan::TTexture texture;
 		tex->UnPackTo(&texture);
 
 		if (NOSTextureShareManager::GetInstance()->UpdateTexturePin(this, texture))
 			{
 			// data = nos::Buffer::From(texture);
 			flatbuffers::FlatBufferBuilder fb;
-			auto offset = nos::fb::CreateTexture(fb, &texture);
+			auto offset = nos::sys::vulkan::CreateTexture(fb, &texture);
 			fb.Finish(offset);
 			nos::Buffer buffer = fb.Release();
 			data = buffer;

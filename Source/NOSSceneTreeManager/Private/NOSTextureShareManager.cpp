@@ -27,6 +27,7 @@
 
 #include "NOSGPUFailSafe.h"
 
+#include "nosVulkanSubsystem/nosVulkanSubsystem.h"
 
 NOSTextureShareManager* NOSTextureShareManager::singleton;
 
@@ -126,10 +127,10 @@ NOSTextureShareManager::~NOSTextureShareManager()
 {
 }
 
-nos::fb::TTexture NOSTextureShareManager::AddTexturePin(NOSProperty* nosprop)
+nos::sys::vulkan::TTexture NOSTextureShareManager::AddTexturePin(NOSProperty* nosprop)
 {
 	ResourceInfo copyInfo;
-	nos::fb::TTexture texture;
+	nos::sys::vulkan::TTexture texture;
 
 	if(!CreateTextureResource(nosprop, texture, copyInfo))
 	{
@@ -144,7 +145,7 @@ nos::fb::TTexture NOSTextureShareManager::AddTexturePin(NOSProperty* nosprop)
 	return texture;
 }
 
-bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::fb::TTexture& Texture, ResourceInfo& Resource)
+bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::sys::vulkan::TTexture& Texture, ResourceInfo& Resource)
 	{
 	nosTextureInfo info = GetResourceInfo(nosprop);
 	UObject* obj = nosprop->GetRawObjectContainer();
@@ -185,11 +186,11 @@ bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::fb
     HANDLE handle;
     NOS_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(DXResource, 0, GENERIC_ALL, 0, &handle));
 	
-	Texture.size = nos::fb::SizePreset::CUSTOM;
+	Texture.size = nos::sys::vulkan::SizePreset::CUSTOM;
 	Texture.width = info.Width;
 	Texture.height = info.Height;
-	Texture.format = nos::fb::Format(info.Format);
-	Texture.usage = nos::fb::ImageUsage(info.Usage) | nos::fb::ImageUsage::SAMPLED;
+	Texture.format = nos::sys::vulkan::Format(info.Format);
+	Texture.usage = nos::sys::vulkan::ImageUsage(info.Usage) | nos::sys::vulkan::ImageUsage::SAMPLED;
 	Texture.type = 0x00000040;
 	Texture.memory = (u64)handle;
 	Texture.pid = FPlatformProcess::GetCurrentProcessId();
@@ -211,7 +212,7 @@ void NOSTextureShareManager::UpdateTexturePin(NOSProperty* nosprop, nos::fb::Sho
 	UpdatePinShowAs(nosprop, RealShowAs);
 }
 
-bool NOSTextureShareManager::UpdateTexturePin(NOSProperty* NosProperty, nos::fb::TTexture& Texture)
+bool NOSTextureShareManager::UpdateTexturePin(NOSProperty* NosProperty, nos::sys::vulkan::TTexture& Texture)
 {
 	nosTextureInfo info = GetResourceInfo(NosProperty);
 
@@ -224,8 +225,8 @@ bool NOSTextureShareManager::UpdateTexturePin(NOSProperty* NosProperty, nos::fb:
 
 	bool changed = false;
 
-	nos::fb::Format fmt = nos::fb::Format(info.Format);
-	nos::fb::ImageUsage usage = nos::fb::ImageUsage(info.Usage) | nos::fb::ImageUsage::SAMPLED;
+	nos::sys::vulkan::Format fmt = nos::sys::vulkan::Format(info.Format);
+	nos::sys::vulkan::ImageUsage usage = nos::sys::vulkan::ImageUsage(info.Usage) | nos::sys::vulkan::ImageUsage::SAMPLED;
 
 	if (Texture.width != info.Width ||
 		Texture.height != info.Height ||
@@ -303,8 +304,8 @@ void FilterCopies(nos::fb::ShowAs FilterShowAs, TMap<NOSProperty*, ResourceInfo>
 		 {
 		 	//todo texture is changed update it
 		 	
-			const nos::fb::Texture* tex = flatbuffers::GetRoot<nos::fb::Texture>(nosprop->data.data());
-			nos::fb::TTexture texture;
+			const nos::sys::vulkan::Texture* tex = flatbuffers::GetRoot<nos::sys::vulkan::Texture>(nosprop->data.data());
+			nos::sys::vulkan::TTexture texture;
 			tex->UnPackTo(&texture);
 
 		 	auto TextureShareManager = NOSTextureShareManager::GetInstance();
@@ -312,7 +313,7 @@ void FilterCopies(nos::fb::ShowAs FilterShowAs, TMap<NOSProperty*, ResourceInfo>
 			{
 				// data = nos::Buffer::From(texture);
 				flatbuffers::FlatBufferBuilder fb;
-				auto offset = nos::fb::CreateTexture(fb, &texture);
+				auto offset = nos::sys::vulkan::CreateTexture(fb, &texture);
 				fb.Finish(offset);
 				nos::Buffer buffer = fb.Release();
 				nosprop->data = buffer;

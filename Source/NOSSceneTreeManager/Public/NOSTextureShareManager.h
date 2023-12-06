@@ -23,6 +23,8 @@ void MemoryBarrier();
 #include "NOSClient.h"
 #include "RHI.h"
 
+#include "nosVulkanSubsystem/Types_generated.h"
+
 #define NOS_D3D12_ASSERT_SUCCESS(expr)                                                               \
     {                                                                                               \
         HRESULT re = (expr);                                                                        \
@@ -78,9 +80,9 @@ public:
 
 	~NOSTextureShareManager();
 	
-	nos::fb::TTexture AddTexturePin(NOSProperty*);
+	nos::sys::vulkan::TTexture AddTexturePin(NOSProperty*);
 	void UpdateTexturePin(NOSProperty*, nos::fb::ShowAs);
-	bool UpdateTexturePin(NOSProperty* NosProperty, nos::fb::TTexture& Texture);
+	bool UpdateTexturePin(NOSProperty* NosProperty, nos::sys::vulkan::TTexture& Texture);
 	void UpdatePinShowAs(NOSProperty* NosProperty, nos::fb::ShowAs NewShowAs);
 	void Reset();
 	void TextureDestroyed(NOSProperty* texture);
@@ -118,7 +120,7 @@ public:
 	
 	void RenewSemaphores();
 private:
-bool CreateTextureResource(NOSProperty*, nos::fb::TTexture& Texture, ResourceInfo& Resource);
+bool CreateTextureResource(NOSProperty*, nos::sys::vulkan::TTexture& Texture, ResourceInfo& Resource);
 
 private:
 	void Initiate();
