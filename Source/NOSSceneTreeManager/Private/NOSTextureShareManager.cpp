@@ -191,7 +191,7 @@ bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::sy
 	Texture.height = info.Height;
 	Texture.format = nos::sys::vulkan::Format(info.Format);
 	Texture.usage = nos::sys::vulkan::ImageUsage(info.Usage) | nos::sys::vulkan::ImageUsage::SAMPLED;
-	Texture.type = 0x00000040;
+	Texture.type = 0x00000002;
 	Texture.memory = (u64)handle;
 	Texture.pid = FPlatformProcess::GetCurrentProcessId();
 	Texture.unmanaged = true;
