@@ -153,7 +153,7 @@ public:
 	nos::fb::CanShowAs PinCanShowAs = nos::fb::CanShowAs::INPUT_OUTPUT_PROPERTY;
 	std::vector<TSharedPtr<NOSProperty>> childProperties;
 	TMap<FString, FString> nosMetaDataMap;
-	bool transient = false;
+	bool transient = true;
 	bool IsChanged = false;
 
 	virtual ~NOSProperty() {}
