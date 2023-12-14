@@ -13,6 +13,7 @@
 #include "Kismet2/ComponentEditorUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "EditorCategoryUtils.h"
+#include "FileHelpers.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 #include "LevelSequence.h"
@@ -76,6 +77,12 @@ void FMZSceneTreeManager::OnMapChange(uint32 MapFlags)
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	LOGF("OnMapChange with editor world contexts world %s", *WorldName);
 	FMZSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
+	if (!GEngine->GameViewport || !GEngine->GameViewport->IsStatEnabled("FPS"))
+	{ 
+		GEngine->Exec(daWorld, TEXT("Stat FPS"));
+	}
+	RescanScene();
+	SendNodeUpdate(FMZClient::NodeId, true);
 }
 
 void FMZSceneTreeManager::OnNewCurrentLevel()
@@ -268,10 +275,7 @@ void FMZSceneTreeManager::StartupModule()
 			};
 		mzcf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 			{
-				if(daWorld && daWorld->GetCurrentLevel())
-				{
-					UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
-				}
+				ReloadCurrentMap();
 			};
 		CustomFunctions.Add(mzcf->Id, mzcf);
 	}
@@ -606,11 +610,29 @@ void FMZSceneTreeManager::OnMZContextMenuCommandFired(mz::ContextMenuAction cons
 	}
 }
 
+void FMZSceneTreeManager::ReloadCurrentMap()
+{
+	if (daWorld)
+	{
+		if(GEditor && !GEditor->IsPlaySessionInProgress())
+		{
+			const FString FileToOpen = FPackageName::LongPackageNameToFilename(daWorld->GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
+			const bool bLoadAsTemplate = false;
+			const bool bShowProgress = true;
+			FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
+		}
+		else
+		{
+			UGameplayStatics::OpenLevel(daWorld, daWorld->GetFName());
+		}
+	}
+}
+
 void FMZSceneTreeManager::OnMZNodeRemoved()
 {
 	MZActorManager->ClearActors();
 	MZClient->ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
-	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
+	ReloadCurrentMap();
 }
 
 void FMZSceneTreeManager::OnMZStateChanged_GRPCThread(mz::app::ExecutionState newState)

@@ -152,6 +152,7 @@ public:
 
 	//called when a action is selected from context menu
 	void OnMZContextMenuCommandFired(mz::ContextMenuAction const& action);
+	void ReloadCurrentMap();
 
 	void OnMZNodeRemoved();
 
