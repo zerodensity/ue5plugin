@@ -578,7 +578,7 @@ MZStructProperty::MZStructProperty(UObject* container, FStructProperty* upropert
 			
 			FString PropertyPath = mzprop->mzMetaDataMap.FindRef(MzMetadataKeys::PropertyPath);
 			FString ComponentPath = mzprop->mzMetaDataMap.FindRef(MzMetadataKeys::component);
-			FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath;
+			FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath + mzprop->DisplayName;
 			mzprop->Id = StringToFGuid(IdStringKey);
 			childProperties.push_back(mzprop);
 			
