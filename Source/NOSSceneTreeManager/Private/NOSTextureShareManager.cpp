@@ -191,14 +191,16 @@ bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::sy
 	Texture.height = info.Height;
 	Texture.format = nos::sys::vulkan::Format(info.Format);
 	Texture.usage = nos::sys::vulkan::ImageUsage(info.Usage) | nos::sys::vulkan::ImageUsage::SAMPLED;
-	Texture.type = 0x00000002;
-	Texture.memory = (u64)handle;
-	Texture.pid = FPlatformProcess::GetCurrentProcessId();
+	auto& Ext = Texture.external_memory;
+	Ext.mutate_handle_type(NOS_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE);
+	Ext.mutate_handle((u64)handle);
+	Ext.mutate_offset(0);
+	D3D12_RESOURCE_DESC desc = DXResource->GetDesc();
+	Ext.mutate_allocation_size(Dev->GetResourceAllocationInfo(0, 1, &desc).SizeInBytes);
+	Ext.mutate_pid(FPlatformProcess::GetCurrentProcessId());
 	Texture.unmanaged = true;
 	Texture.unscaled = true;
-	Texture.offset = 0;
 	Texture.handle = 0;
-	Texture.semaphore = 0;
 
 	Resource.SrcNosp = nosprop;
 	Resource.DstResource = NewRenderTarget2D;
@@ -220,7 +222,7 @@ bool NOSTextureShareManager::UpdateTexturePin(NOSProperty* NosProperty, nos::sys
 	if (resourceInfo == nullptr)
 		return false;
 
-	if (Texture.pid != (uint64_t)FPlatformProcess::GetCurrentProcessId())
+	if (Texture.external_memory.pid() != (uint64_t)FPlatformProcess::GetCurrentProcessId())
 		return false;
 
 	bool changed = false;
