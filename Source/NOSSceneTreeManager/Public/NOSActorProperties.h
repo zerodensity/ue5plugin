@@ -28,18 +28,22 @@ namespace NosMetadataKeys
 		NOS_METADATA_KEY(NodeColor);
 };
 
-inline FGuid StringToFGuid(FString string)
+inline FGuid StringToFGuid(const FString& string)
 {
+	FGuid id;
+#ifdef NODOS_MD5_HASHING
 	string = FNOSClient::AppKey + string;
 	FString HexHash = FMD5::HashAnsiString(*string);
 	TArray<uint8> BinKey;
 	BinKey.AddUninitialized(HexHash.Len() / 2);
 	HexToBytes(HexHash, BinKey.GetData());
-	FGuid id;
 	id.A = *(uint32*)(BinKey.GetData());
 	id.B = *(uint32*)(BinKey.GetData() + 4);
 	id.C = *(uint32*)(BinKey.GetData() + 8);
 	id.D = *(uint32*)(BinKey.GetData() + 12);
+#else
+	id = FGuid::NewGuid();
+#endif
 	return id;
 }
 
