@@ -1605,7 +1605,7 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 		{
 
 			FName CategoryName = FObjectEditorUtils::GetCategoryFName(Property);
-			UClass* Class = Actor->StaticClass();
+			UClass* Class = Component->GetClass();
 
 			if (FEditorCategoryUtils::IsCategoryHiddenFromClass(Class, CategoryName.ToString()) || !PropertyVisible(Property))
 			{
