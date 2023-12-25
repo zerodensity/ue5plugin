@@ -994,11 +994,28 @@ std::vector<uint8> NOSEnumProperty::UpdatePinValue(uint8* customContainer)
 	else if (StructPtr) container = StructPtr;
 
 	FString val(" ");
-	if(container && Enum && IndexProp)
+	
+	if (container)
 	{
-		CurrentValue = IndexProp->GetSignedIntPropertyValue_InContainer(container);
-		CurrentName = Enum->GetNameByValue(CurrentValue).ToString();
-		val = CurrentName;
+		UEnum* EnumPtr = nullptr;
+		FNumericProperty *NumericProperty = nullptr;
+		if(const FEnumProperty* PropAsEnum = CastField<FEnumProperty>(Property))
+		{
+			EnumPtr = PropAsEnum->GetEnum();
+			NumericProperty = PropAsEnum->GetUnderlyingProperty();
+		}
+		else if (const FByteProperty* ByteProperty = CastField<FByteProperty>(Property))
+		{
+			EnumPtr = ByteProperty->GetIntPropertyEnum();
+			NumericProperty = CastField<FNumericProperty>(Property);
+		}
+
+		if(EnumPtr && NumericProperty)
+		{
+			uint8* PropData = Property->ContainerPtrToValuePtr<uint8>(container);
+			CurrentName = Enum->GetNameByValue(*PropData).ToString();
+			val = CurrentName;
+		}
 	}
 	
 	auto s = StringCast<ANSICHAR>(*val);
