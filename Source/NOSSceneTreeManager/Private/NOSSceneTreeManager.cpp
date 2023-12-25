@@ -13,6 +13,7 @@
 #include "Kismet2/ComponentEditorUtils.h"
 #include "Kismet/GameplayStatics.h"
 #include "EditorCategoryUtils.h"
+#include "FileHelpers.h"
 #include "ObjectEditorUtils.h"
 #include "HardwareInfo.h"
 #include "LevelSequence.h"
@@ -76,6 +77,12 @@ void FNOSSceneTreeManager::OnMapChange(uint32 MapFlags)
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	LOGF("OnMapChange with editor world contexts world %s", *WorldName);
 	FNOSSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
+	if (!GEngine->GameViewport || !GEngine->GameViewport->IsStatEnabled("FPS"))
+	{ 
+		GEngine->Exec(daWorld, TEXT("Stat FPS"));
+	}
+	RescanScene();
+	SendNodeUpdate(FNOSClient::NodeId, true);
 }
 
 void FNOSSceneTreeManager::OnNewCurrentLevel()
@@ -268,10 +275,7 @@ void FNOSSceneTreeManager::StartupModule()
 			};
 		noscf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
 			{
-				if(daWorld && daWorld->GetCurrentLevel())
-				{
-					UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
-				}
+				ReloadCurrentMap();
 			};
 		CustomFunctions.Add(noscf->Id, noscf);
 	}
@@ -610,7 +614,7 @@ void FNOSSceneTreeManager::OnNOSNodeRemoved()
 {
 	NOSActorManager->ClearActors();
 	NOSClient->ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
-	UGameplayStatics::OpenLevel(daWorld, daWorld->GetCurrentLevel()->GetFName());
+	ReloadCurrentMap();
 }
 
 void FNOSSceneTreeManager::OnNOSStateChanged_GRPCThread(nos::app::ExecutionState newState)
@@ -2066,6 +2070,25 @@ void FNOSSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
 	FGuid ActorId = actor->GetActorGuid();
 	PopulateAllChildsOfActor(ActorId);
 }
+
+void FNOSSceneTreeManager::ReloadCurrentMap()
+{
+	if (daWorld)
+	{
+		if(GEditor && !GEditor->IsPlaySessionInProgress())
+		{
+			const FString FileToOpen = FPackageName::LongPackageNameToFilename(daWorld->GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
+			const bool bLoadAsTemplate = false;
+			const bool bShowProgress = true;
+			FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
+		}
+		else
+		{
+			UGameplayStatics::OpenLevel(daWorld, daWorld->GetFName());
+		}
+	}
+}
+
 void FNOSSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId)
 {
 	LOGF("Populating all childs of actor with id %s", *ActorId.ToString());

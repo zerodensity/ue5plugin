@@ -230,6 +230,8 @@ public:
 	
 	void PopulateAllChildsOfActor(AActor* actor);
 
+	void ReloadCurrentMap();
+
 	//Called when pie is started
 	void HandleBeginPIE(bool bIsSimulating);
 
