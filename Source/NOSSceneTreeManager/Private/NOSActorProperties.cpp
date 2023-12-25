@@ -578,7 +578,7 @@ NOSStructProperty::NOSStructProperty(UObject* container, FStructProperty* uprope
 			
 			FString PropertyPath = nosprop->nosMetaDataMap.FindRef(NosMetadataKeys::PropertyPath);
 			FString ComponentPath = nosprop->nosMetaDataMap.FindRef(NosMetadataKeys::component);
-			FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath;
+			FString IdStringKey = ActorUniqueName + ComponentPath + PropertyPath + nosprop->DisplayName;
 			nosprop->Id = StringToFGuid(IdStringKey);
 			childProperties.push_back(nosprop);
 			
