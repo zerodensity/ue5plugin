@@ -178,10 +178,10 @@ std::vector<uint8> NOSProperty::UpdatePinValue(uint8* customContainer)
 
 void NOSProperty::MarkState()
 {
-	if (ComponentContainer)
+	if (BoundComponent)
 	{
-		ComponentContainer->MarkRenderStateDirty();
-		ComponentContainer->UpdateComponentToWorld();
+		BoundComponent->MarkRenderStateDirty();
+		BoundComponent->UpdateComponentToWorld();
 	}
 
 }
@@ -212,10 +212,7 @@ void NOSProperty::SetPropValue_Internal(void* val, size_t size, uint8* customCon
 	
 	SetProperty_InCont(container, val);
 	
-	if (!customContainer && container)
-	{
-		MarkState();
-	}
+	MarkState();
 }
 
 void* NOSProperty::GetRawContainer()
@@ -291,11 +288,7 @@ void NOSTrackProperty::SetPropValue_Internal(void* val, size_t size, uint8* cust
 	
 	SetProperty_InCont(container, val);
 
-	if (!customContainer && container)
-	{
-		MarkState();
-	}
-
+	MarkState();
 }
 
 void NOSTrackProperty::SetProperty_InCont(void* container, void* val)
@@ -406,10 +399,7 @@ void NOSTransformProperty::SetPropValue_Internal(void* val, size_t size, uint8* 
 	
 	SetProperty_InCont(container, val);
 
-	if (!customContainer && container)
-	{
-		MarkState();
-	}
+	MarkState();
 }
 
 void NOSTransformProperty::SetProperty_InCont(void* container, void* val)
@@ -802,10 +792,7 @@ void NOSStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* cus
 	}
 	FString newval((char*)val);
 	stringprop->SetPropertyValue_InContainer(container, newval);
-	if (!customContainer && container)
-	{
-		MarkState();
-	}
+	MarkState();
 	return;
 }
 
@@ -848,10 +835,9 @@ void NOSNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 	}
 	FString newval((char*)val);
 	nameprop->SetPropertyValue_InContainer(container, FName(newval));
-	if (!customContainer)
-	{
-		MarkState();
-	}
+	
+	MarkState();
+	
 	return;
 }
 
@@ -895,11 +881,7 @@ void NOSTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 	FString newval((char*)val);
 	textprop->SetPropertyValue_InContainer(container, FText::FromString(newval));
 
-	if (!customContainer)
-	{
-		MarkState();
-	}
-
+	MarkState();
 	return;
 }
 
@@ -976,10 +958,7 @@ void NOSEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 		}
 	}
 
-	if (!customContainer && container)
-	{
-		MarkState();
-	}
+	MarkState();
 
 	return;
 }

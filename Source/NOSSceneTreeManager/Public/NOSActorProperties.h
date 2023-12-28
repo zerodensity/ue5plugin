@@ -134,6 +134,8 @@ public:
 	NOSComponentReference ComponentContainer;
 	UObject* ObjectPtr = nullptr;
 	uint8* StructPtr = nullptr;
+	
+	NOSComponentReference BoundComponent;
 
 	FString PropertyName;
 	FString DisplayName;

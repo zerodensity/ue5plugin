@@ -1641,6 +1641,7 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 					}
 				}
 			}
+			NosProp->BoundComponent = NOSComponentReference(ComponentNode->sceneComponent);
 		}
 		treeNode->NeedsReload = false;
 		return true;
