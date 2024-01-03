@@ -1210,6 +1210,12 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 		}
 	}
 	//SendSyncSemaphores(true);
+	flatbuffers::FlatBufferBuilder fb5;
+	auto offset4 = nos::CreateAppEventOffset(fb5, nos::CreateRefreshPortals(fb5));
+	fb5.Finish(offset4);
+	auto buf5 = fb5.Release();
+	auto root5 = flatbuffers::GetRoot<nos::app::AppEvent>(buf5.data());
+	NOSClient->AppServiceClient->Send(*root5);
 	LOG("Node from Nodos successfully imported");
 }
 
