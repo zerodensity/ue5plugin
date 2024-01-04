@@ -2082,6 +2082,7 @@ void FNOSSceneTreeManager::ReloadCurrentMap()
 {
 	if (daWorld)
 	{
+#ifdef NOS_RELOAD_MAP_ON_EDIT_MODE
 		if(GEditor && !GEditor->IsPlaySessionInProgress())
 		{
 			const FString FileToOpen = FPackageName::LongPackageNameToFilename(daWorld->GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
@@ -2090,9 +2091,8 @@ void FNOSSceneTreeManager::ReloadCurrentMap()
 			FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
 		}
 		else
-		{
+#endif
 			UGameplayStatics::OpenLevel(daWorld, daWorld->GetFName());
-		}
 	}
 }
 
