@@ -186,7 +186,7 @@ bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::sy
     HANDLE handle;
     NOS_D3D12_ASSERT_SUCCESS(Dev->CreateSharedHandle(DXResource, 0, GENERIC_ALL, 0, &handle));
 	
-	Texture.size = nos::sys::vulkan::SizePreset::CUSTOM;
+	Texture.resolution = nos::sys::vulkan::SizePreset::CUSTOM;
 	Texture.width = info.Width;
 	Texture.height = info.Height;
 	Texture.format = nos::sys::vulkan::Format(info.Format);
@@ -194,7 +194,6 @@ bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::sy
 	auto& Ext = Texture.external_memory;
 	Ext.mutate_handle_type(NOS_EXTERNAL_MEMORY_HANDLE_TYPE_D3D12_RESOURCE);
 	Ext.mutate_handle((u64)handle);
-	Ext.mutate_offset(0);
 	D3D12_RESOURCE_DESC desc = DXResource->GetDesc();
 	Ext.mutate_allocation_size(Dev->GetResourceAllocationInfo(0, 1, &desc).SizeInBytes);
 	Ext.mutate_pid(FPlatformProcess::GetCurrentProcessId());
