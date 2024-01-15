@@ -987,7 +987,7 @@ void NOSStringProperty::SetPropValue_Internal(void* val, size_t size, uint8* cus
 		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
 		return; //TODO investigate why container is null
 	}
-	FString newval((char*)val);
+	FString newval(UTF8_TO_TCHAR((char*)val));
 	stringprop->SetPropertyValue_InContainer(container, newval);
 	MarkState();
 	return;
@@ -1007,7 +1007,7 @@ std::vector<uint8> NOSStringProperty::UpdatePinValue(uint8* customContainer)
 	{
 		val = stringprop->GetPropertyValue_InContainer(container);
 	}
-	auto s = StringCast<ANSICHAR>(*val);
+	auto s = StringCast<UTF8CHAR>(*val);
 	data = std::vector<uint8_t>(s.Length() + 1, 0);
 	memcpy(data.data(), s.Get(), s.Length());
 
@@ -1022,7 +1022,7 @@ bool NOSStringProperty::CreateFbArray(flatbuffers::FlatBufferBuilder& fb, FScrip
 		if(auto ElementPtr = ArrayHelper.GetRawPtr(i))
 		{
 			FString val = *(FString*)ElementPtr;
-			char* result = TCHAR_TO_ANSI(*val);
+			char* result = TCHAR_TO_UTF8(*val);
 			auto offset = fb.CreateString(result);
 			StringArray.push_back(offset);
 		}
@@ -1041,7 +1041,7 @@ void NOSStringProperty::SetArrayPropValues(void* val, size_t size, FScriptArrayH
 	{
 		ArrayHelper.ExpandForIndex(i);
 		auto string = vec->Get(i);
-		FString newString(string->c_str());
+		FString newString(UTF8_TO_TCHAR(string->c_str()));
 		FString* String = (FString*)ArrayHelper.GetRawPtr(i);
 		*String = newString;
 	}
@@ -1063,7 +1063,7 @@ void NOSNameProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
 		return; //TODO investigate why container is null
 	}
-	FString newval((char*)val);
+	FString newval(UTF8_TO_TCHAR((char*)val));
 	nameprop->SetPropertyValue_InContainer(container, FName(newval));
 	
 	MarkState();
@@ -1085,7 +1085,7 @@ std::vector<uint8> NOSNameProperty::UpdatePinValue(uint8* customContainer)
 	{
 		val = nameprop->GetPropertyValue_InContainer(container).ToString();
 	}
-	auto s = StringCast<ANSICHAR>(*val);
+	auto s = StringCast<UTF8CHAR>(*val);
 	data = std::vector<uint8_t>(s.Length() + 1, 0);
 	memcpy(data.data(), s.Get(), s.Length());
 	
@@ -1108,7 +1108,7 @@ void NOSTextProperty::SetPropValue_Internal(void* val, size_t size, uint8* custo
 		UE_LOG(LogTemp, Warning, TEXT("The property %s has null container!"), *(DisplayName));
 		return; //TODO investigate why container is null
 	}
-	FString newval((char*)val);
+	FString newval(UTF8_TO_TCHAR((char*)val));
 	textprop->SetPropertyValue_InContainer(container, FText::FromString(newval));
 
 	MarkState();
@@ -1130,7 +1130,7 @@ std::vector<uint8> NOSTextProperty::UpdatePinValue(uint8* customContainer)
 		val = textprop->GetPropertyValue_InContainer(container).ToString();
 	}
 
-	auto s = StringCast<ANSICHAR>(*val);
+	auto s = StringCast<UTF8CHAR>(*val);
 	data = std::vector<uint8_t>(s.Length() + 1, 0);
 	memcpy(data.data(), s.Get(), s.Length());
 
@@ -1145,7 +1145,7 @@ bool NOSTextProperty::CreateFbArray(flatbuffers::FlatBufferBuilder& fb, FScriptA
 		if(auto ElementPtr = ArrayHelper.GetRawPtr(i))
 		{
 			FString val = (*(FText*)ElementPtr).ToString();
-			char* result = TCHAR_TO_ANSI(*val);
+			char* result = TCHAR_TO_UTF8(*val);
 			auto offset = fb.CreateString(result);
 			StringArray.push_back(offset);
 		}
@@ -1164,7 +1164,7 @@ void NOSTextProperty::SetArrayPropValues(void* val, size_t size, FScriptArrayHel
 	{
 		ArrayHelper.ExpandForIndex(i);
 		auto string = vec->Get(i);
-		FString newString(string->c_str());
+		FString newString(UTF8_TO_TCHAR(string->c_str()));
 		FText* Text = (FText*)ArrayHelper.GetRawPtr(i);
 		*Text = FText::FromString(newString);
 	}
