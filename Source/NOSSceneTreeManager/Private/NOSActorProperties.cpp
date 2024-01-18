@@ -848,6 +848,7 @@ NOSObjectProperty::NOSObjectProperty(UObject* container, FObjectProperty* uprope
 		}
 	
 		auto WidgetClass = Widget->GetClass();
+		FunctionContainerClass = WidgetClass;
 
 		
 		FProperty* WProperty = WidgetClass->PropertyLink;

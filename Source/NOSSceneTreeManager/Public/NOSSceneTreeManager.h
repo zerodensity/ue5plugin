@@ -200,6 +200,7 @@ public:
 	//Rescans the current viewports world scene to get the current state of the scene outliner
 	void RescanScene(bool reset = true);
 
+	TSharedPtr<NOSFunction> AddFunctionToActorNode(ActorNode* actorNode, UFunction* UEFunction, UObject* Container);
 	//Populates node with child actors/components, functions and properties
 	bool PopulateNode(FGuid id);
 

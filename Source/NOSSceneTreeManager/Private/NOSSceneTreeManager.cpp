@@ -1346,6 +1346,52 @@ FString UEIdToNOSIDString(FGuid Guid)
 	return result;
 }
 
+TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* actorNode, UFunction* UEFunction, UObject* Container)
+{
+	auto UEFunctionName = UEFunction->GetFName().ToString();
+
+	if (UEFunctionName.StartsWith("OnChanged_") || UEFunctionName.StartsWith("OnLengthChanged_"))
+	{
+		return nullptr; // do not export user's changed handler functions
+	}
+
+	auto OwnerClass = UEFunction->GetOwnerClass();
+	if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
+	{
+		return nullptr; // export only BP functions //? what we will show in Nodos
+	}
+
+	TSharedPtr<NOSFunction> nosfunc(new NOSFunction(Container, UEFunction));
+
+	// Parse all function parameters.
+	bool bNotSupported = false;
+	for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
+	{
+		if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt))
+		{
+			nosfunc->Properties.push_back(nosprop);
+			//RegisteredProperties.Add(nosprop->Id, nosprop);			
+			if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
+			{
+				nosfunc->OutProperties.push_back(nosprop);
+			}
+		}
+		else
+		{
+			bNotSupported = true;
+			break;
+		}
+	}
+	if(bNotSupported)
+	{
+		return nullptr;
+	}
+
+	actorNode->Functions.push_back(nosfunc);
+	RegisteredFunctions.Add(nosfunc->Id, nosfunc);
+	return nosfunc;
+}
+
 bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 {
 	auto treeNode = SceneTree.GetNode(nodeId);
@@ -1402,6 +1448,8 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 
 		auto Components = actorNode->actor->GetComponents();
 
+		TSet<TSharedPtr<NOSProperty>> PropsWithFunctions;
+
 		for(auto NosProp : actorNode->Properties)
 		{
 			if(NosProp->EditConditionProperty)
@@ -1418,6 +1466,10 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 					}
 				}
 			}
+			if(NosProp->FunctionContainerClass)
+			{
+				PropsWithFunctions.Add(NosProp);
+			}
 		}
 
 		
@@ -1429,53 +1481,41 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
 			UFunction* UEFunction = *FuncIt;
+			UObject* Container =  actorNode->actor.Get();
 			// LOGF("function with name %s is a function, indeed!", *UEFunction->GetFName().ToString());
 			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable /*| FUNC_Public*/) /*&&
 				!UEFunction->HasAllFunctionFlags(FUNC_Event)*/) //commented out because custom events are seems to public? and not has FUNC_Event flags?
 			{
-				auto UEFunctionName = UEFunction->GetFName().ToString();
-
-				if (UEFunctionName.StartsWith("OnChanged_") || UEFunctionName.StartsWith("OnLengthChanged_"))
-				{
-					continue; // do not export user's changed handler functions
-				}
-
-				auto OwnerClass = UEFunction->GetOwnerClass();
-				if (!OwnerClass || !Cast<UBlueprint>(OwnerClass->ClassGeneratedBy))
-				{
-					continue; // export only BP functions //? what we will show in Nodos
-				}
-
-				TSharedPtr<NOSFunction> nosfunc(new NOSFunction(actorNode->actor.Get(), UEFunction));
-
-				// Parse all function parameters.
-				bool bNotSupported = false;
-				for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
-				{
-					if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt))
-					{
-						nosfunc->Properties.push_back(nosprop);
-						//RegisteredProperties.Add(nosprop->Id, nosprop);			
-						if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
-						{
-							nosfunc->OutProperties.push_back(nosprop);
-						}
-					}
-					else
-					{
-						bNotSupported = true;
-						break;
-					}
-				}
-				if(bNotSupported)
-				{
-					continue;
-				}
-
-				actorNode->Functions.push_back(nosfunc);
-				RegisteredFunctions.Add(nosfunc->Id, nosfunc);
+				AddFunctionToActorNode(actorNode, UEFunction, Container);
 			}
 		}
+
+		for (auto NosProp : PropsWithFunctions)
+		{
+			if(!NosProp->FunctionContainerClass)
+				continue;
+			for (TFieldIterator<UFunction> FuncIt(NosProp->FunctionContainerClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
+			{
+				UFunction* UEFunction = *FuncIt;
+				
+				UObject* obj = NosProp->GetRawObjectContainer();
+				FObjectProperty* prop = CastField<FObjectProperty>(NosProp->Property);
+				UObject* FunctionContainer = prop->GetObjectPropertyValue_InContainer(obj);
+				
+				if(!FunctionContainer)
+					continue;
+				
+				LOGF("function with name %s is a function, indeed! of a widgett!!", *UEFunction->GetFName().ToString());
+				if (UEFunction->HasAnyFunctionFlags(FUNC_BlueprintCallable | FUNC_Event))
+				{
+					if(auto nosFunc = AddFunctionToActorNode(actorNode, UEFunction, FunctionContainer))
+					{
+						nosFunc->CategoryName = FunctionContainer->GetFName().ToString();	
+					}
+				}
+			}
+		}
+		
 		//ITERATE FUNCTIONS END
 #endif
 		//ITERATE CHILD COMPONENTS TO SHOW BEGIN

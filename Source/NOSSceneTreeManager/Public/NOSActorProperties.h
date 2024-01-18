@@ -167,6 +167,8 @@ public:
 	bool transient = true;
 	bool IsChanged = false;
 
+	UClass* FunctionContainerClass = nullptr;
+
 	virtual ~NOSProperty() {}
 protected:
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr);
