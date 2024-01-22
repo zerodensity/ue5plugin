@@ -1070,6 +1070,8 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 			if(IsResultUObject)
 			{
 				nosprop = NOSPropertyFactory::CreateProperty((UObject*) UnknownContainer, PropertyToUpdate);
+				if(Cast<UActorComponent>((UObject*)UnknownContainer) && nosprop)
+					nosprop->BoundComponent =  NOSComponentReference((UActorComponent*)UnknownContainer);
 			}
 			else
 			{
@@ -1079,6 +1081,8 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 		else
 		{
 			nosprop = NOSPropertyFactory::CreateProperty(Container, PropertyToUpdate);
+			if(Cast<UActorComponent>((UObject*)Container) && nosprop)
+				nosprop->BoundComponent =  NOSComponentReference((UActorComponent*)Container);
 		}
 		if(!nosprop)
 		{
