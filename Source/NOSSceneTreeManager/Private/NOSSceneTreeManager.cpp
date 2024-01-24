@@ -1868,6 +1868,13 @@ void FNOSSceneTreeManager::RemovePortal(FGuid PortalId)
 	{
 		return;
 	}
+	if(NOSPropertyManager.PropertiesById.Contains(Portal.SourceId))
+	{
+		auto SourceProp = NOSPropertyManager.PropertiesById.FindRef(Portal.SourceId);
+		SourceProp->PinShowAs = nos::fb::ShowAs::PROPERTY;
+		NOSTextureShareManager::GetInstance()->UpdatePinShowAs(SourceProp.Get(), SourceProp->PinShowAs);
+		NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)SourceProp->Id, SourceProp->PinShowAs);
+	}
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<nos::fb::UUID> pinsToDelete;
 	pinsToDelete.push_back(*(nos::fb::UUID*)&Portal.Id);
