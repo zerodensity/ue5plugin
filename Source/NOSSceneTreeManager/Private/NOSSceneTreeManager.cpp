@@ -801,6 +801,17 @@ void GetNodesWithProperty(const nos::fb::Node* node, std::vector<const nos::fb::
 
 void FNOSSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
 {
+	if(PropertyChangedEvent.Property && ObjectBeingModified)
+	{
+		const FString OnChangedFunctionName = TEXT("OnChanged_") + PropertyChangedEvent.Property->GetName();
+		UFunction* OnChanged = ObjectBeingModified->GetClass()->FindFunctionByName(*OnChangedFunctionName);
+		if (OnChanged)
+		{
+			ObjectBeingModified->Modify();
+			ObjectBeingModified->ProcessEvent(OnChanged, nullptr);
+		}
+	}
+	
 	if (!PropertyChangedEvent.MemberProperty || !PropertyChangedEvent.Property)
 	{
 		return;
