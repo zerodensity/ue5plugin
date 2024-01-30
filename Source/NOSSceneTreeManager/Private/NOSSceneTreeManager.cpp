@@ -1133,7 +1133,14 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 			if (sceneActorMap.Contains(ActorId))
 			{
 				Container = sceneActorMap.FindRef(ActorId);
-				PopulateAllChildsOfActor(Cast<AActor>(Container));
+				if(auto actor = Cast<AActor>(Container))
+				{
+					while(actor->GetSceneOutlinerParent())
+					{
+						actor = actor->GetSceneOutlinerParent();
+					}
+					PopulateAllChildsOfActor(actor);
+				}
 			}
 			else
 			{
@@ -1298,7 +1305,7 @@ void FNOSSceneTreeManager::RescanScene(bool reset)
 		
 		for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
 		{
-			if (!IsActorDisplayable(*ActorItr) || ActorItr->GetParentActor())
+			if (!IsActorDisplayable(*ActorItr))
 			{
 				continue;
 			}
@@ -1536,7 +1543,7 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 		//ITERATE CHILD COMPONENTS TO SHOW BEGIN
 		actorNode->Children.clear();
 
-		auto unattachedChildsPtr = SceneTree.ChildMap.Find(actorNode->Id);
+		auto unattachedChildsPtr = SceneTree.ChildMap.Find(actorNode->actor->GetActorGuid());
 		TSet<AActor*> unattachedChilds = unattachedChildsPtr ? *unattachedChildsPtr : TSet<AActor*>();
 		for (auto child : unattachedChilds)
 		{
