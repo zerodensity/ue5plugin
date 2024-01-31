@@ -183,6 +183,9 @@ public:
 	//Called when an actor is destroyed from the world
 	void OnActorDestroyed(AActor* InActor);
 
+	void OnActorAttached(AActor* Actor, const AActor* ParentActor);
+	void OnActorDetached(AActor* Actor, const AActor* ParentActor);
+
 	//called when unreal engine node is imported from Nodos
 	void OnNOSNodeImported(nos::fb::Node const& appNode);
 

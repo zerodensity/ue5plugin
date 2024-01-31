@@ -192,6 +192,9 @@ void FNOSSceneTreeManager::StartupModule()
 
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSSceneTreeManager::OnPreWorldFinishDestroy);
+
+	GEngine->OnLevelActorAttached().AddRaw(this, &FNOSSceneTreeManager::OnActorAttached);
+	GEngine->OnLevelActorDetached().AddRaw(this, &FNOSSceneTreeManager::OnActorDetached);
 	
 #ifdef VIEWPORT_TEXTURE
 	UNOSViewportClient::NOSViewportDestroyedDelegate.AddRaw(this, &FNOSSceneTreeManager::DisconnectViewportTexture);
@@ -874,8 +877,133 @@ void FNOSSceneTreeManager::OnActorDestroyed(AActor* InActor)
 		});
 }
 
+void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentActor)
+{
+	LOG("Actor Attached");
+	
+	if(!FNOSClient::NodeId.IsValid())
+	{
+		return;
+	}
+	if(auto NewParentActorNode = SceneTree.GetNodeFromActorId(ParentActor->GetActorGuid()))
+	{
+		auto actor = NewParentActorNode->actor.Get();
+		while(actor->GetSceneOutlinerParent())
+		{
+		 	actor = actor->GetSceneOutlinerParent();
+		}
+		PopulateAllChildsOfActor(actor);
+	}
+
+	
+	FGuid OldParentId;
+	for(auto [pActorId, Children] : SceneTree.ChildMap)
+	{
+		if(Children.Contains(Actor))
+		{
+			OldParentId = pActorId;
+		}
+	}
+	if(OldParentId.IsValid())
+	{
+		SceneTree.ChildMap.Find(OldParentId)->Remove(Actor);
+	}
+	SceneTree.ChildMap.FindOrAdd(ParentActor->GetActorGuid()).Add(Actor);
+	
+
+	if(auto ActorNode = SceneTree.GetNodeFromActorId(Actor->GetActorGuid()))
+	{
+		if(auto OldParentActorNode = ActorNode->Parent->GetAsActorNode())
+		{
+			erase_if(OldParentActorNode->Children, [ActorNode](TSharedPtr<TreeNode> x) {return x->Id == ActorNode->Id;});
+		}
+		if(auto NewParentActorNode = SceneTree.GetNodeFromActorId(ParentActor->GetActorGuid()))
+		{
+			NewParentActorNode->Children.push_back(ActorNode->AsShared().ToSharedPtr());
+			ActorNode->Parent = NewParentActorNode;
+
+			flatbuffers::FlatBufferBuilder fb;
+			auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&ActorNode->Id, (nos::fb::UUID*)&NewParentActorNode->Id));
+			fb.Finish(offset);
+			auto buf = fb.Release();
+			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+			NOSClient->AppServiceClient->Send(*root);
+		}
+	}
+}
+
+void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentActor)
+{
+	LOG("Actor Detached");
+
+	if(!FNOSClient::NodeId.IsValid())
+	{
+		return;
+	}
+	
+	FGuid OldParentId;
+	for(auto [pActorId, Children] : SceneTree.ChildMap)
+	{
+		if(Children.Contains(Actor))
+		{
+			OldParentId = pActorId;
+		}
+	}
+	if(OldParentId.IsValid())
+	{
+		SceneTree.ChildMap.Find(OldParentId)->Remove(Actor);
+	}
+	else
+	{
+		return;
+	}
+
+	if(auto ActorNode = SceneTree.GetNodeFromActorId(Actor->GetActorGuid()))
+	{
+		if(auto OldParentActorNode = ActorNode->Parent->GetAsActorNode())
+		{
+			erase_if(OldParentActorNode->Children, [ActorNode](TSharedPtr<TreeNode> x) {return x->Id == ActorNode->Id;});
+		}
+		if(auto NewParentNode = SceneTree.Root)
+		{
+			NewParentNode->Children.push_back(ActorNode->AsShared().ToSharedPtr());
+			ActorNode->Parent = NewParentNode.Get();
+
+			flatbuffers::FlatBufferBuilder fb;
+			auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&ActorNode->Id, (nos::fb::UUID*)&NewParentNode->Id));
+			fb.Finish(offset);
+			auto buf = fb.Release();
+			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+			NOSClient->AppServiceClient->Send(*root);
+		}
+	}
+	else
+	{
+		TSharedPtr<struct ActorNode> newNode = nullptr;
+		TSharedPtr<TreeNode> mostRecentParent;
+		newNode = SceneTree.AddActor(Actor->GetFolder().GetPath().ToString(), Actor, mostRecentParent);
+		if (!newNode)
+		{
+			return;
+		}
+		if (!NOSClient->IsConnected())
+		{
+			return;
+		}
+
+		flatbuffers::FlatBufferBuilder mb;
+		std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
+		auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	}
+}
+
 void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 {
+	
 	//NOSActorManager->ClearActors();
 	FNOSClient::NodeId = *(FGuid*)appNode.id();
 	SceneTree.Root->Id = FNOSClient::NodeId;

@@ -17,7 +17,7 @@ struct SceneComponentNode;
 static const FName NAME_Reality_FolderName(TEXT("Reality Actors"));
 static const FString HEXCOLOR_Reality_Node(TEXT("0xFE5000"));
 
-struct NOSSCENETREEMANAGER_API  TreeNode {
+struct NOSSCENETREEMANAGER_API  TreeNode : public TSharedFromThis<TreeNode> {
 
 	virtual ActorNode* GetAsActorNode() { return nullptr; };
 	virtual FolderNode* GetAsFolderNode() { return nullptr; };
