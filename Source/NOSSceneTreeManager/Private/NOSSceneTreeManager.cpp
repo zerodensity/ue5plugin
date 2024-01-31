@@ -885,31 +885,6 @@ void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentAc
 	{
 		return;
 	}
-	if(auto NewParentActorNode = SceneTree.GetNodeFromActorId(ParentActor->GetActorGuid()))
-	{
-		auto actor = NewParentActorNode->actor.Get();
-		while(actor->GetSceneOutlinerParent())
-		{
-		 	actor = actor->GetSceneOutlinerParent();
-		}
-		PopulateAllChildsOfActor(actor);
-	}
-
-	
-	FGuid OldParentId;
-	for(auto [pActorId, Children] : SceneTree.ChildMap)
-	{
-		if(Children.Contains(Actor))
-		{
-			OldParentId = pActorId;
-		}
-	}
-	if(OldParentId.IsValid())
-	{
-		SceneTree.ChildMap.Find(OldParentId)->Remove(Actor);
-	}
-	SceneTree.ChildMap.FindOrAdd(ParentActor->GetActorGuid()).Add(Actor);
-	
 
 	if(auto ActorNode = SceneTree.GetNodeFromActorId(Actor->GetActorGuid()))
 	{
@@ -935,25 +910,8 @@ void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentAc
 void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentActor)
 {
 	LOG("Actor Detached");
-
-	if(!FNOSClient::NodeId.IsValid())
-	{
-		return;
-	}
 	
-	FGuid OldParentId;
-	for(auto [pActorId, Children] : SceneTree.ChildMap)
-	{
-		if(Children.Contains(Actor))
-		{
-			OldParentId = pActorId;
-		}
-	}
-	if(OldParentId.IsValid())
-	{
-		SceneTree.ChildMap.Find(OldParentId)->Remove(Actor);
-	}
-	else
+	if(!FNOSClient::NodeId.IsValid() || !daWorld->ContainsActor(Actor) || Actor->IsPendingKill())
 	{
 		return;
 	}
@@ -1441,14 +1399,14 @@ void FNOSSceneTreeManager::RescanScene(bool reset)
 
 			if (parent)
 			{
-				if (SceneTree.ChildMap.Contains(parent->GetActorGuid()))
-				{
-					SceneTree.ChildMap.Find(parent->GetActorGuid())->Add(*ActorItr);
-				}
-				else
-				{
-					SceneTree.ChildMap.FindOrAdd(parent->GetActorGuid()).Add(*ActorItr);
-				}
+				// if (SceneTree.ChildMap.Contains(parent->GetActorGuid()))
+				// {
+				// 	SceneTree.ChildMap.Find(parent->GetActorGuid())->Add(*ActorItr);
+				// }
+				// else
+				// {
+				// 	SceneTree.ChildMap.FindOrAdd(parent->GetActorGuid()).Add(*ActorItr);
+				// }
 				continue;
 			}
 
@@ -1669,14 +1627,18 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 		//ITERATE FUNCTIONS END
 #endif
 		//ITERATE CHILD COMPONENTS TO SHOW BEGIN
-		actorNode->Children.clear();
-
-		auto unattachedChildsPtr = SceneTree.ChildMap.Find(actorNode->actor->GetActorGuid());
-		TSet<AActor*> unattachedChilds = unattachedChildsPtr ? *unattachedChildsPtr : TSet<AActor*>();
-		for (auto child : unattachedChilds)
+		erase_if(actorNode->Children, [](TSharedPtr<TreeNode> treeNode){return treeNode->GetAsSceneComponentNode() != nullptr;});
+		
+		TArray<AActor*> ChildActors;
+		actorNode->actor->GetAttachedActors(ChildActors);
+		for (auto child : ChildActors)
 		{
-			SceneTree.AddActor(actorNode, child);
+			if(child->IsValidLowLevel() && !SceneTree.GetNode(child))
+			{
+				SceneTree.AddActor(actorNode, child);
+			}
 		}
+		
 
 		AActor* ActorContext = actorNode->actor.Get();
 		TSet<UActorComponent*> ComponentsToAdd(ActorContext->GetComponents());
@@ -2449,6 +2411,19 @@ void FNOSSceneTreeManager::HandleWorldChange()
 	for (auto ActorId : ActorsToRescan)
 	{
 		PopulateAllChildsOfActor(ActorId);
+	}
+
+	for (TActorIterator< AActor > ActorItr(daWorld); ActorItr; ++ActorItr)
+	{
+		if(ActorsToRescan.Contains(ActorItr->GetActorGuid()))
+		{
+			if(auto parent = ActorItr->GetAttachParentActor())
+			{
+				while(parent->GetAttachParentActor())
+					parent = parent->GetAttachParentActor();
+				PopulateAllChildsOfActor(parent);
+			}
+		}
 	}
 
 	flatbuffers::FlatBufferBuilder mbb;

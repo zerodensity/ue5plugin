@@ -79,7 +79,6 @@ public:
 
 	TSharedPtr<TreeNode> Root;
 	bool IsSorted = false;
-	TMap<FGuid, TSet<AActor*>> ChildMap;
 
 	TSharedPtr<FolderNode> FindOrAddChildFolder(TSharedPtr<TreeNode> node, FString name, TSharedPtr<TreeNode>& mostRecentParent);
 	TSharedPtr<ActorNode> AddActor(FString folderPath, AActor* actor);

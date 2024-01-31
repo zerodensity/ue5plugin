@@ -54,7 +54,7 @@ class NOSStructProperty;
 class NOSSCENETREEMANAGER_API NOSActorReference
 {
 public:
-	NOSActorReference(TObjectPtr<AActor> actor);
+	__declspec(noinline) NOSActorReference(TObjectPtr<AActor> actor);
 	NOSActorReference();
 	
 	AActor* Get();
