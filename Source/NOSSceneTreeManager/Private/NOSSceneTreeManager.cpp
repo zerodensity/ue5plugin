@@ -1221,11 +1221,12 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				Container = sceneActorMap.FindRef(ActorId);
 				if(auto actor = Cast<AActor>(Container))
 				{
+					PopulateAllChildsOfActor(actor);
 					while(actor->GetSceneOutlinerParent())
 					{
 						actor = actor->GetSceneOutlinerParent();
+						PopulateAllChildsOfActor(actor);
 					}
-					PopulateAllChildsOfActor(actor);
 				}
 			}
 			else
