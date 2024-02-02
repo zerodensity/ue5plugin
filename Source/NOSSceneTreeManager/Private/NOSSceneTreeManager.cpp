@@ -313,16 +313,16 @@ void FNOSSceneTreeManager::OnNOSConnected(nos::fb::Node const* appNode)
 	//add executable path
 	if(appNode->pins() && appNode->pins()->size() > 0)
 	{
-		std::vector<flatbuffers::Offset<nos::PartialPinUpdate>> PinUpdates;
+		std::vector<flatbuffers::Offset<nos::app::PartialPinUpdate>> PinUpdates;
 		flatbuffers::FlatBufferBuilder fb1;
 		for (auto pin : *appNode->pins())
 		{
-			PinUpdates.push_back(nos::CreatePartialPinUpdate(fb1, pin->id(), 0, nos::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
+			PinUpdates.push_back(nos::app::CreatePartialPinUpdate(fb1, pin->id(), 0, nos::fb::CreateOrphanStateDirect(fb1, true, "Binding in progress")));
 		}
-		auto offset = nos::CreatePartialNodeUpdateDirect(fb1, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		auto offset = nos::app::CreatePartialNodeUpdateDirect(fb1, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb1.Finish(offset);
 		auto buf = fb1.Release();
-		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	}
 	RescanScene();
@@ -496,7 +496,7 @@ void FNOSSceneTreeManager::OnNOSPinShowAsChanged(nos::fb::UUID const& Id, nos::f
 		{
 			auto NosProperty = NOSPropertyManager.PropertiesById.FindRef(Portal->SourceId);
 			flatbuffers::FlatBufferBuilder mb;
-			auto offset = nos::CreateAppEventOffset(mb ,nos::CreatePinShowAsChanged(mb, (nos::fb::UUID*)&Portal->SourceId, newShowAs));
+			auto offset = nos::CreateAppEventOffset(mb ,nos::app::CreateAppPinShowAsChanged(mb, (nos::fb::UUID*)&Portal->SourceId, newShowAs));
 			mb.Finish(offset);
 			auto buf = mb.Release();
 			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
@@ -552,7 +552,7 @@ void FNOSSceneTreeManager::OnNOSFunctionCalled(nos::fb::UUID const& nodeId, nos:
 		LOG("Unreal Engine function executed.");
 	}
 }
-void FNOSSceneTreeManager::OnNOSContextMenuRequested(nos::ContextMenuRequest const& request)
+void FNOSSceneTreeManager::OnNOSContextMenuRequested(nos::app::AppContextMenuRequest const& request)
 {
 	FVector2D pos(request.pos()->x(), request.pos()->y());
 	FGuid itemId = *(FGuid*)request.item_id();
@@ -569,10 +569,10 @@ void FNOSSceneTreeManager::OnNOSContextMenuRequested(nos::ContextMenuRequest con
 			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<nos::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
 			auto posx = nos::fb::vec2(pos.X, pos.Y);
-			auto offset = nos::CreateContextMenuUpdateDirect(mb, (nos::fb::UUID*)&itemId, &posx, instigator, &actions);
+			auto offset = nos::app::CreateAppContextMenuUpdateDirect(mb, (nos::fb::UUID*)&itemId, &posx, instigator, &actions);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<nos::ContextMenuUpdate>(buf.data());
+			auto root = flatbuffers::GetRoot<nos::app::AppContextMenuUpdate>(buf.data());
 			NOSClient->AppServiceClient->SendContextMenuUpdate(*root);
 		}
 	}
@@ -583,15 +583,15 @@ void FNOSSceneTreeManager::OnNOSContextMenuRequested(nos::ContextMenuRequest con
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<nos::ContextMenuItem>> actions = menuActions.SerializePortalPropertyMenuItems(mb);
 		auto posx = nos::fb::vec2(pos.X, pos.Y);
-		auto offset = nos::CreateContextMenuUpdateDirect(mb, (nos::fb::UUID*)&itemId, &posx, instigator, &actions);
+		auto offset = nos::app::CreateAppContextMenuUpdateDirect(mb, (nos::fb::UUID*)&itemId, &posx, instigator, &actions);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<nos::ContextMenuUpdate>(buf.data());
+		auto root = flatbuffers::GetRoot<nos::app::AppContextMenuUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendContextMenuUpdate(*root);
 	}
 }
 
-void FNOSSceneTreeManager::OnNOSContextMenuCommandFired(nos::ContextMenuAction const& action)
+void FNOSSceneTreeManager::OnNOSContextMenuCommandFired(nos::app::AppContextMenuAction const& action)
 {
 	FGuid itemId = *(FGuid*)action.item_id();
 	uint32 actionId = action.command();
@@ -951,10 +951,10 @@ void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentAc
 
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-		auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+		auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	}
 }
@@ -968,26 +968,26 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 
 	auto node = &appNode;
 
-	std::vector<flatbuffers::Offset<nos::PartialPinUpdate>> PinUpdates;
+	std::vector<flatbuffers::Offset<nos::app::PartialPinUpdate>> PinUpdates;
 	flatbuffers::FlatBufferBuilder fb1;
 	if(node->pins() && node->pins()->size() > 0)
 	{
 		for (auto pin : *node->pins())
 		{
-			PinUpdates.push_back(nos::CreatePartialPinUpdate(fb1, pin->id(), 0, nos::fb::CreateOrphanStateDirect(fb1, true, "Object not found in the scene")));
+			PinUpdates.push_back(nos::app::CreatePartialPinUpdate(fb1, pin->id(), 0, nos::fb::CreateOrphanStateDirect(fb1, true, "Object not found in the scene")));
 		}
 	}
-	auto offset = nos::CreatePartialNodeUpdateDirect(fb1, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(fb1, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 	fb1.Finish(offset);
 	auto buf = fb1.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	flatbuffers::FlatBufferBuilder fb3;
-	auto offset2 = nos::CreatePartialNodeUpdateDirect(fb3, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::CLEAR_FUNCTIONS | nos::ClearFlags::CLEAR_NODES);
+	auto offset2 = nos::app::CreatePartialNodeUpdateDirect(fb3, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::CLEAR_FUNCTIONS | nos::app::ClearFlags::CLEAR_NODES);
 	fb3.Finish(offset2);
 	auto buf2 = fb3.Release();
-	auto root2 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf2.data());
+	auto root2 = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf2.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 
@@ -1260,7 +1260,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 			if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyToUpdate, UnknownContainer}))
 			{
 				auto NosProperty = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
-				PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
+				PinUpdates.push_back(nos::app::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
 				NOSPortal NewPortal{update.pinId ,NosProperty->Id};
 				NewPortal.DisplayName = FString("");
 				UObject* parent = NosProperty->GetRawObjectContainer();
@@ -1298,10 +1298,10 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 	}
 	if (!PinUpdates.empty())
 	{
-		auto offset3 = nos::CreatePartialNodeUpdateDirect(fb2, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		auto offset3 = nos::app::CreatePartialNodeUpdateDirect(fb2, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		fb2.Finish(offset3);
 		auto buf3 = fb2.Release();
-		auto root3 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf3.data());
+		auto root3 = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf3.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root3);
 	}
 	for (auto& Portal : NewPortals)
@@ -1830,10 +1830,10 @@ void FNOSSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 			}
 		
 			std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
-			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::ClearFlags::CLEAR_FUNCTIONS | nos::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+			auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::app::ClearFlags::CLEAR_FUNCTIONS | nos::app::ClearFlags::CLEAR_NODES, 0, 0, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+			auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 			return;
@@ -1858,10 +1858,10 @@ void FNOSSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 		}
 		
 		std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
-		auto offset =  nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)(&nodeId), nos::ClearFlags::ANY & ~nos::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+		auto offset =  nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)(&nodeId), nos::app::ClearFlags::ANY & ~nos::app::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 		return;
@@ -1891,10 +1891,10 @@ void FNOSSceneTreeManager::SendNodeUpdate(FGuid nodeId, bool bResetRootPins)
 		}
 	}
 	auto metadata = treeNode->SerializeMetaData(mb);
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::ClearFlags::CLEAR_PINS | nos::ClearFlags::CLEAR_FUNCTIONS | nos::ClearFlags::CLEAR_NODES | nos::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::app::ClearFlags::CLEAR_PINS | nos::app::ClearFlags::CLEAR_FUNCTIONS | nos::app::ClearFlags::CLEAR_NODES | nos::app::ClearFlags::CLEAR_METADATA, 0, &graphPins, 0, &graphFunctions, 0, &graphNodes, 0, 0, &metadata);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
@@ -1912,10 +1912,10 @@ void FNOSSceneTreeManager::SendEngineFunctionUpdate()
 
 	}
 	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SceneTree.Root->SerializeMetaData(mb);
-	auto offset =  nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)(&FNOSClient::NodeId), nos::ClearFlags::CLEAR_FUNCTIONS, 0, 0, 0, &graphFunctions, 0, 0, 0, 0, &metadata);
+	auto offset =  nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)(&FNOSClient::NodeId), nos::app::ClearFlags::CLEAR_FUNCTIONS, 0, 0, 0, &graphFunctions, 0, 0, 0, 0, &metadata);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
@@ -1927,10 +1927,10 @@ void FNOSSceneTreeManager::SendPinValueChanged(FGuid propertyId, std::vector<uin
 	}
 
 	flatbuffers::FlatBufferBuilder mb;
-	auto offset = nos::CreatePinValueChangedDirect(mb, (nos::fb::UUID*)&propertyId, &data);
+	auto offset = nos::app::CreateSetPinValueDirect(mb, (nos::fb::UUID*)&propertyId, &data);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PinValueChanged>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::SetPinValue>(buf.data());
 	NOSClient->AppServiceClient->NotifyPinValueChanged(*root);
 }
 
@@ -1953,10 +1953,10 @@ void FNOSSceneTreeManager::SendPinUpdate()
 	{
 		graphPins.push_back(pin->Serialize(mb));
 	}
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&nodeId, nos::app::ClearFlags::CLEAR_PINS, 0, &graphPins, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 }
@@ -1988,10 +1988,10 @@ void FNOSSceneTreeManager::RemovePortal(FGuid PortalId)
 	std::vector<nos::fb::UUID> pinsToDelete;
 	pinsToDelete.push_back(*(nos::fb::UUID*)&Portal.Id);
 
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 
@@ -2003,10 +2003,10 @@ void FNOSSceneTreeManager::SendPinAdded(FGuid NodeId, TSharedPtr<NOSProperty> co
 	}
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins = { nosprop->Serialize(mb) };
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&NodeId, nos::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&NodeId, nos::app::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	return;
@@ -2049,10 +2049,10 @@ void FNOSSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 			}
 			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { newNode->Serialize(mb) };
-			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&parentNode->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+			auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&parentNode->Id, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+			auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 		}
@@ -2076,10 +2076,10 @@ void FNOSSceneTreeManager::SendActorAdded(AActor* actor, FString spawnTag)
 
 		flatbuffers::FlatBufferBuilder mb;
 		std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-		auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+		auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 		mb.Finish(offset);
 		auto buf = mb.Release();
-		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	}
@@ -2214,19 +2214,19 @@ void FNOSSceneTreeManager::SendActorDeleted(AActor* Actor)
 				pinsToDelete.push_back(*(nos::fb::UUID*)&portalId);
 			}
 			flatbuffers::FlatBufferBuilder mb;
-			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+			auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
 			mb.Finish(offset);
 			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+			auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 		}
 
 		flatbuffers::FlatBufferBuilder mb2;
 		std::vector<nos::fb::UUID> graphNodes = { *(nos::fb::UUID*)&node->Id };
-		auto offset = nos::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&parentId, nos::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
+		auto offset = nos::app::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&parentId, nos::app::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
 		mb2.Finish(offset);
 		auto buf = mb2.Release();
-		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	}
 }
@@ -2349,7 +2349,7 @@ void FNOSSceneTreeManager::HandleWorldChange()
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<nos::fb::UUID> graphPins;// = { *(nos::fb::UUID*)&node->Id };
-	std::vector<flatbuffers::Offset<nos::PartialPinUpdate>> PinUpdates;
+	std::vector<flatbuffers::Offset<nos::app::PartialPinUpdate>> PinUpdates;
 
 	for (auto [id, portal] : NOSPropertyManager.PortalPinsById)
 	{
@@ -2389,17 +2389,17 @@ void FNOSSceneTreeManager::HandleWorldChange()
 		
 		Portals.Add({ContainerInfo, portal});
 		graphPins.push_back(*(nos::fb::UUID*)&portal.Id);
-		PinUpdates.push_back(nos::CreatePartialPinUpdate(mb, (nos::fb::UUID*)&portal.Id, 0, nos::fb::CreateOrphanStateDirect(mb, true, "Object not found in the world")));
+		PinUpdates.push_back(nos::app::CreatePartialPinUpdate(mb, (nos::fb::UUID*)&portal.Id, 0, nos::fb::CreateOrphanStateDirect(mb, true, "Object not found in the world")));
 	}
 
 	if (!NOSClient->IsConnected())
 	{
 		return;
 	}
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	PinUpdates.clear();
 
@@ -2449,7 +2449,7 @@ void FNOSSceneTreeManager::HandleWorldChange()
 			NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NosProperty.Get(), NosProperty->PinShowAs);
 			NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NosProperty->Id, NosProperty->PinShowAs);
 			NOSPropertyManager.PropertyToPortalPin.Add(NosProperty->Id, portal.Id);
-			PinUpdates.push_back(nos::CreatePartialPinUpdate(mbb, (nos::fb::UUID*)&portal.Id, (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
+			PinUpdates.push_back(nos::app::CreatePartialPinUpdate(mbb, (nos::fb::UUID*)&portal.Id, (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(mbb, notOrphan, notOrphan ? "" : "Object not found in the world")));
 		}
 		else
 		{
@@ -2460,19 +2460,19 @@ void FNOSSceneTreeManager::HandleWorldChange()
 	
 	if (!PinUpdates.empty())
 	{
-		auto offset1 = 	nos::CreatePartialNodeUpdateDirect(mbb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
+		auto offset1 = 	nos::app::CreatePartialNodeUpdateDirect(mbb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, 0, 0, &PinUpdates);
 		mbb.Finish(offset1);
 		auto buf1 = mbb.Release();
-		auto root1 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf1.data());
+		auto root1 = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf1.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root1);
 	}
 	if(!PinsToRemove.empty())
 	{
 		flatbuffers::FlatBufferBuilder mb2;
-		auto offset2 = nos::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &PinsToRemove);
+		auto offset2 = nos::app::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, &PinsToRemove);
 		mb2.Finish(offset2);
 		auto buf2 = mb2.Release();
-		auto root2 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf2.data());
+		auto root2 = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf2.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root2);
 	}
 
@@ -2625,10 +2625,10 @@ AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters P
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	return SpawnedActor;
@@ -2677,10 +2677,10 @@ AActor* FNOSActorManager::SpawnUMGRenderManager(FString umgTag, UUserWidget* wid
 
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<nos::fb::Node>> graphNodes = { mostRecentParent->Serialize(mb) };
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&mostRecentParent->Parent->Id, nos::app::ClearFlags::NONE, 0, 0, 0, 0, 0, &graphNodes);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 
 	return UMGManager;
@@ -2849,10 +2849,10 @@ void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 	}
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<flatbuffers::Offset<nos::fb::Pin>> graphPins = { SerializePortal(mb, NewPortal, NOSProperty.Get()) };
-	auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
+	auto offset = nos::app::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::app::ClearFlags::NONE, 0, &graphPins, 0, 0, 0, 0);
 	mb.Finish(offset);
 	auto buf = mb.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 }
 

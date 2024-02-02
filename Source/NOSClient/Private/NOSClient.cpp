@@ -270,15 +270,15 @@ void NOSEventDelegates::OnConsoleAutoCompleteSuggestionRequest(
 		});
 }
 
-void NOSEventDelegates::OnLoadNodesOnPaths(nos::LoadNodesOnPaths const* loadNodesOnPathsRequest)
+void NOSEventDelegates::OnLoadNodesOnPaths(nos::app::LoadNodesOnPaths const* loadNodesOnPathsRequest)
 {
 	LOG("LoadNodesOnPaths request from Nodos");
-	if (!PluginClient || !loadNodesOnPathsRequest->paths())
+	if (!PluginClient || !loadNodesOnPathsRequest->child_node_paths())
 	{
 		return;
 	}
 	TArray<FString> Paths;
-	for(auto path : *loadNodesOnPathsRequest->paths())
+	for(auto path : *loadNodesOnPathsRequest->child_node_paths())
 	{
 		Paths.Push(path->c_str());
 	}
@@ -400,7 +400,7 @@ void NOSEventDelegates::OnNodeSelected(nos::fb::UUID const& nodeId)
 		});
 }
 
-void NOSEventDelegates::OnContextMenuRequested(nos::ContextMenuRequest const& request)
+void NOSEventDelegates::OnContextMenuRequested(nos::app::AppContextMenuRequest const& request)
 {
 	LOG("Context menu fired from Nodos");
 	if (!PluginClient)
@@ -409,35 +409,35 @@ void NOSEventDelegates::OnContextMenuRequested(nos::ContextMenuRequest const& re
 	}
 
 	
-	nos::TContextMenuRequest copy;
+	nos::app::TAppContextMenuRequest copy;
 	request.UnPackTo(&copy);
 	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = nos::CreateContextMenuRequest(fbb, &copy);
+			auto offset = nos::app::CreateAppContextMenuRequest(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			NOSClient->OnNOSContextMenuRequested.Broadcast(*flatbuffers::GetRoot<nos::ContextMenuRequest>(buf.data()));
+			NOSClient->OnNOSContextMenuRequested.Broadcast(*flatbuffers::GetRoot < nos::app::AppContextMenuRequest > (buf.data()));
 		});
 }
 
-void NOSEventDelegates::OnContextMenuCommandFired(nos::ContextMenuAction const& action)
+void NOSEventDelegates::OnContextMenuCommandFired(nos::app::AppContextMenuAction const& action)
 {
 	LOG("Context menu command fired from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
-
-	nos::TContextMenuAction copy;
+		
+	nos::app::TAppContextMenuAction copy;
 	action.UnPackTo(&copy);
 	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy]()
 		{
 			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = nos::CreateContextMenuAction(fbb, &copy);
+			auto offset = nos::app::CreateAppContextMenuAction(fbb, &copy);
 			fbb.Finish(offset);
 			auto buf = fbb.Release();
-			NOSClient->OnNOSContextMenuCommandFired.Broadcast(*flatbuffers::GetRoot<nos::ContextMenuAction>(buf.data()));
+			NOSClient->OnNOSContextMenuCommandFired.Broadcast(*flatbuffers::GetRoot<nos::app::AppContextMenuAction>(buf.data()));
 		});
 }
 
@@ -792,16 +792,16 @@ void UENodeStatusHandler::SendStatus()
 	if (!PluginClient || !PluginClient->IsConnected() || !FNOSClient::NodeId.IsValid())
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
-	nos::TPartialNodeUpdate UpdateRequest;
+	nos::app::TPartialNodeUpdate UpdateRequest;
 	UpdateRequest.node_id = *reinterpret_cast<nos::fb::UUID*>(&FNOSClient::NodeId);
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<nos::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	auto offset = nos::CreatePartialNodeUpdate(Builder, &UpdateRequest);
+	auto offset = nos::app::CreatePartialNodeUpdate(Builder, &UpdateRequest);
 	Builder.Finish(offset);
 	auto buf = Builder.Release();
-	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
 	PluginClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	Dirty = false;
 }

@@ -59,7 +59,7 @@ public:
 	PinDataQueue* GetAddQueue(nos::fb::UUID const& pinId)
 	{
 		uuids::uuid id(pinId.bytes()->begin(), pinId.bytes()->end());
-
+		
 		std::scoped_lock<std::mutex> lock(Guard);
 		return &Queues[id];
 	}
@@ -100,8 +100,8 @@ DECLARE_LOG_CATEGORY_EXTERN(LogNOSClient, Log, All);
 //events coming from Nodos
 DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeConnected, nos::fb::Node const*);
 DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeUpdated, nos::fb::Node const&);
-DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuRequested, nos::ContextMenuRequest const&);
-DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuCommandFired, nos::ContextMenuAction const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuRequested, nos::app::AppContextMenuRequest const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuCommandFired, nos::app::AppContextMenuAction const&);
 DECLARE_EVENT(FNOSClient, FNOSNodeRemoved);
 DECLARE_EVENT_FourParams(FNOSClient, FNOSPinValueChanged, nos::fb::UUID const&, uint8_t const*, size_t, bool);
 DECLARE_EVENT_TwoParams(FNOSClient, FNOSPinShowAsChanged, nos::fb::UUID const&, nos::fb::ShowAs);
@@ -124,8 +124,8 @@ public:
 
 	virtual void OnAppConnected(nos::fb::Node const* appNode) override;
 	virtual void OnNodeUpdated(nos::fb::Node const& appNode) override;
-	virtual void OnContextMenuRequested(nos::ContextMenuRequest const& request) override;
-	virtual void OnContextMenuCommandFired(nos::ContextMenuAction const& action) override;
+	virtual void OnContextMenuRequested(nos::app::AppContextMenuRequest const& request) override;
+	virtual void OnContextMenuCommandFired(nos::app::AppContextMenuAction const& action) override;
 	virtual void OnNodeRemoved() override;
 	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint64_t frameNumber) override;
 	virtual void OnPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs) override;
@@ -137,7 +137,7 @@ public:
 	virtual void OnStateChanged(nos::app::ExecutionState newState) override;
 	virtual void OnConsoleCommand(nos::app::ConsoleCommand const* consoleCommand) override;
 	virtual void OnConsoleAutoCompleteSuggestionRequest(nos::app::ConsoleAutoCompleteSuggestionRequest const* consoleAutoCompleteSuggestionRequest) override;
-	virtual void OnLoadNodesOnPaths(nos::LoadNodesOnPaths const* loadNodesOnPathsRequest) override;
+	virtual void OnLoadNodesOnPaths(nos::app::LoadNodesOnPaths const* loadNodesOnPathsRequest) override;
 	virtual void OnCloseApp() override;
 
 	FNOSClient* PluginClient;

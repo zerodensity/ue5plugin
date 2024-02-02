@@ -325,10 +325,10 @@ void FilterCopies(nos::fb::ShowAs FilterShowAs, TMap<NOSProperty*, ResourceInfo>
 				}
 				
 				flatbuffers::FlatBufferBuilder mb;
-				auto offset2 = nos::CreatePinValueChangedDirect(mb, (nos::fb::UUID*)&nosprop->Id, &nosprop->data);
+				auto offset2 = nos::app::CreateSetPinValueDirect(mb, (nos::fb::UUID*)&nosprop->Id, &nosprop->data);
 				mb.Finish(offset2);
 				auto buf = mb.Release();
-				auto root = flatbuffers::GetRoot<nos::PinValueChanged>(buf.data());
+				auto root = flatbuffers::GetRoot<nos::app::SetPinValue>(buf.data());
 				TextureShareManager->NOSClient->AppServiceClient->NotifyPinValueChanged(*root);
 			}
 		 }

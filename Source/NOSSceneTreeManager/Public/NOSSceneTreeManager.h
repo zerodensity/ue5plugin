@@ -148,10 +148,10 @@ public:
 	void OnNOSFunctionCalled(nos::fb::UUID const& nodeId, nos::fb::Node const& function);
 
 	//called when a context menu is requested on some node on Nodos
-	void OnNOSContextMenuRequested(nos::ContextMenuRequest const& request);
+	void OnNOSContextMenuRequested(nos::app::AppContextMenuRequest const& request);
 
 	//called when a action is selected from context menu
-	void OnNOSContextMenuCommandFired(nos::ContextMenuAction const& action);
+	void OnNOSContextMenuCommandFired(nos::app::AppContextMenuAction const& action);
 
 	void OnNOSNodeRemoved();
 
