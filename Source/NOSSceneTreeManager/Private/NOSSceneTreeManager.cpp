@@ -566,6 +566,15 @@ void FNOSSceneTreeManager::OnNOSContextMenuRequested(nos::app::AppContextMenuReq
 			{
 				return;
 			}
+
+			if (actorNode->nosMetaData.Contains(NosMetadataKeys::spawnTag))
+			{
+				if (actorNode->nosMetaData.FindRef(NosMetadataKeys::spawnTag) == FString("RealityParentTransform"))
+				{
+					return;
+				}
+			}
+
 			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<nos::ContextMenuItem>> actions = menuActions.SerializeActorMenuItems(mb);
 			auto posx = nos::fb::vec2(pos.X, pos.Y);
