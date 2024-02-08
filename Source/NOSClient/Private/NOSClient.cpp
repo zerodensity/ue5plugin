@@ -792,16 +792,16 @@ void UENodeStatusHandler::SendStatus()
 	if (!PluginClient || !PluginClient->IsConnected() || !FNOSClient::NodeId.IsValid())
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
-	nos::app::TPartialNodeUpdate UpdateRequest;
+	nos::TPartialNodeUpdate UpdateRequest;
 	UpdateRequest.node_id = *reinterpret_cast<nos::fb::UUID*>(&FNOSClient::NodeId);
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<nos::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	auto offset = nos::app::CreatePartialNodeUpdate(Builder, &UpdateRequest);
+	auto offset = nos::CreatePartialNodeUpdate(Builder, &UpdateRequest);
 	Builder.Finish(offset);
 	auto buf = Builder.Release();
-	auto root = flatbuffers::GetRoot<nos::app::PartialNodeUpdate>(buf.data());
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
 	PluginClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	Dirty = false;
 }
