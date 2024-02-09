@@ -24,13 +24,14 @@ struct NOSPortal
 	FString TypeName;
 	FString CategoryName;
 	nos::fb::ShowAs ShowAs;
+	FString UniqueName;
 };
 
 //This class holds the list of all properties and pins 
 class NOSSCENETREEMANAGER_API FNOSPropertyManager
 {
 public:
-	FNOSPropertyManager();
+	FNOSPropertyManager(NOSSceneTree& sceneTree);
 
 	TSharedPtr<NOSProperty> CreateProperty(UObject* container,
 		FProperty* uproperty,
@@ -43,7 +44,8 @@ public:
 	void ActorDeleted(FGuid DeletedActorId);
 	flatbuffers::Offset<nos::fb::Pin> SerializePortal(flatbuffers::FlatBufferBuilder& fbb, NOSPortal Portal, NOSProperty* SourceProperty);
 	
-	FNOSClient* NOSClient;
+	FNOSClient* NOSClient = nullptr;
+	NOSSceneTree& SceneTree;
 
 	TMap<FGuid, TSharedPtr<NOSProperty>> customProperties;
 	TMap<FGuid, FGuid> PropertyToPortalPin;

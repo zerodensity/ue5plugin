@@ -68,7 +68,7 @@ TMap<FGuid, const nos::fb::Pin*> ParsePins(const nos::fb::Node* archive)
 }
 
 
-FNOSSceneTreeManager::FNOSSceneTreeManager()
+FNOSSceneTreeManager::FNOSSceneTreeManager() : NOSPropertyManager(SceneTree)
 {
 
 }
@@ -1271,15 +1271,48 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				auto NosProperty = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyToUpdate, UnknownContainer});
 				PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&NosProperty->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
 				NOSPortal NewPortal{update.pinId ,NosProperty->Id};
+				
 				NewPortal.DisplayName = FString("");
 				UObject* parent = NosProperty->GetRawObjectContainer();
+				FString parentName = "";
+				FString parentUniqueName = "";
+				AActor* parentAsActor = nullptr;
 				while (parent)
 				{
-					NewPortal.DisplayName = parent->GetFName().ToString() + FString(".") + NewPortal.DisplayName;
+					parentName = parent->GetFName().ToString();
+					parentUniqueName = parent->GetFName().ToString() + "-";
+					if (auto actor = Cast<AActor>(parent))
+					{
+						parentName = actor->GetActorLabel();
+						parentAsActor = actor;
+					}
+					if(auto component = Cast<USceneComponent>(parent))
+						parentName = component->GetName();
+					parentName += ".";
 					parent = parent->GetTypedOuter<AActor>();
 				}
+				if (parentAsActor)
+				{
+					while (parentAsActor->GetSceneOutlinerParent())
+					{
+						parentAsActor = parentAsActor->GetSceneOutlinerParent();
+						if (auto actorNode = SceneTree.GetNodeFromActorId(parentAsActor->GetActorGuid()))
+						{
+							if (actorNode->nosMetaData.Contains(NosMetadataKeys::spawnTag))
+							{
+								if (actorNode->nosMetaData.FindRef(NosMetadataKeys::spawnTag) == FString("RealityParentTransform"))
+								{
+									break;
+								}
+							}
+						}
+						parentName = parentAsActor->GetActorLabel() + "." + parentName;
+						parentUniqueName = parentAsActor->GetFName().ToString() + "-" + parentUniqueName;
+					}
+				}
 
-				NewPortal.DisplayName += NosProperty->DisplayName;
+				NewPortal.UniqueName = parentUniqueName + NosProperty->DisplayName;
+				NewPortal.DisplayName =  parentName + NosProperty->DisplayName;
 				NewPortal.TypeName = FString(NosProperty->TypeName.c_str());
 				NewPortal.CategoryName = NosProperty->CategoryName;
 				NewPortal.ShowAs = update.pinShowAs;
@@ -2808,7 +2841,7 @@ void FNOSActorManager::PostSave(UWorld* World, FObjectPostSaveContext Context)
 	}
 }
 
-FNOSPropertyManager::FNOSPropertyManager()
+FNOSPropertyManager::FNOSPropertyManager(NOSSceneTree& sceneTree) : SceneTree(sceneTree)
 {
 }
 
@@ -2832,19 +2865,44 @@ void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 	NewPortal.DisplayName = FString("");
 	UObject* parent = NOSProperty->GetRawObjectContainer();
 	FString parentName = "";
+	FString parentUniqueName = "";
+	AActor* parentAsActor = nullptr;
 	while (parent)
 	{
 		parentName = parent->GetFName().ToString();
-		if(auto actor = Cast<AActor>(parent))
+		parentUniqueName = parent->GetFName().ToString() + "-";
+		if (auto actor = Cast<AActor>(parent))
+		{
 			parentName = actor->GetActorLabel();
+			parentAsActor = actor;
+		}
 		if(auto component = Cast<USceneComponent>(parent))
 			parentName = component->GetName();
 		parentName += ".";
 		parent = parent->GetTypedOuter<AActor>();
 	}
-	NewPortal.DisplayName =  parentName + NewPortal.DisplayName;
+	if (parentAsActor)
+	{
+		while (parentAsActor->GetSceneOutlinerParent())
+		{
+			parentAsActor = parentAsActor->GetSceneOutlinerParent();
+			if (auto actorNode = SceneTree.GetNodeFromActorId(parentAsActor->GetActorGuid()))
+			{
+				if (actorNode->nosMetaData.Contains(NosMetadataKeys::spawnTag))
+				{
+					if (actorNode->nosMetaData.FindRef(NosMetadataKeys::spawnTag) == FString("RealityParentTransform"))
+					{
+						break;
+					}
+				}
+			}
+			parentName = parentAsActor->GetActorLabel() + "." + parentName;
+			parentUniqueName = parentAsActor->GetFName().ToString() + "-" + parentUniqueName;
+		}
+	}
 
-	NewPortal.DisplayName += NOSProperty->DisplayName;
+	NewPortal.UniqueName = parentUniqueName + NOSProperty->DisplayName;
+	NewPortal.DisplayName =  parentName + NOSProperty->DisplayName;
 	NewPortal.TypeName = FString(NOSProperty->TypeName.c_str());
 	NewPortal.CategoryName = NOSProperty->CategoryName;
 	NewPortal.ShowAs = ShowAs;
@@ -2951,7 +3009,7 @@ void FNOSPropertyManager::ActorDeleted(FGuid DeletedActorId)
 flatbuffers::Offset<nos::fb::Pin> FNOSPropertyManager::SerializePortal(flatbuffers::FlatBufferBuilder& fbb, NOSPortal Portal, NOSProperty* SourceProperty)
 {
 	auto SerializedMetadata = SourceProperty->SerializeMetaData(fbb);
-	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.DisplayName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, SourceProperty->PinCanShowAs, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, SourceProperty->ReadOnly, 0, false, &SerializedMetadata, 0, nos::fb::PinContents::PortalPin, nos::fb::CreatePortalPin(fbb, (nos::fb::UUID*)&Portal.SourceId).Union(), 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*SourceProperty->ToolTipText), TCHAR_TO_UTF8(*Portal.DisplayName));
+	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Portal.Id, TCHAR_TO_UTF8(*Portal.UniqueName), TCHAR_TO_UTF8(*Portal.TypeName), Portal.ShowAs, SourceProperty->PinCanShowAs, TCHAR_TO_UTF8(*Portal.CategoryName), SourceProperty->SerializeVisualizer(fbb), 0, 0, 0, 0, 0, 0, SourceProperty->ReadOnly, 0, false, &SerializedMetadata, 0, nos::fb::PinContents::PortalPin, nos::fb::CreatePortalPin(fbb, (nos::fb::UUID*)&Portal.SourceId).Union(), 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*SourceProperty->ToolTipText), TCHAR_TO_UTF8(*Portal.DisplayName));
 }
 
 void FNOSPropertyManager::Reset(bool ResetPortals)
