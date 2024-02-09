@@ -629,6 +629,15 @@ void FNOSClient::StartupModule() {
 		return;
 	}
 
+	if (GEditor)
+	{
+		nos::fb::TNodeStatusMessage EditorWarningStatus;
+		EditorWarningStatus.text = "WARNING: Editor Mode, Preview only!";
+		EditorWarningStatus.type = nos::fb::NodeStatusMessageType::WARNING;
+		UENodeStatusHandler.Add("editor_warning", EditorWarningStatus);
+	}
+
+
 	//Add Delegates
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSClient::Tick));
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSClient::OnPostWorldInit);
