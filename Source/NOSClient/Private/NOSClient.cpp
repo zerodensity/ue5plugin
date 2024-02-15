@@ -170,6 +170,18 @@ void NOSEventDelegates::OnNodeUpdated(nos::fb::Node const& appNode)
 	{
 		FNOSClient::NodeId = *(FGuid*)appNode.id();
 		PluginClient->Connected();
+
+		nos::fb::TNode copy2;
+		appNode.UnPackTo(&copy2);
+		PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy2]()
+			{
+				flatbuffers::FlatBufferBuilder fbb;
+				auto offset = nos::fb::CreateNode(fbb, &copy2);
+				fbb.Finish(offset);
+				auto buf = fbb.Release();
+				NOSClient->OnNOSNodeImported.Broadcast(*flatbuffers::GetRoot<nos::fb::Node>(buf.data()));
+			});
+		return;
 	}
 
 	nos::fb::TNode copy;
