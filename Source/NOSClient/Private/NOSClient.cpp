@@ -14,6 +14,7 @@
 #include "Runtime/Engine/Classes/Kismet/GameplayStatics.h"
 #include "Engine/EngineCustomTimeStep.h"
 #include "Misc/MessageDialog.h"
+#include "ShaderCompiler.h"
 
 //Nodos
 #include "nosFlatBuffersCommon.h"
@@ -669,6 +670,23 @@ bool FNOSClient::Tick(float dt)
 		TaskQueue.Dequeue(task);
 		task();
 	}
+
+
+	if (GShaderCompilingManager && GShaderCompilingManager->IsCompiling())
+	{
+		FString ShaderCompilationWarning =  FString::FromInt(GShaderCompilingManager->GetNumRemainingJobs()) + FString(" shaders are compiling...");
+		nos::fb::TNodeStatusMessage ShaderCompilationStatus;
+		ShaderCompilationStatus.text = TCHAR_TO_UTF8(*ShaderCompilationWarning);
+		ShaderCompilationStatus.type = nos::fb::NodeStatusMessageType::WARNING;
+		UENodeStatusHandler.Add("shader_compilation_warning", ShaderCompilationStatus);
+		bDisplayingShaderCompilationWarning = true;
+	}
+	else if (bDisplayingShaderCompilationWarning)
+	{
+		UENodeStatusHandler.Remove("shader_compilation_warning");
+		bDisplayingShaderCompilationWarning = false;
+	}
+
 	UENodeStatusHandler.Update();
 	return true;
 }
