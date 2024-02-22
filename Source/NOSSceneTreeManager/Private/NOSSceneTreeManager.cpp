@@ -192,6 +192,8 @@ void FNOSSceneTreeManager::StartupModule()
 
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSSceneTreeManager::OnPreWorldFinishDestroy);
+	FWorldDelegates::LevelAddedToWorld.AddRaw(this, &FNOSSceneTreeManager::OnLevelAddedToWorld);
+	FWorldDelegates::PreLevelRemovedFromWorld.AddRaw(this, &FNOSSceneTreeManager::OnLevelRemovedFromWorld);
 
 	GEngine->OnLevelActorAttached().AddRaw(this, &FNOSSceneTreeManager::OnActorAttached);
 	GEngine->OnLevelActorDetached().AddRaw(this, &FNOSSceneTreeManager::OnActorDetached);
@@ -689,6 +691,42 @@ void FNOSSceneTreeManager::OnPreWorldFinishDestroy(UWorld* World)
 	SendNodeUpdate(FNOSClient::NodeId, false);
 #endif
 }
+
+void FNOSSceneTreeManager::OnLevelAddedToWorld(ULevel* Level, UWorld* World)
+{
+	if (!Level)
+	{
+		return;
+	}
+
+	for (auto Actor : Level->Actors)
+	{
+		if (IsActorDisplayable(Actor))
+		{
+			LOGF("%s is added with new level", *(Actor->GetFName().ToString()));
+			if (SceneTree.GetNode(Actor))
+			{
+				return;
+			}
+			SendActorAdded(Actor);
+		}
+	}
+}
+
+void FNOSSceneTreeManager::OnLevelRemovedFromWorld(ULevel* Level, UWorld* World)
+{
+	if (!Level)
+	{
+		return;
+	}
+
+	for (auto Actor : Level->Actors)
+	{
+		LOGF("%s is removed becasue level is removed", *(Actor->GetFName().ToString()));
+		SendActorDeleted(Actor);
+	}
+}
+
 
 struct PropUpdate
 {

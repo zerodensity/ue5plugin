@@ -175,6 +175,10 @@ public:
 	//Called when the level destruction began
 	void OnPreWorldFinishDestroy(UWorld* World);
 
+	void OnLevelAddedToWorld(ULevel* Level, UWorld* World);
+
+	void OnLevelRemovedFromWorld(ULevel* Level, UWorld* World);
+
 	//delegate called when a property is changed from unreal engine editor
 	//it updates thecorresponding property in Nodos
 	void OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent);
