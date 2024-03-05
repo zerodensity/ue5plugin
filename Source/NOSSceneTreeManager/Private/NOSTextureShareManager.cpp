@@ -376,12 +376,6 @@ void NOSTextureShareManager::SetupFences(FRHICommandListImmediate& RHICmdList, n
 
 void NOSTextureShareManager::ProcessCopies(nos::fb::ShowAs CopyShowAs, TMap<NOSProperty*, ResourceInfo>& CopyMap)
 {
-	{
-		if (CopyMap.IsEmpty())
-		{
-			return;
-		}
-	}
 	TMap<UTextureRenderTarget2D*, ResourceInfo> CopiesFiltered;
 	FilterCopies(CopyShowAs, CopyMap, CopiesFiltered);
 
