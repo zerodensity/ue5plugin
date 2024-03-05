@@ -3065,6 +3065,8 @@ void FNOSPropertyManager::Reset(bool ResetPortals)
 
 void FNOSPropertyManager::OnBeginFrame()
 {
+	if(NOSClient->EventDelegates)
+		NOSClient->EventDelegates->PopFrameNumber(NOSTextureShareManager::GetInstance()->FrameCounter);
 	for (auto [id, portal] : PortalPinsById)
 	{
 		if (portal.ShowAs == nos::fb::ShowAs::OUTPUT_PIN || 
@@ -3081,7 +3083,9 @@ void FNOSPropertyManager::OnBeginFrame()
 			continue;
 		}
 
-		auto shouldWait = portal.ShowAs == nos::fb::ShowAs::INPUT_PIN && portal.TypeName == "nos.fb.Track";
+		//auto shouldWait = portal.ShowAs == nos::fb::ShowAs::INPUT_PIN && portal.TypeName == "nos.fb.Track";
+		//auto shouldWait = portal.ShowAs != nos::fb::ShowAs::OUTPUT_PIN;
+		auto shouldWait = false;
 		auto buffer = NOSClient->EventDelegates->Pop(*((nos::fb::UUID*)&NosProperty->Id), shouldWait, NOSTextureShareManager::GetInstance()->FrameCounter);
 		if (!buffer.IsEmpty())
 		{
