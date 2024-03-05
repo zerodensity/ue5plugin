@@ -259,8 +259,6 @@ public:
 	
 	UENodeStatusHandler UENodeStatusHandler;
 
-	bool bDisplayingShaderCompilationWarning = false;
-
 	int ReloadingLevel = 0;
 	
 protected:
