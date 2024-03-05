@@ -708,7 +708,7 @@ void FNOSSceneTreeManager::OnLevelAddedToWorld(ULevel* Level, UWorld* World)
 			{
 				return;
 			}
-			SendActorAdded(Actor);
+			SendActorAddedOnUpdate(Actor);
 		}
 	}
 }
@@ -723,7 +723,7 @@ void FNOSSceneTreeManager::OnLevelRemovedFromWorld(ULevel* Level, UWorld* World)
 	for (auto Actor : Level->Actors)
 	{
 		LOGF("%s is removed becasue level is removed", *(Actor->GetFName().ToString()));
-		SendActorDeleted(Actor);
+		OnActorDestroyed(Actor);
 	}
 }
 
