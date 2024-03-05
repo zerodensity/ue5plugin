@@ -1425,6 +1425,7 @@ void FNOSSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t si
 	{
 		NOSPropertyManager.CreatePortal(pinId, nos::fb::ShowAs::PROPERTY);
 	}	
+	nosprop->SetPropValue(newval, size);
 	
 }
 
@@ -3065,8 +3066,27 @@ void FNOSPropertyManager::Reset(bool ResetPortals)
 
 void FNOSPropertyManager::OnBeginFrame()
 {
-	if(NOSClient->EventDelegates)
-		NOSClient->EventDelegates->PopFrameNumber(NOSTextureShareManager::GetInstance()->FrameCounter);
+	if (NOSClient->EventDelegates)
+	{
+		auto executeInfo = NOSClient->EventDelegates->ExecuteQueue.PopFrameNumber(NOSTextureShareManager::GetInstance()->FrameCounter);
+		for (auto& [id, val] : executeInfo.PinValueUpdates)
+		{
+			FGuid guid = *(FGuid*)&id;
+			if (auto* NosPropertyIt = PropertiesById.Find(guid))
+			{
+				auto NosProperty = *NosPropertyIt;
+				if (!NosProperty->GetRawContainer())
+				{
+					return;
+				}
+				if (!PropertyToPortalPin.Contains(guid))
+				{
+					CreatePortal(guid, nos::fb::ShowAs::PROPERTY);
+				}
+				NosProperty->SetPropValue(val.Data(), val.Size());
+			}
+		}
+	}
 	for (auto [id, portal] : PortalPinsById)
 	{
 		if (portal.ShowAs == nos::fb::ShowAs::OUTPUT_PIN || 
@@ -3081,15 +3101,6 @@ void FNOSPropertyManager::OnBeginFrame()
 		{
 			NOSTextureShareManager::GetInstance()->UpdateTexturePin(NosProperty.Get(), portal.ShowAs);
 			continue;
-		}
-
-		//auto shouldWait = portal.ShowAs == nos::fb::ShowAs::INPUT_PIN && portal.TypeName == "nos.fb.Track";
-		//auto shouldWait = portal.ShowAs != nos::fb::ShowAs::OUTPUT_PIN;
-		auto shouldWait = false;
-		auto buffer = NOSClient->EventDelegates->Pop(*((nos::fb::UUID*)&NosProperty->Id), shouldWait, NOSTextureShareManager::GetInstance()->FrameCounter);
-		if (!buffer.IsEmpty())
-		{
-			NosProperty->SetPropValue(buffer.Data(), buffer.Size());
 		}
 	}
 }
