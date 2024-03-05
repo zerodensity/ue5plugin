@@ -687,19 +687,24 @@ bool FNOSClient::Tick(float dt)
 	}
 
 
-	if (GShaderCompilingManager && GShaderCompilingManager->IsCompiling())
+	for (IAssetCompilingManager* CompilingManager : FAssetCompilingManager::Get().GetRegisteredManagers())
 	{
-		FString ShaderCompilationWarning =  FString::FromInt(GShaderCompilingManager->GetNumRemainingJobs()) + FString(" shaders are compiling...");
-		nos::fb::TNodeStatusMessage ShaderCompilationStatus;
-		ShaderCompilationStatus.text = TCHAR_TO_UTF8(*ShaderCompilationWarning);
-		ShaderCompilationStatus.type = nos::fb::NodeStatusMessageType::WARNING;
-		UENodeStatusHandler.Add("shader_compilation_warning", ShaderCompilationStatus);
-		bDisplayingShaderCompilationWarning = true;
-	}
-	else if (bDisplayingShaderCompilationWarning)
-	{
-		UENodeStatusHandler.Remove("shader_compilation_warning");
-		bDisplayingShaderCompilationWarning = false;
+		int32 RemainingCount = CompilingManager->GetNumRemainingAssets();
+		auto AssetTypeName = std::string(TCHAR_TO_UTF8(*CompilingManager->GetAssetTypeName().ToString())) + std::string("_compilation_warning");
+
+		if (RemainingCount)
+		{
+			FText AssetTypePlural = FText::Format(CompilingManager->GetAssetNameFormat(), FText::AsNumber(100));
+			FString CompilationWarning = FText::Format(LOCTEXT("AssetCompilingFmt", "Preparing {0} ({1})"), AssetTypePlural, RemainingCount).ToString();
+			nos::fb::TNodeStatusMessage CompilationStatus;
+			CompilationStatus.text = TCHAR_TO_UTF8(*CompilationWarning);
+			CompilationStatus.type = nos::fb::NodeStatusMessageType::WARNING;
+			UENodeStatusHandler.Add(AssetTypeName, CompilationStatus);
+		}
+		else
+		{
+			UENodeStatusHandler.Remove(AssetTypeName);
+		}
 	}
 
 	UENodeStatusHandler.Update();
