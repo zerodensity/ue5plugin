@@ -20,121 +20,70 @@
 #include <nosFlatBuffersCommon.h>
 #include <functional> 
 
-struct PinDataQueue : public TQueue<TPair<nos::Buffer, uint32_t>>
+
+
+struct ExecuteInfo
 {
-	bool LiveNow = true;
-
-	void DiscardExcessThenDequeue(TPair<nos::Buffer, uint32_t>& result, uint32_t requestedFrameNumber, bool wait)
-	{
-		u32 tryCount = 0;
-		bool dequeued = false;
-		bool oldLiveNow = LiveNow;
-		FPlatformProcess::ConditionalSleep([&]()
-			{
-				while (Dequeue(result))
-				{
-					LiveNow = true;
-					dequeued = true;
-					if (result.Value >= requestedFrameNumber)
-						return true;
-				}
-
-				return !LiveNow || !wait || tryCount++ > 20;
-			}, 0.001f);
-		
-		LiveNow = dequeued;
-		if (oldLiveNow != LiveNow)
-			UE_LOG(LogCore, Warning, TEXT("LiveNow Changed"));
-
-		if (LiveNow && result.Value != requestedFrameNumber)
-			UE_LOG(LogCore, Warning, TEXT("Mismatch between popped frame number and requested frame number: %i, %i"), result.Value, requestedFrameNumber);
-	}
+	uint64_t FrameNumber;
+	TArray<TPair<uuids::uuid, nos::Buffer>> PinValueUpdates;
 };
-
-struct ExecuteFrameNumberQueue : public TQueue<uint64_t>
+struct ExecuteFrameNumberQueue : public TQueue<ExecuteInfo>
 {
-	bool LiveNow = true;
-	void DiscardExcessThenDequeue(uint64_t& result, uint64_t requestedFrameNumber, bool wait)
+	ExecuteInfo PopFrameNumber(uint64_t frameNumber)
 	{
-		u32 tryCount = 0;
-		bool dequeued = false;
-		bool oldLiveNow = LiveNow;
-		FPlatformProcess::ConditionalSleep([&]()
+		ExecuteInfo executeInfo{};
+		DiscardExcessThenDequeue(executeInfo, frameNumber, true);
+		return executeInfo;
+	}
+	void EnqueueExecuteStart(nos::app::AppExecuteStart const* appExecuteStart)
+	{
+		ExecuteInfo start{};
+		start.FrameNumber = appExecuteStart->frame_counter();
+		if (auto* pinValueUpdates = appExecuteStart->pin_value_updates())
+			for (auto const& pinValueUpdate : *pinValueUpdates)
 			{
-				while (Dequeue(result))
-				{
-					LiveNow = true;
-					dequeued = true;
-					if (result >= requestedFrameNumber)
-						return true;
-				}
-
-				return !LiveNow || !wait || tryCount++ > 20;
-			}, 0.001f);
-
-		LiveNow = dequeued;
-		if (oldLiveNow != LiveNow)
-			UE_LOG(LogCore, Warning, TEXT("LiveNow Changed"));
-
-		if (LiveNow && result != requestedFrameNumber)
-			UE_LOG(LogCore, Warning, TEXT("Mismatch between popped frame number and requested frame number: %i, %i"), result, requestedFrameNumber);
-	}
-};
-
-class PinDataQueues : public nos::app::IEventDelegates
-{
-public:
-	virtual ~PinDataQueues() {}
-
-	PinDataQueue* GetAddQueue(nos::fb::UUID const& pinId)
-	{
-		uuids::uuid id(pinId.bytes()->begin(), pinId.bytes()->end());
-		
-		std::scoped_lock<std::mutex> lock(Guard);
-		return &Queues[id];
-	}
-	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint64_t frameNumber) override
-	{
-		if (reset)
+				uuids::uuid pinId(pinValueUpdate->pin_id()->bytes()->begin(), pinValueUpdate->pin_id()->bytes()->end());
+				start.PinValueUpdates.Emplace(pinId, nos::Buffer(pinValueUpdate->value()->data(), pinValueUpdate->value()->size()));
+			}
+		if (appExecuteStart->reset())
 		{
-			std::scoped_lock<std::mutex> lock(Guard);
-			for (auto& [_, queue] : Queues)
-				queue.Empty();
-
-			return;
+			std::scoped_lock lock(Guard);
+			Empty();
 		}
-
-		auto queue = GetAddQueue(pinId);
-		queue->Enqueue({ nos::Buffer(data, size), frameNumber });
+		else
+			Enqueue(std::move(start));
 	}
-
-	virtual void OnExecuteStart(nos::app::AppExecuteStart const* appExecuteStart) override 
+private:
+	void DiscardExcessThenDequeue(ExecuteInfo& result, uint64_t requestedFrameNumber, bool wait)
 	{
-		ExecuteQueue.Enqueue(appExecuteStart->frame_counter());
+		std::scoped_lock lock(Guard);
+		u32 tryCount = 0;
+		bool dequeued = false;
+		bool oldLiveNow = LiveNow;
+		FPlatformProcess::ConditionalSleep([&]()
+			{
+				while (Dequeue(result))
+				{
+					LiveNow = true;
+					dequeued = true;
+					if (result.FrameNumber >= requestedFrameNumber)
+						return true;
+				}
+
+				return !LiveNow || !wait || tryCount++ > 20;
+			}, 0.001f);
+
+		LiveNow = dequeued;
+		if (oldLiveNow != LiveNow)
+			UE_LOG(LogCore, Warning, TEXT("LiveNow Changed"));
+
+		if (LiveNow && result.FrameNumber != requestedFrameNumber)
+			UE_LOG(LogCore, Warning, TEXT("Mismatch between popped frame number and requested frame number: %i, %i"), result.FrameNumber, requestedFrameNumber);
 	}
-
-	void PopFrameNumber(uint64_t frameNumber)
-	{
-		uint64_t frameNum = 0;
-		ExecuteQueue.DiscardExcessThenDequeue(frameNum, frameNumber, true);
-	}
-
-	nos::Buffer Pop(nos::fb::UUID const& pinId, bool wait, uint32_t frameNumber)
-	{
-		auto queue = GetAddQueue(pinId);
-
-		TPair<nos::Buffer, uint32_t> result;
-		queue->DiscardExcessThenDequeue(result, frameNumber, wait);
-		return result.Key;
-	}
-
+	
+	bool LiveNow = true;
 	std::mutex Guard;
-	std::unordered_map<uuids::uuid, PinDataQueue> Queues;
-
-	ExecuteFrameNumberQueue ExecuteQueue{};
-
 };
-
 
 class UNOSCustomTimeStep;
 typedef std::function<void()> Task;
@@ -161,7 +110,7 @@ DECLARE_EVENT(FNOSClient, FNOSConnectionClosed);
  */
 class FNOSClient;
 
-class NOSCLIENT_API NOSEventDelegates : public PinDataQueues
+class NOSCLIENT_API NOSEventDelegates : public nos::app::IEventDelegates
 {
 public:
 	~NOSEventDelegates() {}
@@ -183,7 +132,10 @@ public:
 	virtual void OnConsoleAutoCompleteSuggestionRequest(nos::app::ConsoleAutoCompleteSuggestionRequest const* consoleAutoCompleteSuggestionRequest) override;
 	virtual void OnLoadNodesOnPaths(nos::app::LoadNodesOnPaths const* loadNodesOnPathsRequest) override;
 	virtual void OnCloseApp() override;
+	virtual void OnExecuteStart(nos::app::AppExecuteStart const* appExecuteStart) override;
 	FNOSClient* PluginClient;
+
+	ExecuteFrameNumberQueue ExecuteQueue{};
 };
 
 

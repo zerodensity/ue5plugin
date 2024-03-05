@@ -311,6 +311,11 @@ void NOSEventDelegates::OnCloseApp()
 	FGenericPlatformMisc::RequestExit(false);
 }
 
+void NOSEventDelegates::OnExecuteStart(nos::app::AppExecuteStart const* appExecuteStart)
+{
+	ExecuteQueue.EnqueueExecuteStart(appExecuteStart);
+}
+
 void NOSEventDelegates::OnNodeRemoved()
 {
 	LOG("Plugin node removed from Nodos");
@@ -337,8 +342,6 @@ void NOSEventDelegates::OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t co
 	{
 		return;
 	}
-	PinDataQueues::OnPinValueChanged(pinId, data, size, reset, frameNumber);
-	
 	std::vector<uint8_t> copy(size, 0);
 	memcpy(copy.data(), data, size);
 	FGuid id = *(FGuid*)&pinId;
