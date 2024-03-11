@@ -235,8 +235,12 @@ public:
 	//Adds the node to scene tree and sends it to Nodos
 	void SendActorAdded(AActor* actor, FString spawnTag = FString());
 
+	void SendActorDeletedOnUpdate(AActor* actor);
+	
 	//Deletes the node from scene tree and sends it to Nodos
 	void SendActorDeleted(AActor* Actor);
+
+	void SendActorNodeDeleted(ActorNode* node);
 	
 	void PopulateAllChildsOfActor(AActor* actor);
 
@@ -271,6 +275,7 @@ public:
 	void AddCustomFunction(NOSCustomFunction* CustomFunction);
 	
 	void AddToBeAddedActors();
+	void DeleteToBeDeletedActors();
 
 	//the world we interested in
 	static UWorld* daWorld;
@@ -323,5 +328,6 @@ public:
 
 	bool AlwaysUpdateOnActorSpawns = false;
 	TArray<TWeakObjectPtr<AActor>> ActorsToBeAdded;
+	TArray<FGuid> ActorsToBeDeleted;
 };
 

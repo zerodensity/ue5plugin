@@ -98,6 +98,7 @@ void FNOSSceneTreeManager::AddCustomFunction(NOSCustomFunction* CustomFunction)
 	SendEngineFunctionUpdate();
 }
 
+
 void FNOSSceneTreeManager::AddToBeAddedActors()
 {
 	for (auto weakActorPtr : ActorsToBeAdded)
@@ -107,6 +108,18 @@ void FNOSSceneTreeManager::AddToBeAddedActors()
 		SendActorAdded(weakActorPtr.Get());
 	}
 	ActorsToBeAdded.Empty();
+}
+
+void FNOSSceneTreeManager::DeleteToBeDeletedActors()
+{
+	for (auto actorGuid : ActorsToBeDeleted)
+	{
+		if (auto node = SceneTree.GetNodeFromActorId(actorGuid))
+		{
+			SendActorNodeDeleted(node);
+		}
+	}
+	ActorsToBeDeleted.Empty();
 }
 
 void FNOSSceneTreeManager::OnBeginFrame()
@@ -234,6 +247,7 @@ void FNOSSceneTreeManager::StartupModule()
 			};
 		noscf->Function = [this, alwaysUpdateId = alwaysUpdateId](TMap<FGuid, std::vector<uint8>> properties)
 			{
+				DeleteToBeDeletedActors();
 				AddToBeAddedActors();
 				AlwaysUpdateOnActorSpawns = static_cast<bool>(properties[alwaysUpdateId][0]);
 			};
@@ -917,7 +931,7 @@ void FNOSSceneTreeManager::OnActorSpawned(AActor* InActor)
 void FNOSSceneTreeManager::OnActorDestroyed(AActor* InActor)
 {
 	LOGF("%s is destroyed.", *(InActor->GetFName().ToString()));
-	SendActorDeleted(InActor);
+	SendActorDeletedOnUpdate(InActor);
 	ActorsToBeAdded.RemoveAll([&](TWeakObjectPtr<AActor> const& actor)
 		{
 			return actor.Get() == actor;
@@ -2223,92 +2237,111 @@ void FNOSSceneTreeManager::Reset()
 	NOSActorManager->ReAddActorsToSceneTree();
 }
 
+void FNOSSceneTreeManager::SendActorNodeDeleted(ActorNode* node)
+{
+	if (!node)
+		return;
+
+	//delete properties
+	// can be optimized by using raw pointers
+	TSet<TSharedPtr<NOSProperty>> propertiesToRemove;
+	RemoveProperties(node, propertiesToRemove);
+	TSet<FGuid> PropertiesWithPortals;
+	TSet<FGuid> PortalsToRemove;
+	auto texman = NOSTextureShareManager::GetInstance();
+	for (auto prop : propertiesToRemove)
+	{
+		if(prop->TypeName == "nos.sys.vulkan.Texture")
+		{
+			texman->TextureDestroyed(prop.Get());
+		}
+		if (!NOSPropertyManager.PropertyToPortalPin.Contains(prop->Id))
+		{
+			continue;
+		}
+		auto portalId = NOSPropertyManager.PropertyToPortalPin.FindRef(prop->Id);
+		PropertiesWithPortals.Add(prop->Id);
+		if (!NOSPropertyManager.PortalPinsById.Contains(portalId))
+		{
+			continue;
+		}
+		PortalsToRemove.Add(portalId);
+	}
+	for (auto PropertyId : PropertiesWithPortals)
+	{
+		NOSPropertyManager.PropertyToPortalPin.Remove(PropertyId);
+	}
+	for (auto PortalId : PortalsToRemove)
+	{
+		NOSPropertyManager.PortalPinsById.Remove(PortalId);
+	}
+
+	//delete from parent
+	FGuid parentId = FNOSClient::NodeId;
+	if (auto parent = node->Parent)
+	{
+		parentId = parent->Id;
+		TSharedPtr<TreeNode> found;
+		for(auto child : parent->Children)
+		{
+			if(child->Id == node->Id)
+			{
+				found = child;
+			}
+		}
+		auto v = parent->Children;
+		auto it = std::find(v.begin(), v.end(), found);
+		if (it != v.end())
+			v.erase(it);
+	}
+	//delete from map
+	SceneTree.RemoveNode(node->Id);
+
+	if (!NOSClient->IsConnected())
+	{
+		return;
+	}
+
+	if (!PortalsToRemove.IsEmpty())
+	{
+		std::vector<nos::fb::UUID> pinsToDelete;
+		for (auto portalId : PortalsToRemove)
+		{
+			pinsToDelete.push_back(*(nos::fb::UUID*)&portalId);
+		}
+		flatbuffers::FlatBufferBuilder mb;
+		auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	}
+
+	flatbuffers::FlatBufferBuilder mb2;
+	std::vector<nos::fb::UUID> graphNodes = { *(nos::fb::UUID*)&node->Id };
+	auto offset = nos::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&parentId, nos::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
+	mb2.Finish(offset);
+	auto buf = mb2.Release();
+	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
+
+}
+
+void FNOSSceneTreeManager::SendActorDeletedOnUpdate(AActor* actor)
+{
+	if (AlwaysUpdateOnActorSpawns)
+	{
+		SendActorDeleted(actor);
+		return;
+	}
+	ActorsToBeDeleted.Add(actor->GetActorGuid());
+}
+
 void FNOSSceneTreeManager::SendActorDeleted(AActor* Actor)
 {
 	if (auto node = SceneTree.GetNode(Actor))
 	{
-		//delete properties
-		// can be optimized by using raw pointers
-		TSet<TSharedPtr<NOSProperty>> propertiesToRemove;
-		RemoveProperties(node, propertiesToRemove);
-		TSet<FGuid> PropertiesWithPortals;
-		TSet<FGuid> PortalsToRemove;
-		auto texman = NOSTextureShareManager::GetInstance();
-		for (auto prop : propertiesToRemove)
-		{
-			if(prop->TypeName == "nos.sys.vulkan.Texture")
-			{
-				texman->TextureDestroyed(prop.Get());
-			}
-			if (!NOSPropertyManager.PropertyToPortalPin.Contains(prop->Id))
-			{
-				continue;
-			}
-			auto portalId = NOSPropertyManager.PropertyToPortalPin.FindRef(prop->Id);
-			PropertiesWithPortals.Add(prop->Id);
-			if (!NOSPropertyManager.PortalPinsById.Contains(portalId))
-			{
-				continue;
-			}
-			PortalsToRemove.Add(portalId);
-		}
-		for (auto PropertyId : PropertiesWithPortals)
-		{
-			NOSPropertyManager.PropertyToPortalPin.Remove(PropertyId);
-		}
-		for (auto PortalId : PortalsToRemove)
-		{
-			NOSPropertyManager.PortalPinsById.Remove(PortalId);
-		}
-
-		//delete from parent
-		FGuid parentId = FNOSClient::NodeId;
-		if (auto parent = node->Parent)
-		{
-			parentId = parent->Id;
-			TSharedPtr<TreeNode> found;
-			for(auto child : parent->Children)
-			{
-				if(child->Id == node->Id)
-				{
-					found = child;
-				}
-			}
-			auto v = parent->Children;
-			auto it = std::find(v.begin(), v.end(), found);
-			if (it != v.end())
-				v.erase(it);
-		}
-		//delete from map
-		SceneTree.RemoveNode(node->Id);
-
-		if (!NOSClient->IsConnected())
-		{
-			return;
-		}
-
-		if (!PortalsToRemove.IsEmpty())
-		{
-			std::vector<nos::fb::UUID> pinsToDelete;
-			for (auto portalId : PortalsToRemove)
-			{
-				pinsToDelete.push_back(*(nos::fb::UUID*)&portalId);
-			}
-			flatbuffers::FlatBufferBuilder mb;
-			auto offset = nos::CreatePartialNodeUpdateDirect(mb, (nos::fb::UUID*)&FNOSClient::NodeId, nos::ClearFlags::NONE, &pinsToDelete, 0, 0, 0, 0, 0);
-			mb.Finish(offset);
-			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
-			NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
-		}
-
-		flatbuffers::FlatBufferBuilder mb2;
-		std::vector<nos::fb::UUID> graphNodes = { *(nos::fb::UUID*)&node->Id };
-		auto offset = nos::CreatePartialNodeUpdateDirect(mb2, (nos::fb::UUID*)&parentId, nos::ClearFlags::NONE, 0, 0, 0, 0, &graphNodes, 0);
-		mb2.Finish(offset);
-		auto buf = mb2.Release();
-		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
-		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
+		SendActorNodeDeleted(node);
 	}
 }
 
