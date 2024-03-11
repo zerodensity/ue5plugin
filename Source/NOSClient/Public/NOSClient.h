@@ -62,12 +62,19 @@ private:
 		bool oldLiveNow = LiveNow;
 		FPlatformProcess::ConditionalSleep([&]()
 			{
-				while (Dequeue(result))
+				while (Peek(result))
 				{
 					LiveNow = true;
 					dequeued = true;
+					if (result.FrameNumber <= requestedFrameNumber)
+					{
+						ExecuteInfo pop;
+						Pop();
+					}
 					if (result.FrameNumber >= requestedFrameNumber)
+					{
 						return true;
+					}
 				}
 
 				return !LiveNow || !wait || tryCount++ > 20;
