@@ -392,7 +392,8 @@ void FNOSSceneTreeManager::OnNOSNodeSelected(nos::fb::UUID const& nodeId)
 	{
 		if(auto actorNode = node->GetAsActorNode())
 		{
-			PopulateAllChildsOfActor(actorNode->actor.Get());
+			if(actorNode->actor.Get())
+				PopulateAllChildsOfActor(actorNode->actor.Get());
 		}
 		
 		else if (PopulateNode(id))
