@@ -973,7 +973,7 @@ void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentAc
 {
 	LOG("Actor Detached");
 	
-	if(!FNOSClient::NodeId.IsValid() || !daWorld->ContainsActor(Actor) || Actor->IsPendingKill() || Actor->IsPendingKillPending())
+	if(!FNOSClient::NodeId.IsValid() || !daWorld->ContainsActor(Actor) || !IsValid(Actor) || Actor->IsPendingKillPending())
 	{
 		return;
 	}
