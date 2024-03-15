@@ -15,6 +15,7 @@
 #include "Engine/EngineCustomTimeStep.h"
 #include "Misc/MessageDialog.h"
 #include "ShaderCompiler.h"
+#include "AssetCompilingManager.h"
 
 //Nodos
 #include "nosFlatBuffersCommon.h"
