@@ -630,7 +630,7 @@ void FNOSSceneTreeManager::OnNOSContextMenuCommandFired(nos::app::AppContextMenu
 			{
 				return;
 			}
-			menuActions.ExecuteActorAction(actionId, actor);
+			menuActions.ExecuteActorAction(actionId, this, actor);
 		}
 	}
 	else if(NOSPropertyManager.PortalPinsById.Contains(itemId))
@@ -2330,8 +2330,9 @@ void FNOSSceneTreeManager::SendActorNodeDeleted(ActorNode* node)
 
 void FNOSSceneTreeManager::SendActorDeletedOnUpdate(AActor* actor)
 {
-	if (AlwaysUpdateOnActorSpawns)
+	if (AlwaysUpdateOnActorSpawns || ActorsDeletedFromNodos.Contains(actor->GetActorGuid()))
 	{
+		ActorsDeletedFromNodos.Remove(actor->GetActorGuid());
 		SendActorDeleted(actor);
 		return;
 	}
@@ -3168,9 +3169,9 @@ std::vector<flatbuffers::Offset<nos::ContextMenuItem>> ContextMenuActions::Seria
 
 ContextMenuActions::ContextMenuActions()
 {
-	TPair<FString, std::function<void(AActor*)> > deleteAction(FString("Delete Actor"), [](AActor* actor)
+	TPair<FString, std::function<void(class FNOSSceneTreeManager*, AActor*)> > deleteAction(FString("Delete Actor"), [](class FNOSSceneTreeManager* NOSSceneTreeManager, AActor* actor)
 		{
-			//actor->Destroy();
+			NOSSceneTreeManager->ActorsDeletedFromNodos.Add(actor->GetActorGuid());
 			actor->GetWorld()->EditorDestroyActor(actor, false);
 		});
 	ActorMenu.Add(deleteAction);
@@ -3181,11 +3182,11 @@ ContextMenuActions::ContextMenuActions()
 	PortalPropertyMenu.Add(PortalDeleteAction);
 }
 
-void ContextMenuActions::ExecuteActorAction(uint32 command, AActor* actor)
+void ContextMenuActions::ExecuteActorAction(uint32 command, class FNOSSceneTreeManager* NOSSceneTreeManager, AActor* actor)
 {
 	if (ActorMenu.IsValidIndex(command))
 	{
-		ActorMenu[command].Value(actor);
+		ActorMenu[command].Value(NOSSceneTreeManager, actor);
 	}
 }
 void ContextMenuActions::ExecutePortalPropertyAction(uint32 command, class FNOSSceneTreeManager* NOSSceneTreeManager, FGuid PortalId)
