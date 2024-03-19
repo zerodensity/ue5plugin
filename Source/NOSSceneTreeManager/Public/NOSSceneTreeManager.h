@@ -100,13 +100,13 @@ public:
 class ContextMenuActions
 {
 public:
-	TArray<TPair<FString, std::function<void(AActor*)>>>  ActorMenu;
+	TArray<TPair<FString, std::function<void(class FNOSSceneTreeManager*, AActor*)>>>  ActorMenu;
 	TArray<TPair<FString, Task>>  FunctionMenu;
 	TArray<TPair<FString, std::function<void(class FNOSSceneTreeManager*, FGuid)>>>   PortalPropertyMenu;
 	ContextMenuActions();
 	std::vector<flatbuffers::Offset<nos::ContextMenuItem>> SerializeActorMenuItems(flatbuffers::FlatBufferBuilder& fbb);
 	std::vector<flatbuffers::Offset<nos::ContextMenuItem>> SerializePortalPropertyMenuItems(flatbuffers::FlatBufferBuilder& fbb);
-	void ExecuteActorAction(uint32 command, AActor* actor);
+	void ExecuteActorAction(uint32 command, class FNOSSceneTreeManager* NOSSceneTreeManager, AActor* actor);
 	void ExecutePortalPropertyAction(uint32 command, class FNOSSceneTreeManager* NOSSceneTreeManager, FGuid PortalId);
 };
 
@@ -329,5 +329,7 @@ public:
 	bool AlwaysUpdateOnActorSpawns = false;
 	TArray<TWeakObjectPtr<AActor>> ActorsToBeAdded;
 	TArray<FGuid> ActorsToBeDeleted;
+
+	TSet<FGuid> ActorsDeletedFromNodos;
 };
 
