@@ -1173,7 +1173,7 @@ void NOSTextProperty::SetArrayPropValues(void* val, size_t size, FScriptArrayHel
 
 flatbuffers::Offset<nos::fb::Visualizer> NOSEnumProperty::SerializeVisualizer(flatbuffers::FlatBufferBuilder& fbb)
 {
-	return nos::fb::CreateVisualizerDirect(fbb, nos::fb::VisualizerType::COMBO_BOX, TCHAR_TO_UTF8(*Enum->GetFName().ToString()));
+	return nos::fb::CreateVisualizerDirect(fbb, nos::fb::VisualizerType::COMBO_BOX, TCHAR_TO_UTF8(*PrefixStringList(Enum->GetFName().ToString())));
 }
 
 flatbuffers::Offset<nos::fb::Pin> NOSEnumProperty::Serialize(flatbuffers::FlatBufferBuilder& fbb)

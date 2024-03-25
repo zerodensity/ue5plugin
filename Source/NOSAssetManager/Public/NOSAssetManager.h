@@ -13,6 +13,12 @@
 
 #include "GenericPlatform/GenericPlatformMisc.h"
 
+inline FString PrefixStringList(const FString& inString)
+{
+	return FNOSClient::AppKey + "_" + inString;
+}
+
+
 class NOSASSETMANAGER_API FNOSAssetManager : public IModuleInterface {
 
 public:
