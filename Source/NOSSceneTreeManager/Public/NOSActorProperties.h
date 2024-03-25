@@ -10,6 +10,7 @@
 #include "AppEvents_generated.h"
 #include "NOSTrack.h"
 #include "NOSClient.h"
+#include "NOSAssetManager.h"
 
 namespace NosMetadataKeys
 {
@@ -279,7 +280,7 @@ public:
 			NameList.push_back(TCHAR_TO_UTF8(*name));
 		}
 
-		auto offset = nos::app::CreateUpdateStringList(mb, nos::fb::CreateStringList(mb, mb.CreateString(TCHAR_TO_UTF8(*Enum->GetFName().ToString())), mb.CreateVectorOfStrings(NameList)));
+		auto offset = nos::app::CreateUpdateStringList(mb, nos::fb::CreateStringList(mb, mb.CreateString(TCHAR_TO_UTF8(*PrefixStringList(Enum->GetFName().ToString()))), mb.CreateVectorOfStrings(NameList)));
 		mb.Finish(offset);
 
 		auto buf = mb.Release();

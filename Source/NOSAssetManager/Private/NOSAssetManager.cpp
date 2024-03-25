@@ -77,6 +77,8 @@ void FNOSAssetManager::SendList(const char* ListName, const TArray<FString>& Val
 	if (!(NOSClient && NOSClient->IsConnected()))
 		return;
 
+	FString prefixedStringList = PrefixStringList(ListName);
+
 	flatbuffers::FlatBufferBuilder mb;
 	std::vector<std::string> NameList;
 	for (const auto& name : Value)
@@ -84,7 +86,7 @@ void FNOSAssetManager::SendList(const char* ListName, const TArray<FString>& Val
 		NameList.push_back(TCHAR_TO_UTF8(*name));
 	}
 	
-	auto offset = nos::app::CreateUpdateStringList(mb, nos::fb::CreateStringList(mb, mb.CreateString(ListName), mb.CreateVectorOfStrings(NameList)));
+	auto offset = nos::app::CreateUpdateStringList(mb, nos::fb::CreateStringList(mb, mb.CreateString(TCHAR_TO_UTF8(*prefixedStringList)), mb.CreateVectorOfStrings(NameList)));
 	mb.Finish(offset);
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<nos::app::UpdateStringList>(buf.data());
@@ -105,7 +107,7 @@ void FNOSAssetManager::SendList(const char* ListName, const TAssetNameToObjectMa
 	TArray<FString> Names;
 	for (auto [Name, _] : Value)
 		Names.Add(Name);
-
+	
 	SendList(ListName, Names);
 }
 
