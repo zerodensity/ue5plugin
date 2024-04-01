@@ -31,18 +31,14 @@ bool FNOSLicenseManager::UpdateFeature(bool registerFeature, AActor* actor, USce
 	if (NOSSceneTreeManager.NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({property, container}))
 	{
 		auto nosprop = NOSSceneTreeManager.NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({property, container});
-		if(NOSSceneTreeManager.NOSPropertyManager.PropertyToPortalPin.Contains(nosprop->Id))
-		{
-			auto portalId = NOSSceneTreeManager.NOSPropertyManager.PropertyToPortalPin.FindRef(nosprop->Id);
-			flatbuffers::FlatBufferBuilder mb;
-			//// TODO: find a way to get a build time
-			auto offset = nos::CreateAppEventOffset(mb, nos::app::CreateFeatureRegistrationUpdateDirect(mb, (nos::fb::UUID*)&portalId, TCHAR_TO_UTF8(*featureName), !registerFeature, count, TCHAR_TO_UTF8(*message), buildTime));
-			mb.Finish(offset);
-			auto buf = mb.Release();
-			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
-			NOSClient.AppServiceClient->Send(*root);
-			return true;
-		}
+		flatbuffers::FlatBufferBuilder mb;
+		//// TODO: find a way to get a build time
+		auto offset = nos::CreateAppEventOffset(mb, nos::app::CreateFeatureRegistrationUpdateDirect(mb, (nos::fb::UUID*)&nosprop->Id, TCHAR_TO_UTF8(*featureName), !registerFeature, count, TCHAR_TO_UTF8(*message), buildTime));
+		mb.Finish(offset);
+		auto buf = mb.Release();
+		auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+		NOSClient.AppServiceClient->Send(*root);
+		return true;
 	}
 	
 	return false;
