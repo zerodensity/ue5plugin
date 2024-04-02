@@ -107,7 +107,7 @@ TSharedPtr<ActorNode> NOSSceneTree::AddActor(FString folderPath, AActor* actor, 
 	if (actor->GetRootComponent())
 	{
 		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-		loadingChild->Name = "Loading...";
+		loadingChild->Name = "Loading";
 		loadingChild->Id = FGuid::NewGuid();
 		loadingChild->Parent = newChild.Get();
 		newChild->Children.push_back(loadingChild);
@@ -144,7 +144,7 @@ TSharedPtr<ActorNode> NOSSceneTree::AddActor(TreeNode* parent, AActor* actor)
 	if (actor->GetRootComponent())
 	{
 		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-		loadingChild->Name = "Loading...";
+		loadingChild->Name = "Loading";
 		loadingChild->Id = FGuid::NewGuid();
 		loadingChild->Parent = newChild.Get();
 		newChild->Children.push_back(loadingChild);
@@ -168,7 +168,7 @@ TSharedPtr<SceneComponentNode> NOSSceneTree::AddSceneComponent(ActorNode* parent
 	NodeMap.Add(newComponentNode->Id, newComponentNode);
 
 	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-	loadingChild->Name = "Loading...";
+	loadingChild->Name = "Loading";
 	loadingChild->Id = FGuid::NewGuid();
 	loadingChild->Parent = newComponentNode.Get();
 	newComponentNode->Children.push_back(loadingChild);
@@ -195,7 +195,7 @@ TSharedPtr<SceneComponentNode> NOSSceneTree::AddSceneComponent(TSharedPtr<SceneC
 	NodeMap.Add(newComponentNode->Id, newComponentNode);
 
 	TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
-	loadingChild->Name = "Loading...";
+	loadingChild->Name = "Loading";
 	loadingChild->Id = FGuid::NewGuid();
 	loadingChild->Parent = newComponentNode.Get();
 	newComponentNode->Children.push_back(loadingChild);
