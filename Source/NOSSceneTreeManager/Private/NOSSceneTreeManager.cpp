@@ -2349,6 +2349,8 @@ void FNOSSceneTreeManager::SendActorDeleted(AActor* Actor)
 
 void FNOSSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
 {
+	if(!actor)
+		return;
 	LOGF("Populating all childs of %s", *actor->GetFName().ToString());
 	FGuid ActorId = actor->GetActorGuid();
 	PopulateAllChildsOfActor(ActorId);
