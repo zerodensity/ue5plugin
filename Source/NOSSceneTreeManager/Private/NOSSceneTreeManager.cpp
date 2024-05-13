@@ -770,6 +770,7 @@ struct NodeSpawnInfo
 	TMap<FString, FString> Metadata;
 	FString SpawnTag;
 	bool DontAttachToRealityParent = false;
+	FString DisplayName;
 };
 
 
@@ -783,6 +784,7 @@ void GetNodesSpawnedByNodos(const nos::fb::Node* node, TMap<TPair<FGuid, FGuid>,
 			{
 				NodeSpawnInfo spawnInfo;
 				spawnInfo.SpawnTag = FString(entry->value()->c_str());
+				spawnInfo.DisplayName = FString(node->display_name()->c_str());
 				if(auto dontAttachToRealityParentEntry = node->meta_data_map()->LookupByKey(NosMetadataKeys::DoNotAttachToRealityParent))
 					spawnInfo.DontAttachToRealityParent = strcmp(dontAttachToRealityParentEntry->value()->c_str(), "true") == 0;
 
@@ -1171,7 +1173,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 		if (!sceneActorMap.Contains(oldGuid.Key))
 		{
 			///spawn
-			AActor* spawnedActor = NOSActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent}, spawnInfo.Metadata);
+			AActor* spawnedActor = NOSActorManager->SpawnActor(spawnInfo.SpawnTag, {.SpawnActorToWorldCoords = spawnInfo.DontAttachToRealityParent}, spawnInfo.Metadata, spawnInfo.DisplayName);
 			if (spawnedActor)
 			{
 				sceneActorMap.Add(oldGuid.Key, spawnedActor); //this will map the old id with spawned actor in order to match the old properties (imported from disk)
@@ -2697,7 +2699,7 @@ AActor* FNOSActorManager::GetParentTransformActor()
 	return ParentTransformActor.Get();
 }
 
-AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters Params, TMap<FString, FString> Metadata)
+AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters Params, TMap<FString, FString> Metadata, FString ForcedDisplayName)
 {
 	if (!NOSAssetManager)
 	{
@@ -2708,6 +2710,10 @@ AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters P
 	if (!SpawnedActor)
 	{
 		return nullptr;
+	}
+	if (!ForcedDisplayName.IsEmpty())
+	{
+		SpawnedActor->SetActorLabel(ForcedDisplayName);
 	}
 	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
 	if(!bIsSpawningParentTransform)
