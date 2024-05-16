@@ -197,7 +197,7 @@ bool NOSTextureShareManager::CreateTextureResource(NOSProperty* nosprop, nos::sy
 	D3D12_RESOURCE_DESC desc = DXResource->GetDesc();
 	Ext.mutate_allocation_size(Dev->GetResourceAllocationInfo(0, 1, &desc).SizeInBytes);
 	Ext.mutate_pid(FPlatformProcess::GetCurrentProcessId());
-	Texture.unmanaged = true;
+	Texture.unmanaged = false;
 	Texture.unscaled = true;
 	Texture.handle = 0;
 
