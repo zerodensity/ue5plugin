@@ -168,7 +168,7 @@ void FNOSSceneTreeManager::StartupModule()
 	NOSPropertyManager.NOSClient = NOSClient;
 
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSSceneTreeManager::Tick));
-	NOSActorManager = new FNOSActorManager(SceneTree);
+	NOSActorManager = new FNOSActorManager(this, SceneTree);
 	//Bind to Nodos events
 	NOSClient->OnNOSNodeSelected.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeSelected);
 	NOSClient->OnNOSConnected.AddRaw(this, &FNOSSceneTreeManager::OnNOSConnected);
@@ -923,8 +923,9 @@ void FNOSSceneTreeManager::OnActorSpawned(AActor* InActor)
 	if (IsActorDisplayable(InActor))
 	{
 		LOGF("%s is spawned", *(InActor->GetFName().ToString()));
-		if (SceneTree.GetNode(InActor))
+		if (auto ActorNode = SceneTree.GetNode(InActor))
 		{
+
 			return;
 		}
 		SendActorAddedOnUpdate(InActor);
@@ -2754,6 +2755,39 @@ AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters P
 	auto buf = mb.Release();
 	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
+
+	NOSSceneTreeManager->PopulateAllChildsOfActor(SpawnedActor);
+	auto rootComponent = SpawnedActor->GetRootComponent();
+	for (auto child : ActorNode->Children)
+	{
+		//check if child is root component node
+		if (auto componentNode = child->GetAsSceneComponentNode())
+		{
+			if (componentNode->sceneComponent.Get() == rootComponent)
+			{
+				//loop properties
+				for (auto prop : componentNode->Properties)
+				{
+					if (prop->Property->GetFName().ToString() == "RelativeLocation"
+					|| prop->Property->GetFName().ToString() == "RelativeRotation"
+					|| prop->Property->GetFName().ToString() == "RelativeScale3D")
+					{
+						auto defobj = rootComponent->GetClass()->GetDefaultObject();
+						if (defobj)
+						{
+							auto defval = prop->Property->ContainerPtrToValuePtr<void>(defobj);
+							auto val = prop->Property->ContainerPtrToValuePtr<void>(rootComponent);
+							if (memcmp(defval, val, prop->Property->ElementSize) != 0)
+							{
+								NOSSceneTreeManager->SendPinValueChanged(prop->Id, prop->data);
+							}
+						}
+					}
+				}	
+				break;
+			}
+		}
+	}
 
 	return SpawnedActor;
 }
