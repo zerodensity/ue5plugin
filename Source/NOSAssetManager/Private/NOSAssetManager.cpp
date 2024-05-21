@@ -11,6 +11,7 @@
 #include "Blueprint/UserWidget.h"
 #include "UObject/Object.h"
 #include "Engine/StaticMeshActor.h"
+#include "Engine/TextureRenderTarget2D.h"
 
 #include <vector>
 
@@ -42,6 +43,7 @@ void FNOSAssetManager::StartupModule()
 
 	ScanAssets();
 	ScanUMGs();
+	ScanRenderTargets();
 	SetupCustomSpawns();
 }
 
@@ -133,6 +135,12 @@ void FNOSAssetManager::SendAssetList()
 	SendList("UE5_ACTOR_LIST", SpawnTags);
 }
 
+
+void FNOSAssetManager::SendRenderTargetList()
+{
+	SendList("UE5_RENDER_TARGET_LIST", RenderTargets);
+}
+
 void FNOSAssetManager::SendUMGList()
 {
 	SendList("UE5_UMG_LIST", UMGs);
@@ -165,9 +173,11 @@ void FNOSAssetManager::RescanAndSendAll()
 {
 	ScanAssets();
 	ScanUMGs();
+	ScanRenderTargets();
 
 	SendAssetList();
 	SendUMGList();
+	SendRenderTargetList();
 }
 
 void FNOSAssetManager::ScanAssets(
@@ -186,6 +196,30 @@ void FNOSAssetManager::ScanAssets(
 		AssetName.RemoveFromEnd(TEXT("_C"), ESearchCase::CaseSensitive);
 		Map.Add(AssetName, AssetPath);
 	}
+}
+
+UObject* FNOSAssetManager::FindRenderTarget(const FString& Name)
+{
+	FSoftObjectPath AssetPath = RenderTargets.FindRef(Name);
+	return AssetPath.TryLoad();
+}
+
+
+void FNOSAssetManager::GetAssetsByClassType(
+	TAssetNameToObjectMap& Map,
+	const UClass* ParentClass)
+{
+	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	Map.Empty();
+	TArray<FAssetData> ObjectList;
+	AssetRegistryModule.Get().GetAssetsByClass(ParentClass->GetClassPathName(), ObjectList);
+	for (const FAssetData& Object : ObjectList)
+		Map.Add(Object.AssetName.ToString(), Object.GetSoftObjectPath());
+}
+
+void FNOSAssetManager::ScanRenderTargets()
+{
+	GetAssetsByClassType(RenderTargets, UTextureRenderTarget2D::StaticClass());
 }
 
 void FNOSAssetManager::ScanUMGs()

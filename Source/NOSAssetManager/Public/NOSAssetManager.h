@@ -41,6 +41,7 @@ public:
 
 	void SendAssetList();
 
+
 	void SendUMGList();
 
 	void RescanAndSendAll();
@@ -70,6 +71,14 @@ public:
 
 	//UMG assets list
 	TAssetNameToPathMap UMGs;
+
+	//Render target list
+	TAssetNameToObjectMap RenderTargets;
+
+	void ScanRenderTargets();
+	void SendRenderTargetList();
+	void GetAssetsByClassType(TAssetNameToObjectMap& Map, const UClass* ParentClass);
+	UObject* FindRenderTarget(const FString& Name);
 
 	//for custom spawnables like basic shapes(cube, sphere etc.)
 	TMap<FString, TFunction<AActor*(FTransform Transform)>> CustomSpawns;

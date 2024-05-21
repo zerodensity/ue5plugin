@@ -6,6 +6,7 @@
 #include "NOSTextureShareManager.h"
 #include "NOSAssetManager.h"
 #include "NOSViewportManager.h"
+#include "ARenderTargetViewer.h"
 
 //unreal engine includes
 #include "EngineUtils.h"
@@ -298,6 +299,43 @@ void FNOSSceneTreeManager::StartupModule()
 			};
 		CustomFunctions.Add(noscf->Id, noscf);
 	}
+	{
+		NOSCustomFunction* noscf = new NOSCustomFunction;
+		FString UniqueFunctionName("Spawn Render Target Viewer Actor");
+		NOSSpawnActorFunctionPinIds PinIds(UniqueFunctionName);
+		noscf->Id = StringToFGuid(UniqueFunctionName);
+		noscf->Params.Add(PinIds.ActorPinId, "Spawn");
+		noscf->Serialize = [funcid = noscf->Id, PinIds](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<nos::fb::Node>
+		{
+			std::string empty = "None";
+			auto data = std::vector<uint8_t>(empty.begin(), empty.end());
+			data.push_back(0);
+			
+			std::vector<flatbuffers::Offset<nos::fb::Pin>> spawnPins = {
+				nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&PinIds.ActorPinId, TCHAR_TO_ANSI(TEXT("Render Target List")), TCHAR_TO_ANSI(TEXT("string")), nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", nos::fb::CreateVisualizerDirect(fbb, nos::fb::VisualizerType::COMBO_BOX, TCHAR_TO_UTF8(*PrefixStringList("UE5_RENDER_TARGET_LIST"))), &data, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  nos::fb::PinContents::JobPin),
+			};
+			FillSpawnActorFunctionTransformPins(fbb, spawnPins, PinIds);
+			return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Spawn Render Target Viewer Actor", "UE5.UE5", false, true, &spawnPins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control");
+		};
+		noscf->Function = [this, PinIds](TMap<FGuid, std::vector<uint8>> properties)
+		{
+			AActor* SpawnedActor = NOSActorManager->SpawnActor("RenderTargetViewer", GetSpawnActorParameters(properties, PinIds));
+			if(auto RenderTargetViewer = Cast<ARenderTargetViewer>(SpawnedActor))
+			{
+				RenderTargetViewer->RenderTargetAssetName = FString((char*)properties.FindChecked(PinIds.ActorPinId).data());
+				RenderTargetViewer->UpdateRenderTargetReference();
+
+				PopulateAllChildsOfActor(RenderTargetViewer->GetActorGuid());
+
+				auto RenderTargetView = FindFProperty<FObjectProperty>(RenderTargetViewer->GetClass(), "RenderTargetView");
+				NOSPropertyManager.CreatePortal(RenderTargetView, RenderTargetViewer, nos::fb::ShowAs::OUTPUT_PIN);
+
+				LOGF("Render target viewer actor is spawned %s", *RenderTargetViewer->GetFName().ToString());
+			}
+		};
+		CustomFunctions.Add(noscf->Id, noscf);
+	}
+
 
 	LOG("NOSSceneTreeManager module successfully loaded.");
 }
