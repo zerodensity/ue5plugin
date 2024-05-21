@@ -195,14 +195,6 @@ void FNOSSceneTreeManager::StartupModule()
 	FEditorDelegates::MapChange.AddRaw(this, &FNOSSceneTreeManager::OnMapChange);
 
 	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FNOSSceneTreeManager::OnPropertyChanged);
-	FCoreUObjectDelegates::PostLoadMapWithWorld.AddLambda([this](UWorld* World)
-	{
-		if(World == FNOSSceneTreeManager::daWorld)
-		{
-			RescanScene();
-			SendNodeUpdate(FNOSClient::NodeId);
-		}
-	});
 
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSSceneTreeManager::OnPreWorldFinishDestroy);
@@ -992,6 +984,8 @@ void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentAc
 		{
 			erase_if(OldParentActorNode->Children, [ActorNode](TSharedPtr<TreeNode> x) {return x->Id == ActorNode->Id;});
 		}
+		if (!ParentActor)
+			return;
 		if(auto NewParentActorNode = SceneTree.GetNodeFromActorId(ParentActor->GetActorGuid()))
 		{
 			NewParentActorNode->Children.push_back(ActorNode->AsShared().ToSharedPtr());
