@@ -39,7 +39,6 @@ public class NOSClient : ModuleRules
 		var Config = JsonObject.Read(ConfigFile);
 		
 		string NosmanPath = Config.GetStringField("NOSMAN_PATH");
-		System.Console.WriteLine(NosmanPath);
 
 		//execute shell command
 		System.Diagnostics.Process process = new System.Diagnostics.Process();
