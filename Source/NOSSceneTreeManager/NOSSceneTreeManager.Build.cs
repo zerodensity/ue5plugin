@@ -18,7 +18,7 @@ public class NOSSceneTreeManager : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = Environment.GetEnvironmentVariable("NODOS_SDK_DIR");
+				string SDKdir = NOSClient.GetSDKDir(PluginDirectory);
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{

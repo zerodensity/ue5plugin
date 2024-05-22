@@ -16,6 +16,8 @@
 #include "Misc/MessageDialog.h"
 #include "ShaderCompiler.h"
 #include "AssetCompilingManager.h"
+#include "Interfaces/IPluginManager.h"
+#include "Json.h"
 
 //Nodos
 #include "nosFlatBuffersCommon.h"
@@ -38,9 +40,48 @@ void* FNodos::LibHandle = nullptr;
 nos::app::FN_MakeAppServiceClient* FNodos::MakeAppServiceClient = nullptr;
 nos::app::FN_ShutdownClient* FNodos::ShutdownClient = nullptr;
 
+FString FNodos::GetNodosSDKDir()
+{
+	auto PluginDir = IPluginManager::Get().FindPlugin("Nodos")->GetBaseDir();
+	FString PluginConfigPath = PluginDir / "Config/config.json";
+
+	FString PluginConfigJsonRaw;
+	FFileHelper::LoadFileToString(PluginConfigJsonRaw, *PluginConfigPath);
+
+	TSharedPtr<FJsonObject> JsonParsed;
+	TSharedRef<TJsonReader<TCHAR>> JsonReader = TJsonReaderFactory<TCHAR>::Create(PluginConfigJsonRaw);
+	if (!FJsonSerializer::Deserialize(JsonReader, JsonParsed))
+	{
+		return "";
+	}
+	FString NosmanPath = JsonParsed->GetStringField("NOSMAN_PATH");
+	FString NosmanWorkingDirectory = FPaths::GetPath(NosmanPath);
+	//execute nosman to get the path
+	int32 ReturnCode;
+	FString OutResults;
+	FString OutErrors;
+	if (!FPaths::FileExists(*NosmanPath))
+	{
+		return "";
+	}
+	FPlatformProcess::ExecProcess(*NosmanPath, TEXT("sdk-info 1.2.0"), &ReturnCode, &OutResults, &OutErrors, *NosmanWorkingDirectory);
+	LOGF("Nodos SDK path is %s", *OutResults);
+
+	TSharedPtr<FJsonObject> SDKInfoJsonParsed;
+	TSharedRef<TJsonReader<TCHAR>> SDKInfoJsonReader = TJsonReaderFactory<TCHAR>::Create(OutResults);
+	if (!FJsonSerializer::Deserialize(SDKInfoJsonReader, SDKInfoJsonParsed))
+	{
+		return "";
+	}
+
+	FString SDKPath = SDKInfoJsonParsed->GetStringField("path");
+
+	return SDKPath;
+}
+
 bool FNodos::Initialize()
 {
-	FString SdkPath = FPlatformMisc::GetEnvironmentVariable(TEXT("NODOS_SDK_DIR"));
+	FString SdkPath = GetNodosSDKDir();
 	FString SdkBinPath = FPaths::Combine(SdkPath, TEXT("bin"));
 	FPlatformProcess::PushDllDirectory(*SdkBinPath);
 	FString SdkDllPath = FPaths::Combine(SdkBinPath, "nosAppSDK.dll");

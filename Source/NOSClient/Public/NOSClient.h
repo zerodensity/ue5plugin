@@ -174,6 +174,7 @@ private:
 class NOSCLIENT_API FNodos
 {
 public:
+	static FString GetNodosSDKDir();
 	static bool Initialize();
 	static void Shutdown();
 	static nos::app::FN_MakeAppServiceClient* MakeAppServiceClient;

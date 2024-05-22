@@ -7,10 +7,10 @@ using System.Collections;
 using System.Collections.Generic;
 
 using UnrealBuildTool;
+using EpicGames.Core;
 
 public class NOSAssetManager : ModuleRules
 {
-
 	public NOSAssetManager(ReadOnlyTargetRules Target) : base(Target)
 	{
 		if (Target.bBuildEditor)
@@ -19,7 +19,7 @@ public class NOSAssetManager : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = Environment.GetEnvironmentVariable("NODOS_SDK_DIR");
+				string SDKdir = NOSClient.GetSDKDir(PluginDirectory);
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{
