@@ -1718,6 +1718,8 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 		for (TFieldIterator<UFunction> FuncIt(ActorClass, EFieldIteratorFlags::IncludeSuper); FuncIt; ++FuncIt)
 		{
 			UFunction* UEFunction = *FuncIt;
+			if(ActorClass->FindFunctionByName(UEFunction->GetFName()) != UEFunction)
+				continue;
 			UObject* Container =  actorNode->actor.Get();
 			// LOGF("function with name %s is a function, indeed!", *UEFunction->GetFName().ToString());
 			if (UEFunction->HasAllFunctionFlags(FUNC_BlueprintCallable /*| FUNC_Public*/) /*&&
