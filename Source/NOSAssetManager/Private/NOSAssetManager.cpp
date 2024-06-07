@@ -122,9 +122,12 @@ void FNOSAssetManager::SendAssetList()
 
 	TArray<FString> SpawnTags;
 
-	for (auto& [spawnTag, _] : SpawnableAssets)
+	for (auto& [spawnTag, AssetPath] : SpawnableAssets)
 	{
-		SpawnTags.Add(spawnTag);
+		TSoftClassPtr<AActor> ActorClass = TSoftClassPtr<AActor>(FSoftObjectPath(*AssetPath.ToString()));
+		UClass* LoadedAsset = ActorClass.LoadSynchronous();
+		if (LoadedAsset && !LoadedAsset->HasAnyClassFlags(CLASS_Abstract))
+			SpawnTags.Add(spawnTag);
 	}
 	for (auto& [spawnTag, x] : CustomSpawns)
 	{
