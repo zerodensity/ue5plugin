@@ -120,7 +120,7 @@ void FNOSAssetManager::SendAssetList()
 		return;
 	}
 
-	TArray<FString> SpawnTags;
+	TSet<FString> SpawnTags;
 
 	for (auto& [spawnTag, AssetPath] : SpawnableAssets)
 	{
@@ -133,9 +133,15 @@ void FNOSAssetManager::SendAssetList()
 	{
 		SpawnTags.Add(spawnTag);
 	}
-	SpawnTags.Sort();
+
+	TArray<FString> SpawnTagsArray;
+	for (auto& Tag : SpawnTags)
+	{
+		SpawnTagsArray.Add(Tag);
+	}
+	SpawnTagsArray.Sort();
 	
-	SendList("UE5_ACTOR_LIST", SpawnTags);
+	SendList("UE5_ACTOR_LIST", SpawnTagsArray);
 }
 
 
