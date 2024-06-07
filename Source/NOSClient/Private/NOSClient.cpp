@@ -881,13 +881,13 @@ void UENodeStatusHandler::SendStatus()
 	if (!PluginClient || !PluginClient->IsConnected() || !FNOSClient::NodeId.IsValid())
 		return;
 	flatbuffers::FlatBufferBuilder Builder;
-	nos::TNodeStatusUpdate UpdateRequest;
+	nos::app::TNodeStatusUpdate UpdateRequest;
 	UpdateRequest.node_id = *reinterpret_cast<nos::fb::UUID*>(&FNOSClient::NodeId);
 	for (auto& [_, StatusMsg] : StatusMessages)
 	{
 		UpdateRequest.status_messages.push_back(std::make_unique<nos::fb::TNodeStatusMessage>(StatusMsg));
 	}
-	auto offset = nos::CreateAppEventOffset(Builder, nos::CreateNodeStatusUpdate(Builder, &UpdateRequest));
+	auto offset = nos::CreateAppEventOffset(Builder, nos::app::CreateNodeStatusUpdate(Builder, &UpdateRequest));
 	Builder.Finish(offset);
 	auto buf = Builder.Release();
 	auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
