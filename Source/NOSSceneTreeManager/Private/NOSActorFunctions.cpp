@@ -28,6 +28,11 @@ flatbuffers::Offset<nos::fb::Node> NOSFunction::Serialize(flatbuffers::FlatBuffe
 	{
 		pins.push_back(property->Serialize(fbb));
 	}
+
+	FGuid Tid = FGuid::NewGuid();
+	auto triggerPin = nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Tid, TCHAR_TO_UTF8(*DisplayName), "nos.exe", nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, 0, 0, 0, 0, 0, 0, false, false, true, 0, 0, nos::fb::PinContents::JobPin, 0, 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, "Trigger");
+	pins.push_back(triggerPin);
+
 	return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_UTF8(*Function->GetClass()->GetFName().ToString()), false, true, &pins, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, TCHAR_TO_UTF8(*CategoryName));
 }
 
