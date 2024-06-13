@@ -77,7 +77,7 @@ public:
 	TMap<FString, TFunction<AActor*(FTransform Transform, TMap<FString, FString>)>> CustomSpawnsWithMetadata;
 	
 	//Class communicates with Nodos
-	class FNOSClient* NOSClient;
+	class FNOSClient* NOSClient = nullptr;
 
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);
 	void SendList(const char* ListName, const TArray<FString>& Value);
