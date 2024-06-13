@@ -147,7 +147,7 @@ public:
 	void OnNOSPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs);
 
 	//called when a function is called from Nodos
-	void OnNOSFunctionCalled(nos::fb::UUID const& nodeId, nos::fb::Node const& function);
+	void OnNOSFunctionCalled(nos::app::FunctionCall const& functionCall);
 
 	//called when a context menu is requested on some node on Nodos
 	void OnNOSContextMenuRequested(nos::app::AppContextMenuRequest const& request);

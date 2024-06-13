@@ -411,26 +411,19 @@ void NOSEventDelegates::OnPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::
 		});
 }
 
-void NOSEventDelegates::OnFunctionCall(nos::fb::UUID const& nodeId, nos::fb::Node const& function)
+void NOSEventDelegates::OnFunctionCall(nos::app::FunctionCall const* functionCall)
 {
 	LOG("Function called from Nodos");
 	if (!PluginClient)
 	{
 		return;
 	}
-
-
-	nos::fb::TNode copy;
-	function.UnPackTo(&copy);
-	FGuid id = *(FGuid*)&nodeId;
-
-	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, copy, id]()
+	nos::app::TFunctionCall copy;
+	functionCall->UnPackTo(&copy);
+	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient, funcCall = std::move(copy)]()
 		{
-			flatbuffers::FlatBufferBuilder fbb;
-			auto offset = nos::fb::CreateNode(fbb, &copy);
-			fbb.Finish(offset);
-			auto buf = fbb.Release();
-			NOSClient->OnNOSFunctionCalled.Broadcast(*(nos::fb::UUID*)&id, *flatbuffers::GetRoot<nos::fb::Node>(buf.data()));
+			auto funcCallFb = nos::Table<nos::app::FunctionCall>::From(funcCall);
+			NOSClient->OnNOSFunctionCalled.Broadcast(*funcCallFb);
 		});
 }
 

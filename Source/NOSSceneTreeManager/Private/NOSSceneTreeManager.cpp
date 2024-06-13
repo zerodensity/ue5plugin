@@ -33,27 +33,6 @@ static TAutoConsoleVariable<int32> CVarReloadLevelFrameCount(TEXT("Nodos.ReloadF
 
 #define NOS_POPULATE_UNREAL_FUNCTIONS //uncomment if you want to see functions 
 
-TMap<FGuid, std::vector<uint8>> ParsePins(nos::fb::Node const& archive)
-{
-	TMap<FGuid, std::vector<uint8>> re;
-	if (!flatbuffers::IsFieldPresent(&archive, nos::fb::Node::VT_PINS))
-	{
-		return re;
-	}
-
-	for (auto pin : *archive.pins())
-	{
-		if(!pin->data() || pin->data()->size() <= 0 )
-		{
-			continue;
-		}
-		std::vector<uint8> data(pin->data()->size(), 0);
-		memcpy(data.data(), pin->data()->data(), data.size());
-		re.Add(*(FGuid*)pin->id()->bytes()->Data(), data);
-	}
-	return re;
-}
-
 TMap<FGuid, const nos::fb::Pin*> ParsePins(const nos::fb::Node* archive)
 {
 	TMap<FGuid, const nos::fb::Pin*> re;
@@ -553,11 +532,19 @@ void FNOSSceneTreeManager::OnNOSPinShowAsChanged(nos::fb::UUID const& Id, nos::f
 	}
 }
 
-void FNOSSceneTreeManager::OnNOSFunctionCalled(nos::fb::UUID const& nodeId, nos::fb::Node const& function)
+void FNOSSceneTreeManager::OnNOSFunctionCalled(nos::app::FunctionCall const& functionCall)
 {
-	FGuid funcId = *(FGuid*)function.id();
-	TMap<FGuid, std::vector<uint8>> properties = ParsePins(function);
+	FGuid funcId = *(FGuid*)functionCall.function_id();
+	TMap<FGuid, std::vector<uint8>> properties;
+	if (auto* pinVals = functionCall.pin_values())
+	{
+		properties.Reserve(pinVals->size());
 
+		for (auto* pinVal : *pinVals)
+		{
+			properties.Add(*(FGuid*)pinVal->pin_id(), std::vector<uint8>(pinVal->value()->begin(), pinVal->value()->end()));
+		}
+	}
 	if (CustomFunctions.Contains(funcId))
 	{
 		auto noscf = CustomFunctions.FindRef(funcId);

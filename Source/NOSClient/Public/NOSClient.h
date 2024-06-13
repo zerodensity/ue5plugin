@@ -105,7 +105,7 @@ DECLARE_EVENT_OneParam(FNOSClient, FNOSContextMenuCommandFired, nos::app::AppCon
 DECLARE_EVENT(FNOSClient, FNOSNodeRemoved);
 DECLARE_EVENT_FourParams(FNOSClient, FNOSPinValueChanged, nos::fb::UUID const&, uint8_t const*, size_t, bool);
 DECLARE_EVENT_TwoParams(FNOSClient, FNOSPinShowAsChanged, nos::fb::UUID const&, nos::fb::ShowAs);
-DECLARE_EVENT_TwoParams(FNOSClient, FNOSFunctionCalled, nos::fb::UUID const&, nos::fb::Node const&);
+DECLARE_EVENT_OneParam(FNOSClient, FNOSFunctionCalled, nos::app::FunctionCall const&);
 DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeSelected, nos::fb::UUID const&);
 DECLARE_EVENT_OneParam(FNOSClient, FNOSNodeImported, nos::fb::Node const&);
 DECLARE_EVENT(FNOSClient, FNOSConnectionClosed);
@@ -130,7 +130,7 @@ public:
 	virtual void OnPinValueChanged(nos::fb::UUID const& pinId, uint8_t const* data, size_t size, bool reset, uint64_t frameNumber) override;
 	virtual void OnPinShowAsChanged(nos::fb::UUID const& pinId, nos::fb::ShowAs newShowAs) override;
 	virtual void OnExecuteAppInfo(nos::app::AppExecuteInfo const* appExecuteInfo) override; 
-	virtual void OnFunctionCall(nos::fb::UUID const& nodeId, nos::fb::Node const& function) override;
+	virtual void OnFunctionCall(nos::app::FunctionCall const* functionCall) override;
 	virtual void OnNodeSelected(nos::fb::UUID const& nodeId) override;
 	virtual void OnNodeImported(nos::fb::Node const& appNode) override;
 	virtual void OnConnectionClosed() override;
