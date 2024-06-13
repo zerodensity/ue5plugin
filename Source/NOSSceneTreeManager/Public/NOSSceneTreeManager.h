@@ -311,13 +311,13 @@ public:
 	class NOSSceneTree SceneTree;
 	
 	//Class communicates with Nodos
-	class FNOSClient* NOSClient;
+	class FNOSClient* NOSClient = nullptr;
 
-	class FNOSAssetManager* NOSAssetManager;
+	class FNOSAssetManager* NOSAssetManager = nullptr;
 
-	class FNOSViewportManager* NOSViewportManager;
+	class FNOSViewportManager* NOSViewportManager = nullptr;
 	
-	FNOSActorManager* NOSActorManager;
+	FNOSActorManager* NOSActorManager = nullptr;
 
 	FNOSPropertyManager NOSPropertyManager;
 
