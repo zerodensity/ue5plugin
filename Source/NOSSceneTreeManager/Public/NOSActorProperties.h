@@ -28,6 +28,8 @@ namespace NosMetadataKeys
 		NOS_METADATA_KEY(PinnedCategories);
 		NOS_METADATA_KEY(NodeColor);
 		NOS_METADATA_KEY(FunctionName);
+		NOS_METADATA_KEY(FunctionId);
+		NOS_METADATA_KEY(FunctionPropertyName);
 };
 
 #define NODOS_MD5_HASHING
@@ -135,7 +137,7 @@ public:
 	virtual bool CreateFbArray(flatbuffers::FlatBufferBuilder& fb, FScriptArrayHelper_InContainer& ArrayHelper) {return false;}
 	virtual void SetArrayPropValues(void* val, size_t size, FScriptArrayHelper_InContainer& ArrayHelper) {}
 	
-	FProperty* Property;
+	FProperty* Property = nullptr;
 
 	NOSActorReference ActorContainer;
 	NOSComponentReference ComponentContainer;

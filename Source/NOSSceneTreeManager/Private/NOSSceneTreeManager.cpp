@@ -780,6 +780,8 @@ struct PropUpdate
 	nos::fb::ShowAs pinShowAs;
 	bool IsPortal;
 	FString FunctionName;
+	FGuid FunctionId;
+	FString FunctionPropertyName;
 };
 
 struct NodeAndActorGuid
@@ -1094,6 +1096,8 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				FString PropertyPath;
 				FString ContainerPath;
 				FString FunctionName;
+				FGuid FunctionId;
+				FString FunctionPropertyName;
 				char* valcopy = nullptr;
 				char* defcopy = nullptr;
 				size_t valsize = 0;
@@ -1144,8 +1148,23 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				{
 					FunctionName = FString(entry->value()->c_str());
 				}
+
+				if (auto entry = prop->meta_data_map()->LookupByKey("FunctionId"))
+				{
+					FString functionIdString = FString(entry->value()->c_str());
+					FGuid functionId;
+					if (FGuid::Parse(functionIdString, functionId))
+					{
+						FunctionId = functionId;
+					}
+				}
+
+				if (auto entry = prop->meta_data_map()->LookupByKey("FunctionPropertyName"))
+				{
+					FunctionPropertyName = FString(entry->value()->c_str());
+				}
 				
-				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal, FunctionName});
+				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal, FunctionName, FunctionId, FunctionPropertyName});
 			}
 
 		}
@@ -1331,6 +1350,90 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 			{
 				continue;
 			}
+
+			if (!update.FunctionName.IsEmpty())
+			{
+				//find function
+				if (RegisteredFunctions.Contains(update.FunctionId))
+				{
+					auto func = RegisteredFunctions.FindRef(update.FunctionId);
+					for (auto& prop : func->Properties)
+					{
+						bool match = false;
+						
+						if(!prop->Property)
+						{
+							if (prop->DisplayName == update.FunctionPropertyName)
+								match = true;
+						}
+						if (prop->Property && prop->Property->GetFName().ToString() == update.FunctionPropertyName)
+						{
+							match = true;	
+						}
+
+						if (match)
+						{ 
+
+							PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&prop->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
+							auto NosProperty = prop;
+							NOSPortal NewPortal{update.pinId ,NosProperty->Id};
+							NewPortal.DisplayName = FString("");
+							UObject* parent = NosProperty->GetRawObjectContainer();
+							FString parentName = "";
+							FString parentUniqueName = "";
+							AActor* parentAsActor = nullptr;
+							while (parent)
+							{
+								parentName = parent->GetFName().ToString();
+								parentUniqueName = parent->GetFName().ToString() + "-";
+								if (auto actor = Cast<AActor>(parent))
+								{
+									parentName = actor->GetActorLabel();
+									parentAsActor = actor;
+								}
+								if(auto component = Cast<USceneComponent>(parent))
+									parentName = component->GetName();
+								parentName += ".";
+								parent = parent->GetTypedOuter<AActor>();
+							}
+							if (parentAsActor)
+							{
+								while (parentAsActor->GetSceneOutlinerParent())
+								{
+									parentAsActor = parentAsActor->GetSceneOutlinerParent();
+									if (auto actorNode = SceneTree.GetNodeFromActorId(parentAsActor->GetActorGuid()))
+									{
+										if (actorNode->nosMetaData.Contains(NosMetadataKeys::spawnTag))
+										{
+											if (actorNode->nosMetaData.FindRef(NosMetadataKeys::spawnTag) == FString("RealityParentTransform"))
+											{
+												break;
+											}
+										}
+									}
+									parentName = parentAsActor->GetActorLabel() + "." + parentName;
+									parentUniqueName = parentAsActor->GetFName().ToString() + "-" + parentUniqueName;
+								}
+							}
+
+							NewPortal.UniqueName = parentUniqueName + NosProperty->DisplayName;
+							NewPortal.DisplayName =  parentName + NosProperty->DisplayName;
+							NewPortal.TypeName = FString(NosProperty->TypeName.c_str());
+							NewPortal.CategoryName = NosProperty->CategoryName;
+							NewPortal.ShowAs = update.pinShowAs;
+
+							NOSPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
+							NOSPropertyManager.PropertyToPortalPin.Add(NosProperty->Id, NewPortal.Id);
+							NewPortals.push_back(NewPortal);
+							NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NosProperty.Get(), update.pinShowAs);
+							NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NosProperty->Id, update.pinShowAs);
+						}
+					}
+				}
+				continue;
+			}
+
+
 			if (!update.componentName.IsEmpty())
 			{
 				Container = FindObject<USceneComponent>(Container, *update.componentName);
@@ -1610,7 +1713,6 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	{
 		if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt))
 		{
-			nosprop->nosMetaDataMap.Add(NosMetadataKeys::FunctionName, UEFunction->GetFName().ToString());
 			nosfunc->Properties.push_back(nosprop);
 			//RegisteredProperties.Add(nosprop->Id, nosprop);			
 			if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
@@ -1634,6 +1736,21 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	triggerProp->Id = StringToFGuid(nosfunc->IdHashName + "Trigger");
 	NOSPropertyManager.PropertiesById.Add(triggerProp->Id, triggerProp);
 	nosfunc->Properties.push_back(triggerProp);
+
+	for (auto prop : nosfunc->Properties)
+	{
+		prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionName, UEFunction->GetFName().ToString());
+		prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionId, nosfunc->Id.ToString());
+		if (prop->Property)
+		{
+			prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionPropertyName, prop->Property->GetFName().ToString());
+		}
+		else
+		{
+			prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionPropertyName, "Trigger");
+		}
+		prop->nosMetaDataMap.Add(NosMetadataKeys::ActorGuid, actorNode->actor->GetActorGuid().ToString());
+	}
 
 	actorNode->Functions.push_back(nosfunc);
 	RegisteredFunctions.Add(nosfunc->Id, nosfunc);
