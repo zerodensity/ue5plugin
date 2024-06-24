@@ -11,7 +11,8 @@ NOSFunction::NOSFunction(UObject* container, UFunction* function)
 	if(container)
 		ContainerUniqueName = container->GetFName().ToString();
 	
-	Id = StringToFGuid(ContainerUniqueName + function->GetFName().ToString());
+	IdHashName = ContainerUniqueName + function->GetFName().ToString();
+	Id = StringToFGuid(IdHashName);
 
 	static const FName NAME_DisplayName("DisplayName");
 	static const FName NAME_Category("Category");

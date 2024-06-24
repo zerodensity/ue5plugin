@@ -14,6 +14,7 @@ struct NOSSCENETREEMANAGER_API NOSFunction
 	FString FunctionName;
 	FString DisplayName;
 	FString CategoryName;
+	FString IdHashName;
 	FGuid Id;
 	uint8* Parameters = nullptr;
 	std::vector<TSharedPtr<NOSProperty>> Properties;

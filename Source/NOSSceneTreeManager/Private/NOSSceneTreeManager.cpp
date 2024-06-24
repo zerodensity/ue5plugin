@@ -1631,6 +1631,7 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 
 	//add trigger pin manually
 	TSharedPtr<NOSTriggerProperty> triggerProp = TSharedPtr<NOSTriggerProperty>(new NOSTriggerProperty());
+	triggerProp->Id = StringToFGuid(nosfunc->IdHashName + "Trigger");
 	NOSPropertyManager.PropertiesById.Add(triggerProp->Id, triggerProp);
 	nosfunc->Properties.push_back(triggerProp);
 
