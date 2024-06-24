@@ -27,6 +27,7 @@ namespace NosMetadataKeys
 		NOS_METADATA_KEY(PinHidden);
 		NOS_METADATA_KEY(PinnedCategories);
 		NOS_METADATA_KEY(NodeColor);
+		NOS_METADATA_KEY(FunctionName);
 };
 
 #define NODOS_MD5_HASHING
@@ -120,7 +121,7 @@ class NOSSCENETREEMANAGER_API NOSProperty : public TSharedFromThis<NOSProperty>
 public:
 	NOSProperty(UObject* Container, FProperty* UProperty, FString ParentCategory = FString(), uint8 * StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr);
 
-	void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
+	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr);
 	UObject* GetRawObjectContainer();
 	void* GetRawContainer();
 
@@ -177,6 +178,26 @@ protected:
 
 private:
 	void CallOnChangedFunction();
+
+};
+
+class NOSTriggerProperty : public NOSProperty
+{
+public:
+	NOSTriggerProperty() : NOSProperty(nullptr, nullptr)
+	{
+		TypeName = "nos.exe";
+		data = std::vector<uint8_t>(1, 0);
+		DisplayName = "Trigger";
+		CategoryName = "Default";
+	}
+	virtual flatbuffers::Offset<nos::fb::Pin> Serialize(flatbuffers::FlatBufferBuilder& fbb) override
+	{
+		return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "nos.exe", nos::fb::ShowAs::PROPERTY, nos::fb::CanShowAs::INPUT_OUTPUT_PROPERTY, TCHAR_TO_UTF8(*CategoryName), 0, 0, 0, 0, 0, 0, 0, false, false, true, 0, 0, nos::fb::PinContents::JobPin, 0, 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, 0, "Trigger");
+	};
+	virtual void SetPropValue(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override; 
 
 };
 

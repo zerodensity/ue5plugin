@@ -24,9 +24,12 @@ bool PropertyVisibleExp(FProperty* ueproperty)
 
 NOSProperty::NOSProperty(UObject* container, FProperty* uproperty, FString parentCategory, uint8* structPtr, NOSStructProperty* parentProperty)
 {
-	Property = uproperty;
+	Id = FGuid::NewGuid();
 
-	
+	if (!container && !uproperty)
+		return;
+
+	Property = uproperty;
 	if (Property->HasAnyPropertyFlags(CPF_OutParm))
 	{
 		ReadOnly = true;
@@ -154,7 +157,6 @@ NOSProperty::NOSProperty(UObject* container, FProperty* uproperty, FString paren
 		}
 	}
 
-	Id = FGuid::NewGuid();
 }
 
 
@@ -1663,4 +1665,17 @@ bool NOSComponentReference::UpdateActualComponentPointer()
 	return false;
 }
 
+void NOSTriggerProperty::SetPropValue(void* val, size_t size, uint8* customContainer)
+{
 
+}
+
+void NOSTriggerProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+{
+
+}
+
+std::vector<uint8> NOSTriggerProperty::UpdatePinValue(uint8* customContainer)
+{
+	return std::vector<uint8>();
+}

@@ -445,6 +445,11 @@ bool IsActorDisplayable(const AActor* Actor)
 {
 	static const FName SequencerActorTag(TEXT("SequencerActor"));
 
+	if(Actor == nullptr)
+	{
+		return false;
+	}
+
 	return Actor &&
 		Actor->IsEditable() &&																	// Only show actors that are allowed to be selected and drawn in editor
 		Actor->IsListedInSceneOutliner() &&
@@ -774,6 +779,7 @@ struct PropUpdate
 	size_t defValSize;
 	nos::fb::ShowAs pinShowAs;
 	bool IsPortal;
+	FString FunctionName;
 };
 
 struct NodeAndActorGuid
@@ -1069,7 +1075,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 	fb3.Finish(offset2);
 	auto buf2 = fb3.Release();
 	auto root2 = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf2.data());
-	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
+	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root2);
 
 
 	std::vector<const nos::fb::Node*> nodesWithProperty;
@@ -1087,6 +1093,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				FString displayName;
 				FString PropertyPath;
 				FString ContainerPath;
+				FString FunctionName;
 				char* valcopy = nullptr;
 				char* defcopy = nullptr;
 				size_t valsize = 0;
@@ -1132,8 +1139,13 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				}
 
 				bool IsPortal = prop->contents_type() == nos::fb::PinContents::PortalPin;
+
+				if (auto entry = prop->meta_data_map()->LookupByKey("FunctionName"))
+				{
+					FunctionName = FString(entry->value()->c_str());
+				}
 				
-				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal});
+				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal, FunctionName});
 			}
 
 		}
@@ -1234,6 +1246,11 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 		FProperty* PropertyToUpdate = FindFProperty<FProperty>(*update.PropertyPath);
 		if(!PropertyToUpdate->IsValidLowLevel())
 		{
+			continue;
+		}
+		if (!update.FunctionName.IsEmpty())
+		{
+
 			continue;
 		}
 		if(!update.ContainerPath.IsEmpty())
@@ -1593,6 +1610,7 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	{
 		if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt))
 		{
+			nosprop->nosMetaDataMap.Add(NosMetadataKeys::FunctionName, UEFunction->GetFName().ToString());
 			nosfunc->Properties.push_back(nosprop);
 			//RegisteredProperties.Add(nosprop->Id, nosprop);			
 			if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
@@ -1610,6 +1628,11 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	{
 		return nullptr;
 	}
+
+	//add trigger pin manually
+	TSharedPtr<NOSTriggerProperty> triggerProp = TSharedPtr<NOSTriggerProperty>(new NOSTriggerProperty());
+	NOSPropertyManager.PropertiesById.Add(triggerProp->Id, triggerProp);
+	nosfunc->Properties.push_back(triggerProp);
 
 	actorNode->Functions.push_back(nosfunc);
 	RegisteredFunctions.Add(nosfunc->Id, nosfunc);
