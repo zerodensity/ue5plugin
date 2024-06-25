@@ -1749,7 +1749,7 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 		{
 			prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionPropertyName, "Trigger");
 		}
-		prop->nosMetaDataMap.Add(NosMetadataKeys::ActorGuid, actorNode->actor->GetActorGuid().ToString());
+		prop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actorNode->actor->GetActorGuid().ToString());
 	}
 
 	actorNode->Functions.push_back(nosfunc);
