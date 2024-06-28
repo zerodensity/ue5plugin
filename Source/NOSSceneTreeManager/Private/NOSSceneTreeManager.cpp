@@ -173,8 +173,6 @@ void FNOSSceneTreeManager::StartupModule()
 	FEditorDelegates::NewCurrentLevel.AddRaw(this, &FNOSSceneTreeManager::OnNewCurrentLevel);
 	FEditorDelegates::MapChange.AddRaw(this, &FNOSSceneTreeManager::OnMapChange);
 
-	FCoreUObjectDelegates::OnObjectPropertyChanged.AddRaw(this, &FNOSSceneTreeManager::OnPropertyChanged);
-
 	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSSceneTreeManager::OnPostWorldInit);
 	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSSceneTreeManager::OnPreWorldFinishDestroy);
 	FWorldDelegates::LevelAddedToWorld.AddRaw(this, &FNOSSceneTreeManager::OnLevelAddedToWorld);
@@ -198,6 +196,23 @@ void FNOSSceneTreeManager::StartupModule()
 #endif
 
 	//custom functions 
+	{
+		NOSCustomFunction* noscf = new NOSCustomFunction;
+		FString UniqueFunctionName("Toggle Two Way Binding");
+		noscf->Id = StringToFGuid(UniqueFunctionName);
+
+		noscf->Serialize = [funcid = noscf->Id, this](flatbuffers::FlatBufferBuilder& fbb)->flatbuffers::Offset<nos::fb::Node>
+			{
+				std::vector<uint8_t> data;
+				return nos::fb::CreateNodeDirect(fbb, (nos::fb::UUID*)&funcid, "Toggle Two Way Binding", "UE5.UE5", false, true, 0, 0, nos::fb::NodeContents::Job, nos::fb::CreateJob(fbb).Union(), TCHAR_TO_ANSI(*FNOSClient::AppKey), 0, "Control"
+				, 0, false, nullptr, 0, "Toggle the two way binding feature for portal pins.");
+			};
+		noscf->Function = [this](TMap<FGuid, std::vector<uint8>> properties)
+			{
+				ToggleTwoWayBinding();
+			};
+		CustomFunctions.Add(noscf->Id, noscf);
+	}
 	{
 		NOSCustomFunction* noscf = new NOSCustomFunction;
 		FString UniqueFunctionName("Refresh Scene Outliner");
@@ -318,12 +333,56 @@ void FNOSSceneTreeManager::ShutdownModule()
 
 bool FNOSSceneTreeManager::Tick(float dt)
 {
-	//TODO check after merge
-	//if (NOSClient)
-	//{
-	//	NOSTextureShareManager::GetInstance()->EnqueueCommands(NOSClient->AppServiceClient);
-	//}
 
+	if (bTwoWayBindingEnabled && !bTwoWayBindingStatusSent)
+	{
+		nos::fb::TNodeStatusMessage TwoWayBindingStatus;
+		TwoWayBindingStatus.text = "Two way binding is enabled for portal pins.";
+		TwoWayBindingStatus.type = nos::fb::NodeStatusMessageType::WARNING;
+		NOSClient->UENodeStatusHandler.Add("two_way_binding_status", TwoWayBindingStatus);
+		bTwoWayBindingStatusSent = true;
+	}
+	else if (!bTwoWayBindingEnabled && bTwoWayBindingStatusSent)
+	{
+		NOSClient->UENodeStatusHandler.Remove("two_way_binding_status");
+		bTwoWayBindingStatusSent = false;
+	}
+
+	if (bTwoWayBindingEnabled)
+	{
+		for (auto& [id, portal] : NOSPropertyManager.PortalPinsById)
+		{
+			if (NOSPropertyManager.PropertiesById.Contains(portal.SourceId))
+			{
+				auto prop = NOSPropertyManager.PropertiesById.FindRef(portal.SourceId);
+				if (!prop || !prop->Property)
+				{
+					continue;
+				}
+				if (prop->TypeName == "nos.sys.vulkan.Texture")
+				{
+					continue;
+				}
+				auto val = prop->data;
+				auto updatedVal = prop->UpdatePinValue();
+				if (val.size() != updatedVal.size() || memcmp(val.data(), updatedVal.data(), val.size()) != 0)
+				{
+					SendPinValueChanged(portal.SourceId, updatedVal);
+
+					if (auto objectContainer = prop->GetRawObjectContainer())
+					{
+						const FString OnChangedFunctionName = TEXT("OnChanged_") + prop->Property->GetName();
+						UFunction* OnChanged = objectContainer->GetClass()->FindFunctionByName(*OnChangedFunctionName);
+						if (OnChanged)
+						{
+							objectContainer->Modify();
+							objectContainer->ProcessEvent(OnChanged, nullptr);
+						}
+					}
+				}
+			}
+		}
+	}
 	return true;
 }
 
@@ -887,58 +946,6 @@ void GetNodesWithProperty(const nos::fb::Node* node, std::vector<const nos::fb::
 	}
 	
 
-}
-
-void FNOSSceneTreeManager::OnPropertyChanged(UObject* ObjectBeingModified, FPropertyChangedEvent& PropertyChangedEvent)
-{
-	if(PropertyChangedEvent.Property && ObjectBeingModified)
-	{
-		const FString OnChangedFunctionName = TEXT("OnChanged_") + PropertyChangedEvent.Property->GetName();
-		UFunction* OnChanged = ObjectBeingModified->GetClass()->FindFunctionByName(*OnChangedFunctionName);
-		if (OnChanged)
-		{
-			ObjectBeingModified->Modify();
-			ObjectBeingModified->ProcessEvent(OnChanged, nullptr);
-		}
-	}
-	
-	if (!PropertyChangedEvent.MemberProperty || !PropertyChangedEvent.Property)
-	{
-		return;
-	}
-	if (!ObjectBeingModified->IsA(PropertyChangedEvent.MemberProperty->GetOwner<UClass>()))
-	{
-		return;
-	}
-	//not sure whether we need this check
-	//if (PropertyChangedEvent.Property && !ObjectBeingModified->IsA(PropertyChangedEvent.Property->GetOwner<UClass>()))
-	//{
-	//	return;
-	//}
-	if (!PropertyChangedEvent.Property->IsValidLowLevel())
-	{
-		return;
-	}
-	if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.Property, ObjectBeingModified}))
-	{
-		auto nosprop = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.Property, ObjectBeingModified});
-		if(nosprop->TypeName != "nos.fb.Void")
-		{
-			nosprop->UpdatePinValue();
-			SendPinValueChanged(nosprop->Id, nosprop->data);
-		}
-		return;
-	}
-	if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({PropertyChangedEvent.MemberProperty, ObjectBeingModified}))
-	{
-		auto nosprop = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({PropertyChangedEvent.MemberProperty, ObjectBeingModified});
-		if(nosprop->TypeName != "nos.fb.Void")
-		{
-			nosprop->UpdatePinValue();
-			SendPinValueChanged(nosprop->Id, nosprop->data);
-		}
-		return;
-	}
 }
 
 void FNOSSceneTreeManager::OnActorSpawned(AActor* InActor)

@@ -146,7 +146,7 @@ public:
 };
 
 
-class UENodeStatusHandler
+class NOSCLIENT_API UENodeStatusHandler
 {
 public:
 	void SetClient(FNOSClient* PluginClient);

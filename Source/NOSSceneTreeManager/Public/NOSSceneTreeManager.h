@@ -277,6 +277,10 @@ public:
 	void AddToBeAddedActors();
 	void DeleteToBeDeletedActors();
 
+	bool bTwoWayBindingEnabled = false;
+	bool bTwoWayBindingStatusSent = false;
+	void ToggleTwoWayBinding() { bTwoWayBindingEnabled = !bTwoWayBindingEnabled; }
+
 	//the world we interested in
 	static UWorld* daWorld;
 
