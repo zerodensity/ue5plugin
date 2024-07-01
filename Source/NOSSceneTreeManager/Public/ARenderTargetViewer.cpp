@@ -1,3 +1,5 @@
+// Copyright MediaZ Teknoloji A.S. All Rights Reserved.
+
 #include "ARenderTargetViewer.h"
 #include <NOSSceneTreeManager.h>
 

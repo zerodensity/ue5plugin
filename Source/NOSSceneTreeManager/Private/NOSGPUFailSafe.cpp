@@ -1,3 +1,5 @@
+// Copyright MediaZ Teknoloji A.S. All Rights Reserved.
+
 #include "NOSGPUFailSafe.h"
 #include "NOSTextureShareManager.h"
 #include "NOSSceneTreeManager.h"
