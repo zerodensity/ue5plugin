@@ -1701,7 +1701,7 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 {
 	auto UEFunctionName = UEFunction->GetFName().ToString();
 
-	if (UEFunctionName.StartsWith("OnChanged_") || UEFunctionName.StartsWith("OnLengthChanged_"))
+	if (UEFunctionName.StartsWith("OnChanged_") || UEFunctionName.StartsWith("OnLengthChanged_") || UEFunctionName.StartsWith("UserConstructionScript"))
 	{
 		return nullptr; // do not export user's changed handler functions
 	}
