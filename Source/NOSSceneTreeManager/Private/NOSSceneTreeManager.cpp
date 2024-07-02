@@ -1741,6 +1741,8 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	//add trigger pin manually
 	TSharedPtr<NOSTriggerProperty> triggerProp = TSharedPtr<NOSTriggerProperty>(new NOSTriggerProperty());
 	triggerProp->Id = StringToFGuid(nosfunc->IdHashName + "Trigger");
+	triggerProp->DisplayName = actorNode->actor->GetActorLabel() + "." + nosfunc->DisplayName;
+	triggerProp->PropertyName = nosfunc->IdHashName + "Trigger";
 	NOSPropertyManager.PropertiesById.Add(triggerProp->Id, triggerProp);
 	nosfunc->Properties.push_back(triggerProp);
 
@@ -3145,7 +3147,7 @@ void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 		}
 	}
 
-	if (NOSProperty->nosMetaDataMap.Contains(NosMetadataKeys::FunctionName))
+	if (NOSProperty->nosMetaDataMap.Contains(NosMetadataKeys::FunctionName)&&NOSProperty->TypeName != "nos.exe")
 	{
 		FString functionName;
 		functionName = NOSProperty->nosMetaDataMap.FindRef(NosMetadataKeys::FunctionName);
