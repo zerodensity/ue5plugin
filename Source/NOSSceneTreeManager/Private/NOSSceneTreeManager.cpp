@@ -1718,8 +1718,11 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	bool bNotSupported = false;
 	for (TFieldIterator<FProperty> PropIt(UEFunction); PropIt && PropIt->HasAnyPropertyFlags(CPF_Parm); ++PropIt)
 	{
-		if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt))
+		if (auto nosprop = NOSPropertyManager.CreateProperty(nullptr, *PropIt, "", false))
 		{
+			nosprop->Id = StringToFGuid(nosfunc->IdHashName + nosprop->DisplayName);
+			NOSPropertyManager.PropertiesById.Add(nosprop->Id, nosprop);
+
 			nosfunc->Properties.push_back(nosprop);
 			//RegisteredProperties.Add(nosprop->Id, nosprop);			
 			if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
@@ -3197,15 +3200,18 @@ void FNOSPropertyManager::CreatePortal(FProperty* uproperty, UObject* Container,
 	}
 }
 
-TSharedPtr<NOSProperty> FNOSPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory)
+TSharedPtr<NOSProperty> FNOSPropertyManager::CreateProperty(UObject* container, FProperty* uproperty, FString parentCategory, bool bAddToCache)
 {
 	TSharedPtr<NOSProperty> NosProperty = NOSPropertyFactory::CreateProperty(container, uproperty, parentCategory);
 	if (!NosProperty)
 	{
 		return nullptr;
 	}
-	PropertiesById.Add(NosProperty->Id, NosProperty);
-	PropertiesByPropertyAndContainer.Add({NosProperty->Property, container}, NosProperty);
+	if (bAddToCache)
+	{
+		PropertiesById.Add(NosProperty->Id, NosProperty);
+		PropertiesByPropertyAndContainer.Add({NosProperty->Property, container}, NosProperty);
+	}
 
 	// if (NosProperty->ActorContainer)
 	// {

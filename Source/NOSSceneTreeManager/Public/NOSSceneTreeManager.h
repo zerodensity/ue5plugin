@@ -35,7 +35,8 @@ public:
 
 	TSharedPtr<NOSProperty> CreateProperty(UObject* container,
 		FProperty* uproperty,
-		FString parentCategory = FString(""));
+		FString parentCategory = FString(""),
+		bool bAddToCache = true);
 
 	void SetPropertyValue();
 	bool CheckPinShowAs(nos::fb::CanShowAs CanShowAs, nos::fb::ShowAs ShowAs);
