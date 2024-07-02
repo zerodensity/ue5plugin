@@ -1748,6 +1748,7 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 	{
 		prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionName, UEFunction->GetFName().ToString());
 		prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionId, nosfunc->Id.ToString());
+		prop->nosMetaDataMap.Add(NosMetadataKeys::ActorDisplayName, actorNode->actor->GetActorLabel());
 		if (prop->Property)
 		{
 			prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionPropertyName, prop->Property->GetFName().ToString());
@@ -3143,6 +3144,20 @@ void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 			parentUniqueName = parentAsActor->GetFName().ToString() + "-" + parentUniqueName;
 		}
 	}
+
+	if (NOSProperty->nosMetaDataMap.Contains(NosMetadataKeys::FunctionName))
+	{
+		FString functionName;
+		functionName = NOSProperty->nosMetaDataMap.FindRef(NosMetadataKeys::FunctionName);
+		FString actorName;
+		if (NOSProperty->nosMetaDataMap.Contains(NosMetadataKeys::ActorDisplayName))
+		{
+			actorName = NOSProperty->nosMetaDataMap.FindRef(NosMetadataKeys::ActorDisplayName);
+		}
+		parentUniqueName = actorName + "-" + functionName + "-";
+		parentName = actorName + "." + functionName + ".";
+	}
+
 
 	NewPortal.UniqueName = parentUniqueName + NOSProperty->DisplayName;
 	NewPortal.DisplayName =  parentName + NOSProperty->DisplayName;

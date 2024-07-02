@@ -30,6 +30,7 @@ namespace NosMetadataKeys
 		NOS_METADATA_KEY(FunctionName);
 		NOS_METADATA_KEY(FunctionId);
 		NOS_METADATA_KEY(FunctionPropertyName);
+		NOS_METADATA_KEY(ActorDisplayName);
 };
 
 #define NODOS_MD5_HASHING
