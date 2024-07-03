@@ -1724,10 +1724,12 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 			NOSPropertyManager.PropertiesById.Add(nosprop->Id, nosprop);
 
 			nosfunc->Properties.push_back(nosprop);
+			nosprop->PinCanShowAs = nos::fb::CanShowAs::INPUT_PIN_OR_PROPERTY;
 			//RegisteredProperties.Add(nosprop->Id, nosprop);			
 			if (PropIt->HasAnyPropertyFlags(CPF_OutParm))
 			{
 				nosfunc->OutProperties.push_back(nosprop);
+				nosprop->PinCanShowAs = nos::fb::CanShowAs::OUTPUT_PIN_OR_PROPERTY;
 			}
 		}
 		else
