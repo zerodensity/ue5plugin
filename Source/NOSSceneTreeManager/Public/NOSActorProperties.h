@@ -172,6 +172,8 @@ public:
 	TMap<FString, FString> nosMetaDataMap;
 	bool transient = true;
 	bool IsChanged = false;
+	bool IsFunctionProp = false;
+	FGuid FunctionId;
 
 	UClass* FunctionContainerClass = nullptr;
 

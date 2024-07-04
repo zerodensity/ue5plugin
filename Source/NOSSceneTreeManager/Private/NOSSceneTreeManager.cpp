@@ -1765,6 +1765,9 @@ TSharedPtr<NOSFunction> FNOSSceneTreeManager::AddFunctionToActorNode(ActorNode* 
 			prop->nosMetaDataMap.Add(NosMetadataKeys::FunctionPropertyName, "Trigger");
 		}
 		prop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actorNode->actor->GetActorGuid().ToString());
+
+		prop->IsFunctionProp = true;
+		prop->FunctionId = nosfunc->Id;
 	}
 
 	actorNode->Functions.push_back(nosfunc);
@@ -3109,6 +3112,29 @@ void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 		LOG("Pin can't be shown as the wanted type!");
 		return;
 	}
+
+	if (NOSProperty->IsFunctionProp && NOSProperty->TypeName != "nos.exe")
+	{
+		auto& NOSSceneTreeManager = FModuleManager::LoadModuleChecked<FNOSSceneTreeManager>("NOSSceneTreeManager");
+		if (NOSSceneTreeManager.RegisteredFunctions.Contains(NOSProperty->FunctionId))
+		{
+			auto Function = NOSSceneTreeManager.RegisteredFunctions.FindRef(NOSProperty->FunctionId);
+			if (Function)
+			{
+				for (auto param : Function->Properties)
+				{
+					if (param->TypeName == "nos.exe")
+					{
+						if (!PropertyToPortalPin.Contains(param->Id))
+						{
+							CreatePortal(param->Id, nos::fb::ShowAs::INPUT_PIN);
+						}
+					}
+				}
+			}
+		}
+	}
+
 	NOSTextureShareManager::GetInstance()->UpdatePinShowAs(NOSProperty.Get(), ShowAs);
 	NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NOSProperty->Id, ShowAs);
 	
