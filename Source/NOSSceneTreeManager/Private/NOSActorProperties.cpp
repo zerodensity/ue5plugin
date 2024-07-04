@@ -1520,23 +1520,27 @@ TSharedPtr<NOSProperty> NOSPropertyFactory::CreateProperty(UObject* container,
 	//update metadata
 	// prop->nosMetaDataMap.Add("property", uproperty->GetFName().ToString());
 	prop->nosMetaDataMap.Add(NosMetadataKeys::PropertyPath, uproperty->GetPathName());
+	prop->nosMetaDataMap.Add(NosMetadataKeys::PropertyDisplayName, uproperty->GetDisplayNameText().ToString());
 	if (auto component = Cast<USceneComponent>(container))
 	{
 		prop->nosMetaDataMap.Add(NosMetadataKeys::component, component->GetFName().ToString());
 		if (auto actor = component->GetOwner())
 		{
 			prop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
+			prop->nosMetaDataMap.Add(NosMetadataKeys::ActorDisplayName, actor->GetActorLabel());
 			ActorUniqueName = actor->GetFName().ToString();
 		}
 	}
 	else if (auto actor = Cast<AActor>(container))
 	{
 		prop->nosMetaDataMap.Add(NosMetadataKeys::actorId, actor->GetActorGuid().ToString());
+		prop->nosMetaDataMap.Add(NosMetadataKeys::ActorDisplayName, actor->GetActorLabel());
 		ActorUniqueName = actor->GetFName().ToString();
 	}
 	
 	// FProperty* tryprop = FindFProperty<FProperty>(*uproperty->GetPathName());
 	//UE_LOG(LogNOSSceneTreeManager, Warning, TEXT("name of the prop before %s, found property name %s"),*uproperty->GetFName().ToString(),  *tryprop->GetFName().ToString());
+
 
 	FString PropertyPath = prop->nosMetaDataMap.FindRef(NosMetadataKeys::PropertyPath);
 	FString ComponentPath = prop->nosMetaDataMap.FindRef(NosMetadataKeys::component);
