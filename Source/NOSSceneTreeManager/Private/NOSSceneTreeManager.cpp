@@ -3193,6 +3193,12 @@ void FNOSPropertyManager::CreatePortal(FGuid PropertyId, nos::fb::ShowAs ShowAs)
 
 
 	NewPortal.UniqueName = parentUniqueName + NOSProperty->DisplayName;
+
+	if (NOSProperty->TypeName == "nos.exe")
+	{
+		NewPortal.UniqueName = parentUniqueName + NOSProperty->PropertyName;
+	}
+
 	NewPortal.DisplayName =  parentName + NOSProperty->DisplayName;
 	NewPortal.TypeName = FString(NOSProperty->TypeName.c_str());
 	NewPortal.CategoryName = NOSProperty->CategoryName;
