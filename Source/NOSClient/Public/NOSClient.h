@@ -145,7 +145,6 @@ public:
 	ExecuteFrameNumberQueue ExecuteQueue{};
 };
 
-
 class NOSCLIENT_API UENodeStatusHandler
 {
 public:
@@ -211,6 +210,8 @@ public:
 	//Tries to initialize connection with the Nodos engine
 	void TryConnect();
 
+	void Initialize();
+
 	//Tick is called every frame once and handles the tasks queued from grpc threads
 	bool Tick(float dt);
 
@@ -268,6 +269,8 @@ public:
 	UENodeStatusHandler UENodeStatusHandler;
 
 	int ReloadingLevel = 0;
+
+	bool bIsInitialized = false;
 	
 protected:
 	void Reset();

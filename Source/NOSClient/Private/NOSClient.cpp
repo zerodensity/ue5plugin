@@ -19,12 +19,14 @@
 #include "Interfaces/IPluginManager.h"
 #include "Json.h"
 
+
 //Nodos
 #include "nosFlatBuffersCommon.h"
 #include "Engine/LocalPlayer.h"
 #include "GameFramework/GameModeBase.h"
 #include "GameFramework/GameStateBase.h"
 #include "Toolkits/FConsoleCommandExecutor.h"
+#include "NOSSettings.h"
 
 #define LOCTEXT_NAMESPACE "FNOSClient"
 #pragma optimize("", off)
@@ -42,19 +44,7 @@ nos::app::FN_ShutdownClient* FNodos::ShutdownClient = nullptr;
 
 FString FNodos::GetNodosSDKDir()
 {
-	auto PluginDir = IPluginManager::Get().FindPlugin("Nodos")->GetBaseDir();
-	FString PluginConfigPath = PluginDir / "Config/config.json";
-
-	FString PluginConfigJsonRaw;
-	FFileHelper::LoadFileToString(PluginConfigJsonRaw, *PluginConfigPath);
-
-	TSharedPtr<FJsonObject> JsonParsed;
-	TSharedRef<TJsonReader<TCHAR>> JsonReader = TJsonReaderFactory<TCHAR>::Create(PluginConfigJsonRaw);
-	if (!FJsonSerializer::Deserialize(JsonReader, JsonParsed))
-	{
-		return "";
-	}
-	FString NosmanPath = JsonParsed->GetStringField("NOSMAN_PATH");
+	FString NosmanPath = GET_NOS_CONFIG_VALUE(NosmanPath);
 	FString NosmanWorkingDirectory = FPaths::GetPath(NosmanPath);
 	//execute nosman to get the path
 	int32 ReturnCode;
@@ -610,6 +600,24 @@ void FNOSClient::TryConnect()
 	return;
 }
 
+void FNOSClient::Initialize()
+{
+	if (GEditor)
+	{
+		nos::fb::TNodeStatusMessage EditorWarningStatus;
+		EditorWarningStatus.text = "WARNING: Editor Mode, Preview only!";
+		EditorWarningStatus.type = nos::fb::NodeStatusMessageType::WARNING;
+		UENodeStatusHandler.Add("editor_warning", EditorWarningStatus);
+	}
+
+	//Add Delegates
+	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSClient::Tick));
+	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSClient::OnPostWorldInit);
+	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSClient::OnPreWorldFinishDestroy);
+
+	bIsInitialized = true;
+}
+
 void FNOSClient::OnBeginFrame()
 {
 
@@ -661,6 +669,8 @@ void FNOSClient::OnPreWorldFinishDestroy(UWorld* World)
 	
 }
 
+
+
 void FNOSClient::StartupModule() {
 
 	if (!FApp::HasProjectName())
@@ -680,19 +690,7 @@ void FNOSClient::StartupModule() {
 		return;
 	}
 
-	if (GEditor)
-	{
-		nos::fb::TNodeStatusMessage EditorWarningStatus;
-		EditorWarningStatus.text = "WARNING: Editor Mode, Preview only!";
-		EditorWarningStatus.type = nos::fb::NodeStatusMessageType::WARNING;
-		UENodeStatusHandler.Add("editor_warning", EditorWarningStatus);
-	}
-
-
-	//Add Delegates
-	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSClient::Tick));
-	FWorldDelegates::OnPostWorldInitialization.AddRaw(this, &FNOSClient::OnPostWorldInit);
-	FWorldDelegates::OnPreWorldFinishDestroy.AddRaw(this, &FNOSClient::OnPreWorldFinishDestroy);
+	Initialize();
 }
 
 void FNOSClient::ShutdownModule()

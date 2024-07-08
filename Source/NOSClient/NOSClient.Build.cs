@@ -27,18 +27,11 @@ public class NOSClient : ModuleRules
 
 	public static string GetSDKDir(string PluginDirectory)
 	{
-		var ConfigFilePath = Path.Combine(PluginDirectory, "Config\\config.json");
-		if (!File.Exists(ConfigFilePath))
-		{
-			string errorMessage = "Please verify Config/config.json";
-			System.Console.WriteLine(errorMessage);
-			throw new BuildException(errorMessage);
-		}
-
-		FileReference ConfigFile = new FileReference(ConfigFilePath);
-		var Config = JsonObject.Read(ConfigFile);
+		string NosmanPath;
 		
-		string NosmanPath = Config.GetStringField("NOSMAN_PATH");
+		ConfigHierarchy PlatformGameConfig = ConfigCache.ReadHierarchy(ConfigHierarchyType.EditorSettings, null, UnrealTargetPlatform.Win64);
+
+		PlatformGameConfig.GetString("/Script/NOSClient.NOSSettings", "NosmanPath", out NosmanPath);
 
 		//execute shell command
 		System.Diagnostics.Process process = new System.Diagnostics.Process();
@@ -62,6 +55,7 @@ public class NOSClient : ModuleRules
 
 	public NOSClient(ReadOnlyTargetRules Target) : base(Target)
 	{
+
 		if (Target.bBuildEditor)
 		{
 			if (Target.Platform == UnrealTargetPlatform.Win64)
@@ -93,7 +87,8 @@ public class NOSClient : ModuleRules
 					"Slate",
 					"SlateCore",
 					"UnrealEd",
-					"Json"
+					"Json",
+					"DeveloperSettings"
 					}
 					);
 
@@ -109,7 +104,7 @@ public class NOSClient : ModuleRules
 					"SlateCore",
 					"EditorStyle",
 					"ToolMenus",
-					"UnrealEd",
+					"UnrealEd"
 					}
 					);
 			}
