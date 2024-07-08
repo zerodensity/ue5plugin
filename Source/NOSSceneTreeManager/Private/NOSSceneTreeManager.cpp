@@ -2060,6 +2060,8 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 				}
 
 			}
+
+
 		}
 		
 		for(auto NosProp : ComponentNode->Properties)
