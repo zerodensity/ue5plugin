@@ -45,6 +45,11 @@ nos::app::FN_ShutdownClient* FNodos::ShutdownClient = nullptr;
 FString FNodos::GetNodosSDKDir()
 {
 	FString NosmanPath = GET_NOS_CONFIG_VALUE(NosmanPath);
+	if (FPaths::IsRelative(NosmanPath))
+	{
+		NosmanPath = FPaths::Combine(FPaths::EngineDir(), NosmanPath);
+	}
+
 	FString NosmanWorkingDirectory = FPaths::GetPath(NosmanPath);
 	//execute nosman to get the path
 	int32 ReturnCode;

@@ -19,6 +19,7 @@ public:
 	virtual void PostEditChangeProperty(struct FPropertyChangedEvent& PropertyChangedEvent) override;
 #endif // WITH_EDITOR
 
+	/** The path to the NOSMAN executable, can be a relative path to the Engine folder or an absolute path.*/
 	UPROPERTY(EditAnywhere, config, Category = NodosLink)
 	FString NosmanPath;
 };

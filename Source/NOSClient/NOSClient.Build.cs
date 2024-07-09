@@ -25,7 +25,7 @@ public class NOSClient : ModuleRules
 		return path;
 	}
 
-	public static string GetSDKDir(string PluginDirectory)
+	public static string GetSDKDir(string RelativeEnginePath)
 	{
 		string NosmanPath;
 		
@@ -33,13 +33,31 @@ public class NOSClient : ModuleRules
 
 		PlatformGameConfig.GetString("/Script/NOSClient.NOSSettings", "NosmanPath", out NosmanPath);
 
+
+		if (!Path.IsPathRooted(NosmanPath))
+		{
+			var EngineDir = Path.GetFullPath(RelativeEnginePath);
+			NosmanPath = Path.Combine(EngineDir, NosmanPath);
+		}
+
+
+		if(!File.Exists(NosmanPath))
+		{
+			System.Console.WriteLine();
+			string errorMessage = "Please verify Nosman Executable exist at " +
+				"(you can provide it from BaseEditorSettings.ini and it can be relative to Engine folder or it can be an absolute path) " + NosmanPath;
+			System.Console.WriteLine(errorMessage);
+			throw new BuildException(errorMessage);
+		}
+
 		//execute shell command
 		System.Diagnostics.Process process = new System.Diagnostics.Process();
 		process.StartInfo.FileName = NosmanPath;
 		process.StartInfo.ArgumentList.Add("sdk-info");
 		process.StartInfo.ArgumentList.Add("1.2.0");
 		process.StartInfo.UseShellExecute = false;
-		process.StartInfo.WorkingDirectory = Path.Combine(NosmanPath, "..");
+		process
+			.StartInfo.WorkingDirectory = Path.Combine(NosmanPath, "..");
 		process.StartInfo.RedirectStandardOutput = true;
 		process.StartInfo.RedirectStandardError = true;
 		process.StartInfo.CreateNoWindow = true;
@@ -62,7 +80,7 @@ public class NOSClient : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = GetSDKDir(PluginDirectory);
+				string SDKdir = GetSDKDir(Target.RelativeEnginePath);
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{

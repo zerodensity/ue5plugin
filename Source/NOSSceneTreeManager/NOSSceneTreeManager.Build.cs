@@ -18,7 +18,7 @@ public class NOSSceneTreeManager : ModuleRules
 			{
 				CppStandard = CppStandardVersion.Cpp20;
 
-				string SDKdir = NOSClient.GetSDKDir(PluginDirectory);
+				string SDKdir = NOSClient.GetSDKDir(Target.RelativeEnginePath);
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{
