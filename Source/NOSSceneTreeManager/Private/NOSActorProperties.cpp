@@ -681,6 +681,7 @@ FString ValidateName(FString& name)
 	name = name.Replace(TEXT("\t"), TEXT("\\t"));
 	name = name.Replace(TEXT("#"), TEXT("\\#"));
 	name = name.Replace(TEXT("."), TEXT("\\."));
+	name = name.Replace(TEXT("/"), TEXT("\\/"));
 	return name;
 }
 
