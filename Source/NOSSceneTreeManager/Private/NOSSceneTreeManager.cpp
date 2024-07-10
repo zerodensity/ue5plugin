@@ -841,6 +841,7 @@ struct PropUpdate
 	FString FunctionName;
 	FGuid FunctionId;
 	FString FunctionPropertyName;
+	bool IsActorTransform;
 };
 
 struct NodeAndActorGuid
@@ -1109,6 +1110,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				char* defcopy = nullptr;
 				size_t valsize = 0;
 				size_t defsize = 0;
+				bool IsActorTransform = false;
 				if (flatbuffers::IsFieldPresent(prop, nos::fb::Pin::VT_DATA))
 				{
 					valcopy = new char[prop->data()->size()];
@@ -1170,8 +1172,13 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 				{
 					FunctionPropertyName = FString(entry->value()->c_str());
 				}
+
+				if (auto entry = prop->meta_data_map()->LookupByKey("IsActorTransform"))
+				{
+					IsActorTransform = true;
+				}
 				
-				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal, FunctionName, FunctionId, FunctionPropertyName});
+				updates.push_back({ id, *(FGuid*)prop->id(),displayName, componentName, PropertyPath, ContainerPath,valcopy, valsize, defcopy, defsize, prop->show_as(), IsPortal, FunctionName, FunctionId, FunctionPropertyName, IsActorTransform});
 			}
 
 		}
@@ -1253,6 +1260,18 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 	for (auto const& update : updates)
 	{
 		FGuid ActorId = update.actorId;
+
+		if (update.IsActorTransform)
+		{
+			if (sceneActorMap.Contains(ActorId))
+			{
+				auto Actor = sceneActorMap.FindRef(ActorId);
+				//create custom transform property shared ptr
+				TSharedPtr<NOSCustomTransformProperty> customTransformProp(new NOSCustomTransformProperty(nullptr, NOSActorReference(Actor)));
+				customTransformProp->SetPropValue(update.newVal, update.newValSize);
+			}
+			continue;
+		}
 		
 		UObject* Container = nullptr;
 		if (sceneActorMap.Contains(ActorId))
@@ -1339,6 +1358,8 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 		
 		if (update.IsPortal)
 		{
+
+
 			UObject* Container = nullptr;
 			if (sceneActorMap.Contains(ActorId))
 			{
@@ -1355,6 +1376,82 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 			}
 			else
 			{
+				continue;
+			}
+
+			if (update.IsActorTransform)
+			{
+				if (sceneActorMap.Contains(ActorId))
+				{
+					auto Actor = sceneActorMap.FindRef(ActorId);
+					//create custom transform property shared ptr
+					TSharedPtr<NOSCustomTransformProperty> customTransformProp(new NOSCustomTransformProperty(nullptr, NOSActorReference(Actor)));
+					customTransformProp->SetPropValue(update.newVal, update.newValSize);
+
+					//find the nosprop from the actor node
+					if (auto ActorNode = SceneTree.GetNodeFromActorId(Actor->GetActorGuid()))
+					{
+						//iterate through the properties of the actor node and find the custom transform property
+						for (auto prop : ActorNode->Properties)
+						{
+							if (prop->TypeName == "nos.fb.Transform")
+							{
+								//create a portal pin for the custom transform property
+								PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&prop->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
+								auto NosProperty = prop;
+								NOSPortal NewPortal{update.pinId ,NosProperty->Id};
+								NewPortal.DisplayName = FString("");
+								UObject* parent = NosProperty->GetRawObjectContainer();
+								FString parentName = "";
+								FString parentUniqueName = "";
+								AActor* parentAsActor = nullptr;
+								while (parent)
+								{
+									parentName = parent->GetFName().ToString();
+									parentUniqueName = parent->GetFName().ToString() + "-";
+									if (auto actor = Cast<AActor>(parent))
+									{
+										parentName = actor->GetActorLabel();
+										parentAsActor = actor;
+									}
+									if(auto component = Cast<USceneComponent>(parent))
+										parentName = component->GetName();
+									parentName += ".";
+									parent = parent->GetTypedOuter<AActor>();
+								}
+								if (parentAsActor)
+								{
+									while (parentAsActor->GetSceneOutlinerParent())
+									{
+										parentAsActor = parentAsActor->GetSceneOutlinerParent();
+										if (auto actorNode = SceneTree.GetNodeFromActorId(parentAsActor->GetActorGuid()))
+										{
+											if (actorNode->nosMetaData.Contains(NosMetadataKeys::spawnTag))
+											{
+												if (actorNode->nosMetaData.FindRef(NosMetadataKeys::spawnTag) == FString("RealityParentTransform"))
+												{
+													break;
+												}
+											}
+										}
+										parentName = parentAsActor->GetActorLabel() + "." + parentName;
+										parentUniqueName = parentAsActor->GetFName().ToString() + "-" + parentUniqueName;
+									}
+								}
+								NewPortal.UniqueName = parentUniqueName + NosProperty->DisplayName;
+								NewPortal.DisplayName =  parentName + NosProperty->DisplayName;
+								NewPortal.TypeName = FString(NosProperty->TypeName.c_str());
+								NewPortal.CategoryName = NosProperty->CategoryName;
+								NewPortal.ShowAs = update.pinShowAs;
+
+								NOSPropertyManager.PortalPinsById.Add(NewPortal.Id, NewPortal);
+								NOSPropertyManager.PropertyToPortalPin.Add(NosProperty->Id, NewPortal.Id);
+								NewPortals.push_back(NewPortal);
+								NOSClient->AppServiceClient->SendPinShowAsChange((nos::fb::UUID&)NosProperty->Id, update.pinShowAs);
+							}
+						}
+					}
+				}
 				continue;
 			}
 
@@ -1578,7 +1675,7 @@ void FNOSSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t si
 	}
 
 	auto nosprop = NOSPropertyManager.PropertiesById.FindRef(pinId);
-	if(!nosprop->GetRawContainer())
+	if(!nosprop->GetRawContainer() && nosprop->TypeName != "nos.fb.Transform")
 	{
 		return;
 	}
@@ -1829,6 +1926,12 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 			AProperty = AProperty->PropertyLinkNext;
 		}
 
+		//add custom transform property
+		TSharedPtr<NOSCustomTransformProperty> customTransformProp(new NOSCustomTransformProperty(nullptr, actorNode->actor));
+		actorNode->Properties.push_back(customTransformProp);
+		NOSPropertyManager.PropertiesById.Add(customTransformProp->Id, customTransformProp);
+		customTransformProp->UpdatePinValue();
+
 		auto Components = actorNode->actor->GetComponents();
 
 		TSet<TSharedPtr<NOSProperty>> PropsWithFunctions;
@@ -2047,6 +2150,14 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 				continue;
 			}
 
+			//check if the property is part of transform
+			if (Property->GetFName() == FName("RelativeLocation") ||
+				Property->GetFName() == FName("RelativeRotation") ||
+				Property->GetFName() == FName("RelativeScale3D"))
+			{
+				continue;
+			}
+
 			auto nosprop = NOSPropertyManager.CreateProperty(Component.Get(), Property, FString(""));
 			if (nosprop)
 			{
@@ -2060,8 +2171,6 @@ bool FNOSSceneTreeManager::PopulateNode(FGuid nodeId)
 				}
 
 			}
-
-
 		}
 		
 		for(auto NosProp : ComponentNode->Properties)

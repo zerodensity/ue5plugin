@@ -32,6 +32,7 @@ namespace NosMetadataKeys
 		NOS_METADATA_KEY(FunctionPropertyName);
 		NOS_METADATA_KEY(ActorDisplayName);
 		NOS_METADATA_KEY(PropertyDisplayName);
+		NOS_METADATA_KEY(IsActorTransform);
 };
 
 #define NODOS_MD5_HASHING
@@ -551,6 +552,35 @@ public:
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
 
 	FStructProperty* structprop;
+protected:
+	virtual void SetProperty_InCont(void* container, void* val) override;
+};
+
+
+class NOSCustomTransformProperty : public NOSProperty
+{
+public:
+	NOSCustomTransformProperty(UObject* container, NOSActorReference actorRef, FString parentCategory = FString(), uint8* StructPtr = nullptr, NOSStructProperty* parentProperty = nullptr)
+		: NOSProperty(container, nullptr, parentCategory, StructPtr, parentProperty), ActorRef(actorRef)
+	{
+		data = std::vector<uint8_t>(72, 0);
+		TypeName = "nos.fb.Transform";
+		DisplayName = "Transform";
+		CategoryName = "Transform";
+		if (ActorRef)
+		{
+			nosMetaDataMap.Add(NosMetadataKeys::actorId, ActorRef->GetActorGuid().ToString());
+			nosMetaDataMap.Add(NosMetadataKeys::PropertyDisplayName, "Transform");
+			nosMetaDataMap.Add(NosMetadataKeys::ActorDisplayName, ActorRef->GetActorLabel());
+			nosMetaDataMap.Add(NosMetadataKeys::IsActorTransform, "true");
+		}
+
+	}
+	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
+
+	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr) override;
+
+	NOSActorReference ActorRef;
 protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };

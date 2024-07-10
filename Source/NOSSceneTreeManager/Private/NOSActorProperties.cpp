@@ -251,6 +251,9 @@ void NOSProperty::SetProperty_InCont(void* container, void* val)
 
 void NOSProperty::CallOnChangedFunction()
 {
+	if (!Property)
+		return;
+
 	UClass* OwnerClass = Property->GetOwnerClass();
 	if (!OwnerClass)
 		return;
@@ -424,6 +427,48 @@ void NOSTrackProperty::SetProperty_InCont(void* container, void* val)
 	//	//actor->SetActorRelativeRotation(newTrack.rotation.Rotation());
 	//}
 }
+
+std::vector<uint8> NOSCustomTransformProperty::UpdatePinValue(uint8* customContainer)
+{
+	if (ActorRef)
+	{
+		FTransform TransformData = ActorRef->GetTransform();
+		flatbuffers::FlatBufferBuilder fb;
+		nos::fb::Transform TempTransform;
+		TempTransform.mutable_position() = nos::fb::vec3d(TransformData.GetLocation().X, TransformData.GetLocation().Y, TransformData.GetLocation().Z);
+		TempTransform.mutable_scale() = nos::fb::vec3d(TransformData.GetScale3D().X, TransformData.GetScale3D().Y, TransformData.GetScale3D().Z);
+		TempTransform.mutable_rotation() = nos::fb::vec3d(TransformData.GetRotation().ToRotationVector().X, TransformData.GetRotation().ToRotationVector().Y, TransformData.GetRotation().ToRotationVector().Z);
+		
+		nos::Buffer buffer = nos::Buffer::From(TempTransform);
+		data = buffer;
+	}
+	return data;
+
+}
+
+void NOSCustomTransformProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)
+{
+	IsChanged = true;
+
+	if (ActorRef)
+	{
+		SetProperty_InCont(nullptr, val);
+	}
+
+	MarkState();
+}
+
+void NOSCustomTransformProperty::SetProperty_InCont(void* container, void* val)
+{
+	auto transform = *(nos::fb::Transform*)val;
+
+	ActorRef->SetActorRelativeLocation(FVector(transform.position().x(), transform.position().y(), transform.position().z()));
+	ActorRef->SetActorRelativeScale3D(FVector(transform.scale().x(), transform.scale().y(), transform.scale().z()));
+	
+	FRotator rot(transform.rotation().y(), transform.rotation().z(), transform.rotation().x());
+	ActorRef->SetActorRelativeRotation(rot.Quaternion());
+}
+
 
 std::vector<uint8> NOSTransformProperty::UpdatePinValue(uint8* customContainer)
 {
@@ -643,8 +688,8 @@ flatbuffers::Offset<nos::fb::Pin> NOSProperty::Serialize(flatbuffers::FlatBuffer
 {
 
 	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
-	auto displayName = Property->GetDisplayNameText().ToString();
-	DisplayName = ValidateName(DisplayName);
+	auto displayName = Property ? Property->GetDisplayNameText().ToString() : DisplayName;
+	DisplayName = ValidateName(DisplayName);							    
 	if (TypeName == "nos.fb.Void" || TypeName.size() < 1)
 	{
 		return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "nos.fb.Void", nos::fb::ShowAs::NONE, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, true, TCHAR_TO_UTF8(TEXT("Unknown type!"))), false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
