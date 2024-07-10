@@ -3447,7 +3447,7 @@ void FNOSPropertyManager::OnBeginFrame()
 			if (auto* NosPropertyIt = PropertiesById.Find(guid))
 			{
 				auto NosProperty = *NosPropertyIt;
-				if (!NosProperty->GetRawContainer())
+				if (!NosProperty->GetRawContainer() && NosProperty->TypeName != "nos.fb.Transform")
 				{
 					return;
 				}
