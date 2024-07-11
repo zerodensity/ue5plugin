@@ -405,6 +405,16 @@ void NOSTextureShareManager::ProcessCopies(nos::fb::ShowAs CopyShowAs, TMap<NOSP
 				{
 					Swap(dst, src);
 				}
+				if (!src || !dst)
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Texture is null!"));
+					continue;
+				}
+				if(src->GetSizeXY() != dst->GetSizeXY())
+				{
+					UE_LOG(LogTemp, Warning, TEXT("Texture sizes are not equal!"));
+					continue;
+				}
 				RHICmdList.CopyTexture(src, dst, CopyInfo);
 			}
 			for(auto& [fence, val] : SignalGroup)
