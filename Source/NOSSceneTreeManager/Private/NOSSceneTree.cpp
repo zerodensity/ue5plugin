@@ -15,6 +15,7 @@ NOSSceneTree::NOSSceneTree()
 {
 	Root = TSharedPtr<FolderNode>(new FolderNode);
 	Root->nosMetaData.Add("PinnedCategories", "Control");
+	Root->nosMetaData.Add("PinnedNodes", "Reality Actors");
 	Root->Name = FNOSClient::AppKey;
 	Root->Parent = nullptr;
 }
