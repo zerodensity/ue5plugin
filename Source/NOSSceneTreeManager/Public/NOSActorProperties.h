@@ -178,6 +178,8 @@ public:
 
 	UClass* FunctionContainerClass = nullptr;
 
+	bool IsActorTransform = false;
+
 	virtual ~NOSProperty() {}
 protected:
 	virtual void SetPropValue_Internal(void* val, size_t size, uint8* customContainer = nullptr);
@@ -565,6 +567,7 @@ public:
 	{
 		data = std::vector<uint8_t>(72, 0);
 		TypeName = "nos.fb.Transform";
+		IsActorTransform = true;
 		DisplayName = "Transform";
 		CategoryName = "Transform";
 		if (ActorRef)

@@ -1394,7 +1394,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 						//iterate through the properties of the actor node and find the custom transform property
 						for (auto prop : ActorNode->Properties)
 						{
-							if (prop->TypeName == "nos.fb.Transform")
+							if (prop->IsActorTransform)
 							{
 								//create a portal pin for the custom transform property
 								PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&prop->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
@@ -1675,7 +1675,7 @@ void FNOSSceneTreeManager::SetPropertyValue(FGuid pinId, void* newval, size_t si
 	}
 
 	auto nosprop = NOSPropertyManager.PropertiesById.FindRef(pinId);
-	if(!nosprop->GetRawContainer() && nosprop->TypeName != "nos.fb.Transform")
+	if(!nosprop->GetRawContainer() && !nosprop->IsActorTransform)
 	{
 		return;
 	}
@@ -3447,7 +3447,7 @@ void FNOSPropertyManager::OnBeginFrame()
 			if (auto* NosPropertyIt = PropertiesById.Find(guid))
 			{
 				auto NosProperty = *NosPropertyIt;
-				if (!NosProperty->GetRawContainer() && NosProperty->TypeName != "nos.fb.Transform")
+				if (!NosProperty->GetRawContainer() && !NosProperty->IsActorTransform)
 				{
 					return;
 				}
