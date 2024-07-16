@@ -556,7 +556,7 @@ void FNOSClient::TryConnect()
 		return;
 	}
 
-	if (!AppServiceClient)
+	if (!AppServiceClient && FNodos::MakeAppServiceClient)
 	{
 		FString CmdAppKey;
 		if (FParse::Value(FCommandLine::Get(), TEXT("nosname"), CmdAppKey))
@@ -706,7 +706,9 @@ void FNOSClient::ShutdownModule()
 	{
 		FNodos::ShutdownClient(AppServiceClient);
 	}
+	AppServiceClient = nullptr;
 	FNodos::Shutdown();
+	bIsInitialized = false;
 }
 
 bool FNOSClient::Tick(float dt)
@@ -716,7 +718,7 @@ bool FNOSClient::Tick(float dt)
 		ReloadingLevel--;
 		return true;
 	}
-	
+
     TryConnect();
 	while (!TaskQueue.IsEmpty() && ReloadingLevel <= 0) {
 		Task task;

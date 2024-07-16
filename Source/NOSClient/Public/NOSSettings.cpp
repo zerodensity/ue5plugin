@@ -18,6 +18,14 @@ void UNOSSettings::PostEditChangeProperty(struct FPropertyChangedEvent& Property
 			NOSClient->Initialize();
 		}
 	}
+	else
+	{
+		NOSClient->ShutdownModule();
+		if (FNodos::Initialize())
+		{
+			NOSClient->Initialize();
+		}
+	}
 }
 #endif // WITH_EDITOR
 
