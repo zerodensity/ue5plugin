@@ -723,6 +723,7 @@ void FNOSSceneTreeManager::OnNOSContextMenuCommandFired(nos::app::AppContextMenu
 void FNOSSceneTreeManager::OnNOSNodeRemoved()
 {
 	NOSActorManager->ClearActors();
+	NOSTextureShareManager::GetInstance()->Reset();
 	NOSClient->ReloadingLevel = CVarReloadLevelFrameCount.GetValueOnAnyThread();
 	ReloadCurrentMap();
 }
