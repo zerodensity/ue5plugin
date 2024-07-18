@@ -274,7 +274,8 @@ void FNOSAssetManager::SetupCustomSpawns()
 			auto RootComponent = NewObject<USceneComponent>(SpawnedActor, FName("DefaultSceneRoot"));
 			SpawnedActor->SetRootComponent(RootComponent);
 			RootComponent->CreationMethod = EComponentCreationMethod::Instance;
-			RootComponent->RegisterComponent();
+			RootComponent->SetMobility(EComponentMobility::Movable);
+			RootComponent->RegisterComponent(); 
 			SpawnedActor->AddInstanceComponent(RootComponent);
 			
 			return SpawnedActor;

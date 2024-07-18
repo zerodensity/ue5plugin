@@ -462,6 +462,11 @@ void NOSCustomTransformProperty::SetProperty_InCont(void* container, void* val)
 {
 	auto transform = *(nos::fb::Transform*)val;
 
+	if (ActorRef->GetRootComponent() && ActorRef->GetRootComponent()->Mobility != EComponentMobility::Movable)
+	{
+		ActorRef->GetRootComponent()->SetMobility(EComponentMobility::Movable);
+	}
+
 	ActorRef->SetActorRelativeLocation(FVector(transform.position().x(), transform.position().y(), transform.position().z()));
 	ActorRef->SetActorRelativeScale3D(FVector(transform.scale().x(), transform.scale().y(), transform.scale().z()));
 	
