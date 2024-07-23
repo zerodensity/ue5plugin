@@ -2843,7 +2843,30 @@ void FNOSSceneTreeManager::HandleWorldChange()
 		bool discard;
 		void* UnknownContainer = FindContainerFromContainerPath(ObjectContainer, containerInfo.ContainerPath, discard);
 		UnknownContainer = UnknownContainer ? UnknownContainer : ObjectContainer;
-		if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({containerInfo.Property,UnknownContainer}))
+		if (portal.TypeName == "nos.fb.Transform")
+		{
+			//find actor node from container info
+			auto ActorNode = SceneTree.GetNodeFromActorId(containerInfo.ActorId);
+			if (ActorNode)
+			{
+				//iterate actors properties
+				for (auto& prop : ActorNode->GetAsActorNode()->Properties)
+				{
+					if (prop->IsActorTransform)
+					{
+						//update portal source id
+						portal.SourceId = prop->Id;
+						NOSPropertyManager.PortalPinsById.Add(portal.Id, portal);
+						NOSPropertyManager.PropertyToPortalPin.Add(prop->Id, portal.Id);
+						PinUpdates.push_back(nos::CreatePartialPinUpdate(mbb, (nos::fb::UUID*)&portal.Id, (nos::fb::UUID*)&prop->Id, nos::fb::CreateOrphanStateDirect(mbb, false, "")));
+						break;
+					}
+				}
+
+
+			}
+		}
+		else if (NOSPropertyManager.PropertiesByPropertyAndContainer.Contains({containerInfo.Property,UnknownContainer}))
 		{
 			auto NosProperty = NOSPropertyManager.PropertiesByPropertyAndContainer.FindRef({containerInfo.Property,UnknownContainer});
 			bool notOrphan = false;
