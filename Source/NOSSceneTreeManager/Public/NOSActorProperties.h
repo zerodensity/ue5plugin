@@ -578,6 +578,9 @@ public:
 			nosMetaDataMap.Add(NosMetadataKeys::IsActorTransform, "true");
 		}
 
+		FString PropertyPath = "CustomTransform";
+		FString IdStringKey = actorRef->GetFName().ToString() + PropertyPath;
+		Id = StringToFGuid(IdStringKey);
 	}
 	virtual std::vector<uint8> UpdatePinValue(uint8* customContainer = nullptr) override;
 
