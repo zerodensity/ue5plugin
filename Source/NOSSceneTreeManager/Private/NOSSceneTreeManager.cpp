@@ -3026,8 +3026,11 @@ AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters P
 	bool bIsSpawningParentTransform = (SpawnTag == "RealityParentTransform");
 	if(!bIsSpawningParentTransform)
 	{
-		if(!Params.SpawnActorToWorldCoords)
+		if (!Params.SpawnActorToWorldCoords)
+		{
+			SpawnedActor->GetRootComponent()->SetMobility(EComponentMobility::Movable);
 			SpawnedActor->AttachToComponent(GetParentTransformActor()->GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
+		}
 	}
 
 	ActorIds.Add(SpawnedActor->GetActorGuid());
