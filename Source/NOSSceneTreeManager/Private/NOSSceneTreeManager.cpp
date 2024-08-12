@@ -123,6 +123,58 @@ void FNOSSceneTreeManager::OnEndFrame()
 {
 	NOSPropertyManager.OnEndFrame();
 	NOSTextureShareManager::GetInstance()->OnEndFrame();
+
+
+	if (bTwoWayBindingEnabled)
+	{
+		flatbuffers::FlatBufferBuilder fb;
+		std::vector<flatbuffers::Offset<nos::app::AppExecutePinValueUpdate>> pinValueUpdates;
+
+		for (auto& [id, portal] : NOSPropertyManager.PortalPinsById)
+		{
+			if (NOSPropertyManager.PropertiesById.Contains(portal.SourceId))
+			{
+				auto prop = NOSPropertyManager.PropertiesById.FindRef(portal.SourceId);
+				if (!prop)
+				{
+					continue;
+				}
+				if (prop->TypeName == "nos.sys.vulkan.Texture")
+				{
+					continue;
+				}
+				auto val = prop->data;
+				auto updatedVal = prop->UpdatePinValue();
+				if (val.size() != updatedVal.size() || memcmp(val.data(), updatedVal.data(), val.size()) != 0)
+				{
+					pinValueUpdates.push_back(
+								nos::app::CreateAppExecutePinValueUpdateDirect(fb, (nos::fb::UUID*)&portal.Id, &updatedVal));
+					if (prop->Property)
+					{
+						if (auto objectContainer = prop->GetRawObjectContainer())
+						{
+							const FString OnChangedFunctionName = TEXT("OnChanged_") + prop->Property->GetName();
+							UFunction* OnChanged = objectContainer->GetClass()->FindFunctionByName(*OnChangedFunctionName);
+							if (OnChanged)
+							{
+								objectContainer->Modify();
+								objectContainer->ProcessEvent(OnChanged, nullptr);
+							}
+						}
+
+					}
+				}
+			}
+		}
+
+		auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateExecutionCompletedDirect(fb, (nos::fb::UUID*)&FNOSClient::NodeId,
+																	NOSTextureShareManager::GetInstance()->FrameCounter, 
+																	&pinValueUpdates));
+		fb.Finish(offset);
+		auto buf = fb.Release();
+		auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+		NOSClient->AppServiceClient->Send(*root);
+	}
 }
 
 void FNOSSceneTreeManager::StartupModule()
@@ -348,41 +400,6 @@ bool FNOSSceneTreeManager::Tick(float dt)
 		bTwoWayBindingStatusSent = false;
 	}
 
-	if (bTwoWayBindingEnabled)
-	{
-		for (auto& [id, portal] : NOSPropertyManager.PortalPinsById)
-		{
-			if (NOSPropertyManager.PropertiesById.Contains(portal.SourceId))
-			{
-				auto prop = NOSPropertyManager.PropertiesById.FindRef(portal.SourceId);
-				if (!prop || !prop->Property)
-				{
-					continue;
-				}
-				if (prop->TypeName == "nos.sys.vulkan.Texture")
-				{
-					continue;
-				}
-				auto val = prop->data;
-				auto updatedVal = prop->UpdatePinValue();
-				if (val.size() != updatedVal.size() || memcmp(val.data(), updatedVal.data(), val.size()) != 0)
-				{
-					SendPinValueChanged(portal.SourceId, updatedVal);
-
-					if (auto objectContainer = prop->GetRawObjectContainer())
-					{
-						const FString OnChangedFunctionName = TEXT("OnChanged_") + prop->Property->GetName();
-						UFunction* OnChanged = objectContainer->GetClass()->FindFunctionByName(*OnChangedFunctionName);
-						if (OnChanged)
-						{
-							objectContainer->Modify();
-							objectContainer->ProcessEvent(OnChanged, nullptr);
-						}
-					}
-				}
-			}
-		}
-	}
 	return true;
 }
 
