@@ -1415,6 +1415,7 @@ void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
 						{
 							if (prop->IsActorTransform)
 							{
+								SendPinValueChanged(prop->Id, prop->data);
 								//create a portal pin for the custom transform property
 								PinUpdates.push_back(nos::CreatePartialPinUpdate(fb2, (nos::fb::UUID*)&update.pinId,  (nos::fb::UUID*)&prop->Id, nos::fb::CreateOrphanStateDirect(fb2, false)));
 								auto NosProperty = prop;

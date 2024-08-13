@@ -453,6 +453,7 @@ void NOSCustomTransformProperty::SetPropValue_Internal(void* val, size_t size, u
 	if (ActorRef)
 	{
 		SetProperty_InCont(nullptr, val);
+		BoundComponent = NOSComponentReference(ActorRef->GetRootComponent());
 	}
 
 	MarkState();
