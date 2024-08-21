@@ -699,9 +699,9 @@ flatbuffers::Offset<nos::fb::Pin> NOSProperty::Serialize(flatbuffers::FlatBuffer
 	DisplayName = ValidateName(DisplayName);							    
 	if (TypeName == "nos.fb.Void" || TypeName.size() < 1)
 	{
-		return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "nos.fb.Void", nos::fb::ShowAs::NONE, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, true, TCHAR_TO_UTF8(TEXT("Unknown type!"))), false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
+		return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), "nos.fb.Void", nos::fb::ShowAs::NONE, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, 0, 0, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, true, TCHAR_TO_UTF8(TEXT("Unknown type!"))), nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
 	}
-	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, IsOrphan, TCHAR_TO_UTF8(*OrphanMessage)), false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
+	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&Id, TCHAR_TO_UTF8(*DisplayName), TypeName.c_str(),  PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), 0, &data, 0, &min_val, &max_val, &default_val, 0, ReadOnly, IsAdvanced, transient, &metadata, 0, nos::fb::PinContents::JobPin, 0, nos::fb::CreateOrphanStateDirect(fbb, IsOrphan, TCHAR_TO_UTF8(*OrphanMessage)), nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*displayName));
 }
 
 std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> NOSProperty::SerializeMetaData(flatbuffers::FlatBufferBuilder& fbb)
@@ -1248,7 +1248,7 @@ flatbuffers::Offset<nos::fb::Pin> NOSEnumProperty::Serialize(flatbuffers::FlatBu
 {
 	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
 	DisplayName = ValidateName(DisplayName);
-	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&(NOSProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  nos::fb::PinContents::JobPin, 0, 0, false, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*Property->GetDisplayNameText().ToString()));
+	return nos::fb::CreatePinDirect(fbb, (nos::fb::UUID*)&(NOSProperty::Id), TCHAR_TO_UTF8(*DisplayName), TCHAR_TO_ANSI(TEXT("string")), PinShowAs, PinCanShowAs, TCHAR_TO_UTF8(*CategoryName), SerializeVisualizer(fbb), &data, 0, 0, 0, 0, 0, ReadOnly, IsAdvanced, transient, &metadata, 0,  nos::fb::PinContents::JobPin, 0, 0, nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE, TCHAR_TO_UTF8(*ToolTipText), TCHAR_TO_UTF8(*Property->GetDisplayNameText().ToString()));
 }
 
 void NOSEnumProperty::SetPropValue_Internal(void* val, size_t size, uint8* customContainer)

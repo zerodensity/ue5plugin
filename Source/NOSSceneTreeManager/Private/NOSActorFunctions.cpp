@@ -47,7 +47,7 @@ void FillSpawnActorFunctionTransformPins(flatbuffers::FlatBufferBuilder& Fbb,
 	                                            TCHAR_TO_ANSI(TEXT("Spawn To World Coordinates")),
 	                                            TCHAR_TO_ANSI(TEXT("bool")), nos::fb::ShowAs::PROPERTY,
 	                                            nos::fb::CanShowAs::PROPERTY_ONLY, "UE PROPERTY", 0, 0, 0, 0, 0, 0, 0, 0,
-	                                            0, 0, 0, 0, nos::fb::PinContents::JobPin, 0, 0, false,
+	                                            0, 0, 0, 0, nos::fb::PinContents::JobPin, 0, 0,
 	                                            nos::fb::PinValueDisconnectBehavior::KEEP_LAST_VALUE,
 	                                            "Set actor spawn transform with respect to the world transform. If set to false, it keeps the relative transform with respect to the parent actor."));
 
