@@ -437,7 +437,7 @@ std::vector<uint8> NOSCustomTransformProperty::UpdatePinValue(uint8* customConta
 		nos::fb::Transform TempTransform;
 		TempTransform.mutable_position() = nos::fb::vec3d(TransformData.GetLocation().X, TransformData.GetLocation().Y, TransformData.GetLocation().Z);
 		TempTransform.mutable_scale() = nos::fb::vec3d(TransformData.GetScale3D().X, TransformData.GetScale3D().Y, TransformData.GetScale3D().Z);
-		TempTransform.mutable_rotation() = nos::fb::vec3d(TransformData.GetRotation().ToRotationVector().X, TransformData.GetRotation().ToRotationVector().Y, TransformData.GetRotation().ToRotationVector().Z);
+		TempTransform.mutable_rotation() = nos::fb::vec3d(TransformData.GetRotation().Rotator().Roll, TransformData.GetRotation().Rotator().Pitch, TransformData.GetRotation().Rotator().Yaw);
 		
 		nos::Buffer buffer = nos::Buffer::From(TempTransform);
 		data = buffer;
