@@ -432,7 +432,7 @@ std::vector<uint8> NOSCustomTransformProperty::UpdatePinValue(uint8* customConta
 {
 	if (ActorRef)
 	{
-		FTransform TransformData = ActorRef->GetTransform();
+		FTransform TransformData = ActorRef->GetRootComponent()->GetRelativeTransform();
 		flatbuffers::FlatBufferBuilder fb;
 		nos::fb::Transform TempTransform;
 		TempTransform.mutable_position() = nos::fb::vec3d(TransformData.GetLocation().X, TransformData.GetLocation().Y, TransformData.GetLocation().Z);
