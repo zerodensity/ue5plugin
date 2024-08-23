@@ -200,7 +200,7 @@ void FNOSSceneTreeManager::StartupModule()
 	NOSPropertyManager.NOSClient = NOSClient;
 
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSSceneTreeManager::Tick));
-	NOSActorManager = new FNOSActorManager(this, SceneTree);
+	NOSActorManager = new FNOSActorManager(this, SceneTree, NOSPropertyManager);
 	//Bind to Nodos events
 	NOSClient->OnNOSNodeSelected.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeSelected);
 	NOSClient->OnNOSConnected.AddRaw(this, &FNOSSceneTreeManager::OnNOSConnected);
@@ -3089,6 +3089,10 @@ AActor* FNOSActorManager::SpawnActor(FString SpawnTag, NOSSpawnActorParameters P
 	{
 		if (prop->IsActorTransform)
 		{
+			if (!NOSPropertyManager->PropertyToPortalPin.Contains(prop->Id))
+			{
+				NOSPropertyManager->CreatePortal(prop->Id, nos::fb::ShowAs::PROPERTY);
+			}	
 			NOSSceneTreeManager->SendPinValueChanged(prop->Id, prop->data);
 		}
 	}

@@ -69,8 +69,9 @@ struct SavedActorData
 class NOSSCENETREEMANAGER_API FNOSActorManager
 {
 public:
-	FNOSActorManager(class FNOSSceneTreeManager* NOSSceneTreeManager, NOSSceneTree& SceneTree) : NOSSceneTreeManager(NOSSceneTreeManager), SceneTree(SceneTree)
+	FNOSActorManager(class FNOSSceneTreeManager* NOSSceneTreeManager, NOSSceneTree& SceneTree, FNOSPropertyManager& PropertyManager) : NOSSceneTreeManager(NOSSceneTreeManager), SceneTree(SceneTree)
 	{
+		NOSPropertyManager = &PropertyManager;
 		NOSAssetManager = &FModuleManager::LoadModuleChecked<FNOSAssetManager>("NOSAssetManager");
 		NOSClient = &FModuleManager::LoadModuleChecked<FNOSClient>("NOSClient");
 		RegisterDelegates();
@@ -91,6 +92,8 @@ public:
 
 	NOSSceneTree& SceneTree;
 	FNOSSceneTreeManager* NOSSceneTreeManager;
+	FNOSPropertyManager* NOSPropertyManager;
+
 	class FNOSAssetManager* NOSAssetManager;
 	class FNOSClient* NOSClient;
 	
