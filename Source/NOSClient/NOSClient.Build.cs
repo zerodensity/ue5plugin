@@ -65,7 +65,29 @@ public class NOSClient : ModuleRules
 		process.WaitForExit();
 		string output = process.StandardOutput.ReadToEnd();
 
-		var SDKInfo = JsonObject.Parse(output);
+		// Print stderr or stdout if failed
+		if (process.ExitCode != 0)
+		{
+			Console.WriteLine();
+			Console.Error.WriteLine("Failed to get Nodos SDK info");
+			var errOut = process.StandardError.ReadToEnd();
+			if (!String.IsNullOrEmpty(errOut))
+			{
+				Console.Error.WriteLine(errOut);
+			}
+			else if (!String.IsNullOrEmpty(output))
+			{
+				Console.Error.WriteLine(output);
+			}
+			return "";
+		}
+		
+		if (!JsonObject.TryParse(output, out var SDKInfo))
+		{
+			Console.Error.WriteLine("Failed to parse Nodos SDK info:");
+			Console.Error.WriteLine(output);
+			return "";
+		}
 		string SDKdir = SDKInfo.GetStringField("path");
 
 		return SDKdir;
