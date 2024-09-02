@@ -246,6 +246,19 @@ void NOSSceneTree::RemoveNode(FGuid NodeId)
 	NodeMap.Remove(NodeId);
 }
 
+TreeNode* NOSSceneTree::GetFolderOrRoot(TreeNode* node)
+{
+	if (node->GetAsFolderNode())
+	{
+		return node;
+	}
+	if (node->Parent)
+	{
+		return GetFolderOrRoot(node->Parent);
+	}
+	return Root.Get();
+}
+
 flatbuffers::Offset<nos::fb::Node> TreeNode::Serialize(flatbuffers::FlatBufferBuilder& fbb)
 {
 	std::vector<flatbuffers::Offset<nos::fb::MetaDataEntry>> metadata = SerializeMetaData(fbb);
