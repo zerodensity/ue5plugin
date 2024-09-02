@@ -91,6 +91,7 @@ public:
 	FGuid      GetNodeIdActorId(FGuid ActorId);
 	TreeNode* GetNode(FGuid NodeId);
 	void RemoveNode(FGuid NodeId);
+	TreeNode* GetFolderOrRoot(TreeNode* node);
 
 	void Clear();
 

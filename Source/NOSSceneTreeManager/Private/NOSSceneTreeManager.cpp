@@ -983,17 +983,18 @@ void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentAc
 
 	if(auto ActorNode = SceneTree.GetNodeFromActorId(Actor->GetActorGuid()))
 	{
+		auto parentFolder = SceneTree.GetFolderOrRoot(ActorNode);
 		if(auto OldParentActorNode = ActorNode->Parent->GetAsActorNode())
 		{
 			erase_if(OldParentActorNode->Children, [ActorNode](TSharedPtr<TreeNode> x) {return x->Id == ActorNode->Id;});
 		}
-		if(auto NewParentNode = SceneTree.Root)
+		if (parentFolder)
 		{
-			NewParentNode->Children.push_back(ActorNode->AsShared().ToSharedPtr());
-			ActorNode->Parent = NewParentNode.Get();
+			parentFolder->Children.push_back(ActorNode->AsShared().ToSharedPtr());
+			ActorNode->Parent = parentFolder;
 
 			flatbuffers::FlatBufferBuilder fb;
-			auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&ActorNode->Id, (nos::fb::UUID*)&NewParentNode->Id));
+			auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&ActorNode->Id, (nos::fb::UUID*)&parentFolder->Id));
 			fb.Finish(offset);
 			auto buf = fb.Release();
 			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
@@ -2278,6 +2279,14 @@ void FNOSSceneTreeManager::SendActorNodeDeleted(ActorNode* node)
 	for (auto PortalId : PortalsToRemove)
 	{
 		NOSPropertyManager.PortalPinsById.Remove(PortalId);
+	}
+
+	for (auto child : node->Children)
+	{
+		if (auto childActorNode = child->GetAsActorNode())
+		{
+			OnActorDetached(childActorNode->actor.Get(), node->actor.Get());
+		}
 	}
 
 	//delete from parent
