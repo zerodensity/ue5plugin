@@ -60,6 +60,8 @@ FString FNodos::GetNodosSDKDir()
 		return "";
 	}
 	FPlatformProcess::ExecProcess(*NosmanPath, TEXT("sdk-info 1.2.0"), &ReturnCode, &OutResults, &OutErrors, *NosmanWorkingDirectory);
+	if(ReturnCode != 0)
+		FPlatformProcess::ExecProcess(*NosmanPath, TEXT("sdk-info 15.0.0 process"), &ReturnCode, &OutResults, &OutErrors, *NosmanWorkingDirectory);
 	LOGF("Nodos SDK path is %s", *OutResults);
 
 	TSharedPtr<FJsonObject> SDKInfoJsonParsed;
