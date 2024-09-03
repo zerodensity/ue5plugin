@@ -56,8 +56,7 @@ public class NOSClient : ModuleRules
 		process.StartInfo.ArgumentList.Add("sdk-info");
 		process.StartInfo.ArgumentList.Add("1.2.0");
 		process.StartInfo.UseShellExecute = false;
-		process
-			.StartInfo.WorkingDirectory = Path.Combine(NosmanPath, "..");
+		process.StartInfo.WorkingDirectory = Path.Combine(NosmanPath, "..");
 		process.StartInfo.RedirectStandardOutput = true;
 		process.StartInfo.RedirectStandardError = true;
 		process.StartInfo.CreateNoWindow = true;
@@ -68,18 +67,35 @@ public class NOSClient : ModuleRules
 		// Print stderr or stdout if failed
 		if (process.ExitCode != 0)
 		{
-			Console.WriteLine();
-			Console.Error.WriteLine("Failed to get Nodos SDK info");
-			var errOut = process.StandardError.ReadToEnd();
-			if (!String.IsNullOrEmpty(errOut))
+			// New versions of Nosman can return specific SDK type
+			process = new System.Diagnostics.Process();
+			process.StartInfo.FileName = NosmanPath;
+			process.StartInfo.ArgumentList.Add("sdk-info");
+			process.StartInfo.ArgumentList.Add("15.0.0");
+			process.StartInfo.ArgumentList.Add("process");
+			process.StartInfo.UseShellExecute = false;
+			process.StartInfo.WorkingDirectory = Path.Combine(NosmanPath, "..");
+			process.StartInfo.RedirectStandardOutput = true;
+			process.StartInfo.RedirectStandardError = true;
+			process.StartInfo.CreateNoWindow = true;
+			process.Start();
+			process.WaitForExit();
+			output = process.StandardOutput.ReadToEnd();
+			if(process.ExitCode != 0)
 			{
-				Console.Error.WriteLine(errOut);
+				Console.WriteLine();
+				Console.Error.WriteLine("Failed to get Nodos SDK info");
+				var errOut = process.StandardError.ReadToEnd();
+				if (!String.IsNullOrEmpty(errOut))
+				{
+					Console.Error.WriteLine(errOut);
+				}
+				else if (!String.IsNullOrEmpty(output))
+				{
+					Console.Error.WriteLine(output);
+				}
+				return "";
 			}
-			else if (!String.IsNullOrEmpty(output))
-			{
-				Console.Error.WriteLine(output);
-			}
-			return "";
 		}
 		
 		if (!JsonObject.TryParse(output, out var SDKInfo))
