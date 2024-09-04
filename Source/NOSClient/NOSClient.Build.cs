@@ -24,6 +24,15 @@ public class NOSClient : ModuleRules
 		File.Copy(Filepath, path, true);
 		return path;
 	}
+	public static void LogError(string Message, bool shouldThrow = false)
+	{
+		ConsoleColor oldColor = Console.ForegroundColor;
+		Console.ForegroundColor = ConsoleColor.Red;
+		Console.Error.WriteLine(Message);
+		Console.ForegroundColor = oldColor;
+		if (shouldThrow)
+		throw new BuildException(Message);
+	}
 
 	public static string GetSDKDir(string RelativeEnginePath)
 	{
@@ -43,11 +52,9 @@ public class NOSClient : ModuleRules
 
 		if(!File.Exists(NosmanPath))
 		{
-			System.Console.WriteLine();
 			string errorMessage = "Please verify Nosman Executable exist at " +
 				"(you can provide it from BaseEditorSettings.ini and it can be relative to Engine folder or it can be an absolute path) " + NosmanPath;
-			System.Console.WriteLine(errorMessage);
-			throw new BuildException(errorMessage);
+			LogError(errorMessage, true);
 		}
 
 		//execute shell command
@@ -63,7 +70,6 @@ public class NOSClient : ModuleRules
 		process.Start();
 		process.WaitForExit();
 		string output = process.StandardOutput.ReadToEnd();
-
 		// Print stderr or stdout if failed
 		if (process.ExitCode != 0)
 		{
@@ -81,18 +87,19 @@ public class NOSClient : ModuleRules
 			process.Start();
 			process.WaitForExit();
 			output = process.StandardOutput.ReadToEnd();
+			
 			if(process.ExitCode != 0)
 			{
 				Console.WriteLine();
-				Console.Error.WriteLine("Failed to get Nodos SDK info");
+				LogError("Failed to get Nodos SDK info");
 				var errOut = process.StandardError.ReadToEnd();
 				if (!String.IsNullOrEmpty(errOut))
 				{
-					Console.Error.WriteLine(errOut);
+					LogError(errOut, true);
 				}
 				else if (!String.IsNullOrEmpty(output))
 				{
-					Console.Error.WriteLine(output);
+					LogError(output, true);
 				}
 				return "";
 			}
@@ -100,11 +107,14 @@ public class NOSClient : ModuleRules
 		
 		if (!JsonObject.TryParse(output, out var SDKInfo))
 		{
-			Console.Error.WriteLine("Failed to parse Nodos SDK info:");
-			Console.Error.WriteLine(output);
-			return "";
+			LogError("Failed to parse Nodos SDK info:");
+			LogError(output, true);
 		}
-		string SDKdir = SDKInfo.GetStringField("path");
+
+		if(!SDKInfo.TryGetStringField("path", out var SDKdir))
+		{
+			LogError("Could not find SDK path in Nodos SDK info:" + output, true);
+		}
 
 		return SDKdir;
 	}
@@ -122,9 +132,8 @@ public class NOSClient : ModuleRules
 
 				if (String.IsNullOrEmpty(SDKdir))
 				{
-					string errorMessage = "Please update NODOS_SDK_DIR environment variable";
-					System.Console.WriteLine(errorMessage);
-					throw new BuildException(errorMessage);
+					string errorMessage = "Failed to get Nodos SDK info from nodos.exe";
+					LogError(errorMessage, true);
 				}
 
 				var SDKIncludeDir = Path.Combine(SDKdir, "include");
