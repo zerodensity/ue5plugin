@@ -365,7 +365,9 @@ void NOSEventDelegates::OnNodeRemoved()
 
 	if (PluginClient->NOSTimeStep.IsValid())
 	{
-		PluginClient->NOSTimeStep->Step({ 1 , 50 });
+		GEngine->SetCustomTimeStep(nullptr);
+		PluginClient->NOSTimeStep = nullptr;
+		PluginClient->CustomTimeStepBound = false;
 	}
 
 	PluginClient->TaskQueue.Enqueue([NOSClient = PluginClient]()
@@ -547,7 +549,9 @@ void FNOSClient::Disconnected()
 {
 	if (NOSTimeStep.IsValid())
 	{
-		NOSTimeStep->Step({ 1, 50 });
+		GEngine->SetCustomTimeStep(nullptr);
+		NOSTimeStep = nullptr;
+		CustomTimeStepBound = false;
 	}
 }
 
