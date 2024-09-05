@@ -102,6 +102,15 @@ void FNOSSceneTreeManager::DeleteToBeDeletedActors()
 	ActorsToBeDeleted.Empty();
 }
 
+void FNOSSceneTreeManager::ChangeParentActors()
+{
+	for (auto& [actorGuid, parentGuid] : ActorsToBeParentChanged)
+	{
+		SendParentChanged(actorGuid, parentGuid);
+	}
+	ActorsToBeParentChanged.Empty();
+}
+
 void FNOSSceneTreeManager::OnBeginFrame()
 {
 
@@ -288,6 +297,7 @@ void FNOSSceneTreeManager::StartupModule()
 			{
 				DeleteToBeDeletedActors();
 				AddToBeAddedActors();
+				ChangeParentActors();
 				AlwaysUpdateOnActorSpawns = static_cast<bool>(properties[alwaysUpdateId][0]);
 			};
 		CustomFunctions.Add(noscf->Id, noscf);
@@ -987,6 +997,8 @@ void FNOSSceneTreeManager::OnActorDestroyed(AActor* InActor)
 		{
 			return actor.Get() == actor;
 		});
+	if (auto actorNode = SceneTree.GetNode(InActor))
+		ActorsToBeParentChanged.Remove(actorNode->Id);
 }
 
 void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentActor)
@@ -1011,12 +1023,7 @@ void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentAc
 			NewParentActorNode->Children.push_back(ActorNode->AsShared().ToSharedPtr());
 			ActorNode->Parent = NewParentActorNode;
 
-			flatbuffers::FlatBufferBuilder fb;
-			auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&ActorNode->Id, (nos::fb::UUID*)&NewParentActorNode->Id));
-			fb.Finish(offset);
-			auto buf = fb.Release();
-			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
-			NOSClient->AppServiceClient->Send(*root);
+			SendParentChangedOnUpdate(ActorNode->Id, NewParentActorNode->Id);
 		}
 	}
 }
@@ -1042,15 +1049,15 @@ void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentAc
 			parentFolder->Children.push_back(ActorNode->AsShared().ToSharedPtr());
 			ActorNode->Parent = parentFolder;
 
-			flatbuffers::FlatBufferBuilder fb;
-			auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&ActorNode->Id, (nos::fb::UUID*)&parentFolder->Id));
-			fb.Finish(offset);
-			auto buf = fb.Release();
-			auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
-			NOSClient->AppServiceClient->Send(*root);
+			
+			SendParentChangedOnUpdate(ActorNode->Id, parentFolder->Id);
+
+			if (AlwaysUpdateOnActorSpawns)
+			{
+			}
 		}
 	}
-	else
+	else if(AlwaysUpdateOnActorSpawns)
 	{
 		TSharedPtr<struct ActorNode> newNode = nullptr;
 		TSharedPtr<TreeNode> mostRecentParent;
@@ -1072,6 +1079,8 @@ void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentAc
 		auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
 		NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
 	}
+	else
+		ActorsToBeAdded.Add(Actor);
 }
 
 void FNOSSceneTreeManager::OnNOSNodeImported(nos::fb::Node const& appNode)
@@ -2534,7 +2543,6 @@ void FNOSSceneTreeManager::SendActorNodeDeleted(ActorNode* node)
 	auto buf = mb2.Release();
 	auto root = flatbuffers::GetRoot<nos::PartialNodeUpdate>(buf.data());
 	NOSClient->AppServiceClient->SendPartialNodeUpdate(*root);
-
 }
 
 void FNOSSceneTreeManager::SendActorDeletedOnUpdate(AActor* actor)
@@ -2554,6 +2562,26 @@ void FNOSSceneTreeManager::SendActorDeleted(AActor* Actor)
 	{
 		SendActorNodeDeleted(node);
 	}
+}
+
+void FNOSSceneTreeManager::SendParentChangedOnUpdate(FGuid Actor, FGuid ParentActor)
+{
+	if (AlwaysUpdateOnActorSpawns)
+	{
+		SendParentChanged(Actor, ParentActor);
+		return;
+	}
+	ActorsToBeParentChanged.Add(Actor, ParentActor);
+}
+
+void FNOSSceneTreeManager::SendParentChanged(FGuid Actor, FGuid ParentActor)
+{
+	flatbuffers::FlatBufferBuilder fb;
+	auto offset = nos::CreateAppEventOffset(fb, nos::app::CreateChangeNodeParent(fb, (nos::fb::UUID*)&Actor, (nos::fb::UUID*)&ParentActor));
+	fb.Finish(offset);
+	auto buf = fb.Release();
+	auto root = flatbuffers::GetRoot<nos::app::AppEvent>(buf.data());
+	NOSClient->AppServiceClient->Send(*root);
 }
 
 void FNOSSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
