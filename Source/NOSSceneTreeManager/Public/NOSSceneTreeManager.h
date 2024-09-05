@@ -241,9 +241,13 @@ public:
 	void SendActorAdded(AActor* actor, FString spawnTag = FString());
 
 	void SendActorDeletedOnUpdate(AActor* actor);
-	
+
 	//Deletes the node from scene tree and sends it to Nodos
 	void SendActorDeleted(AActor* Actor);
+
+	void SendParentChangedOnUpdate(FGuid Actor, FGuid ParentActor);
+
+	void SendParentChanged(FGuid Actor, FGuid ParentActor);
 
 	void SendActorNodeDeleted(ActorNode* node);
 	
@@ -281,6 +285,7 @@ public:
 	
 	void AddToBeAddedActors();
 	void DeleteToBeDeletedActors();
+	void ChangeParentActors();
 
 	bool bTwoWayBindingEnabled = false;
 	bool bTwoWayBindingStatusSent = false;
@@ -338,6 +343,7 @@ public:
 	bool AlwaysUpdateOnActorSpawns = false;
 	TArray<TWeakObjectPtr<AActor>> ActorsToBeAdded;
 	TArray<FGuid> ActorsToBeDeleted;
+	TMap<FGuid, FGuid> ActorsToBeParentChanged;
 
 	TSet<FGuid> ActorsDeletedFromNodos;
 };
