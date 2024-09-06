@@ -1,6 +1,7 @@
 // Copyright MediaZ Teknoloji A.S. All Rights Reserved.
 
 #include "NOSActorFunctions.h"
+#include "NOSSceneTreeManager.h"
 
 
 NOSFunction::NOSFunction(UObject* container, UFunction* function)
@@ -35,6 +36,11 @@ flatbuffers::Offset<nos::fb::Node> NOSFunction::Serialize(flatbuffers::FlatBuffe
 
 void NOSFunction::Invoke() // runs in game thread
 {
+	if (!IsValid(Container))
+	{
+		UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Unable to invoke function %s on invalid container"), *FunctionName);
+		return;
+	}
 	Container->Modify();
 	Container->ProcessEvent(Function, Parameters);
 }
