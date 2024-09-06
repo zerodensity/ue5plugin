@@ -945,6 +945,12 @@ void FNOSSceneTreeManager::OnActorSpawned(AActor* InActor)
 void FNOSSceneTreeManager::OnActorDestroyed(AActor* InActor)
 {
 	LOGF("%s is destroyed.", *(InActor->GetFName().ToString()));
+	if (auto ActorNode = SceneTree.GetNode(InActor))
+	{
+		// delete functions
+		for (auto& Func : ActorNode->Functions)
+			RegisteredFunctions.Remove(Func->Id);
+	}
 	SendActorDeletedOnUpdate(InActor);
 	ActorsToBeAdded.RemoveAll([&](TWeakObjectPtr<AActor> const& actor)
 		{
