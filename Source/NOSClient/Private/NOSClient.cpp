@@ -83,6 +83,17 @@ bool FNodos::Initialize()
 	FPlatformProcess::PushDllDirectory(*SdkBinPath);
 	FString SdkDllPath = FPaths::Combine(SdkBinPath, "nosAppSDK.dll");
 
+	FString CmdAppKey;
+	if (FParse::Value(FCommandLine::Get(), TEXT("nosname"), CmdAppKey))
+	{
+		LOGF("Nodos app key is provided: %s", *CmdAppKey);
+		FNOSClient::AppKey = CmdAppKey;
+	}
+	else
+	{
+		FNOSClient::AppKey = "UE5";
+	}
+	
 	if (!FPaths::FileExists(SdkDllPath))
 	{
 		UE_LOG(LogNOSClient, Error, TEXT("Failed to find the nosAppSDK.dll at %s. Plugin will not be functional."), *SdkPath);
@@ -564,16 +575,6 @@ void FNOSClient::TryConnect()
 
 	if (!AppServiceClient && FNodos::MakeAppServiceClient)
 	{
-		FString CmdAppKey;
-		if (FParse::Value(FCommandLine::Get(), TEXT("nosname"), CmdAppKey))
-		{
-			LOGF("Nodos app key is provided: %s", *CmdAppKey);
-			FNOSClient::AppKey = CmdAppKey;
-		}
-		else
-		{
-			FNOSClient::AppKey = "UE5";
-		}
 		auto ProjectPath = FPaths::ConvertRelativePathToFull(FPaths::GetProjectFilePath());
 		auto ExePath = FString(FPlatformProcess::ExecutablePath());
 		AppServiceClient = FNodos::MakeAppServiceClient("localhost:50053", nos::app::ApplicationInfo {
