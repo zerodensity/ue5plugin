@@ -12,6 +12,24 @@
 
 #define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Property size mismatch with Nodos"));return;}}
 
+struct Bounds
+{
+	std::vector<u8> def, min, max;
+	template<class T>
+	Bounds(T def, T min, T max)
+	{
+		this->def = std::vector<u8>{ (u8*)&def, (u8*)&def + sizeof(T) };
+		this->min = std::vector<u8>{ (u8*)&min, (u8*)&min + sizeof(T) };
+		this->max = std::vector<u8>{ (u8*)&max, (u8*)&max + sizeof(T) };
+	}
+};
+
+std::map<FString, Bounds> PropertyBounds =
+{
+	{ "ScreenPercentage", Bounds(1.f, 0.f, 1.f) }
+};
+
+
 bool PropertyVisibleExp(FProperty* ueproperty)
 {
 	return !ueproperty->HasAllPropertyFlags(CPF_DisableEditOnInstance) &&
@@ -155,6 +173,13 @@ NOSProperty::NOSProperty(UObject* container, FProperty* uproperty, FString paren
 		{
 			nosMetaDataMap.FindOrAdd("Tags").LeftChopInline(1);
 		}
+	}
+
+	if (auto it = PropertyBounds.find(DisplayName); it != PropertyBounds.end())
+	{
+		default_val = it->second.def;
+		min_val = it->second.min;
+		max_val = it->second.max;
 	}
 
 }
