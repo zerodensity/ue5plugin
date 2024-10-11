@@ -125,6 +125,7 @@ public:
 	virtual void ShutdownModule() override;
 
 	bool Tick(float dt);
+	bool CheckNewLevels(float dt);
 
 	void OnBeginFrame();
 	void OnEndFrame();
@@ -163,7 +164,6 @@ public:
 	void OnNOSLoadNodesOnPaths(const TArray<FString>& paths);
 	//END OF Nodos DELEGATES
 	 
-
 	void PopulateAllChildsOfActor(FGuid ActorId);
 	
 	void PopulateAllChildsOfSceneComponentNode(SceneComponentNode* SceneComponentNode);
@@ -340,6 +340,7 @@ public:
 	TArray<TWeakObjectPtr<AActor>> ActorsToBeAdded;
 	TArray<FGuid> ActorsToBeDeleted;
 	TMap<FGuid, FGuid> ActorsToBeParentChanged;
+	TSet<TWeakObjectPtr<ULevel>> AlreadyLoadedStreamingLevels;
 
 	TSet<FGuid> ActorsDeletedFromNodos;
 };
