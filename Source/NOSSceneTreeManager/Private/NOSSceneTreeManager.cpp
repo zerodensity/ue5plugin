@@ -210,7 +210,7 @@ void FNOSSceneTreeManager::StartupModule()
 
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSSceneTreeManager::Tick));
 	FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateRaw(this, &FNOSSceneTreeManager::CheckNewLevels), .5f);
-	NOSActorManager = new FNOSActorManager(this, SceneTree, NOSPropertyManager);
+	NOSActorManager = new FNOSActorManager(SceneTree);
 	//Bind to Nodos events
 	NOSClient->OnNOSNodeSelected.AddRaw(this, &FNOSSceneTreeManager::OnNOSNodeSelected);
 	NOSClient->OnNOSConnected.AddRaw(this, &FNOSSceneTreeManager::OnNOSConnected);
