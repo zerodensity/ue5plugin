@@ -295,10 +295,9 @@ public:
 		int EnumSize = Enum->NumEnums();
 		for(int i = 0; i < EnumSize; i++)
 		{
-			NameMap.Add(Enum->GetNameByIndex(i).ToString(), Enum->GetValueByIndex(i));
+			NameMap.Add(Enum->GetDisplayNameTextByIndex(i).ToString(), Enum->GetValueByIndex(i));
 		}
-
-		
+	
 		flatbuffers::FlatBufferBuilder mb;
 
 		std::vector<std::string> NameList;
