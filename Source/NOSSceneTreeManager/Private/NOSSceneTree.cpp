@@ -85,7 +85,35 @@ TSharedPtr<ActorNode> NOSSceneTree::AddActor(FString folderPath, AActor* actor, 
 		ptr = FindOrAddChildFolder(ptr, item, mostRecentParent);
 	}
 
-	auto newChild = AddActor(ptr->GetAsFolderNode(), actor);
+	TSharedPtr<ActorNode> newChild(new ActorNode);
+	newChild->Parent = ptr.Get();
+	//todo fix display names newChild->Name = actor->GetActorLabel();
+	if (FNOSSceneTreeManager::daWorld->PersistentLevel == actor->GetLevel())
+	{
+		// TODO: Shouldn't this be actor->GetFName().ToString()?
+		newChild->Name = actor->GetFName().ToString();
+		newChild->Id = StringToFGuid(actor->GetFName().ToString());
+	}
+	else
+	{
+		newChild->Name = actor->GetLevel()->GetOuter()->GetFName().ToString() + actor->GetFName().ToString();
+		newChild->Id = StringToFGuid(actor->GetFullName(actor->GetWorld()));
+	}
+	newChild->actor = NOSActorReference(actor);
+	newChild->NeedsReload = true;
+	ptr->Children.push_back(newChild);
+	NodeMap.Add(newChild->Id, newChild);
+	ActorIdToNodeId.Add(actor->GetActorGuid(), newChild->Id);
+	newChild->nosMetaData.Add(NosMetadataKeys::PinnedCategories, "Transform");
+	
+	if (actor->GetRootComponent())
+	{
+		TSharedPtr<SceneComponentNode> loadingChild(new SceneComponentNode);
+		loadingChild->Name = "Loading";
+		loadingChild->Id = FGuid::NewGuid();
+		loadingChild->Parent = newChild.Get();
+		newChild->Children.push_back(loadingChild);
+	}
 	if (!mostRecentParent)
 	{
 		mostRecentParent = newChild;
