@@ -158,13 +158,17 @@ void FNOSAssetManager::SendUMGList()
 TSet<FTopLevelAssetPath> FNOSAssetManager::GetAssetPathsOfClass(UClass* ParentClass)
 {
 	FAssetRegistryModule& AssetRegistryModule = FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	TArray< FString > ContentPaths;
-	ContentPaths.Add(TEXT("/Game"));
-	ContentPaths.Add(TEXT("/Script"));
-	ContentPaths.Add(TEXT("/Nodos"));
-	ContentPaths.Add(TEXT("/Reality"));
-	AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
-	//AssetRegistryModule.Get().WaitForCompletion(); // wait in startup to completion of the scan
+	// Scanning once should be enough, since any new assets will also be added to the registry
+	if (!AssetPathsScanned)
+	{
+		TArray< FString > ContentPaths;
+		ContentPaths.Add(TEXT("/Game"));
+		ContentPaths.Add(TEXT("/Script"));
+		ContentPaths.Add(TEXT("/Nodos"));
+		ContentPaths.Add(TEXT("/Reality"));
+		AssetRegistryModule.Get().ScanPathsSynchronous(ContentPaths);
+		AssetPathsScanned = true;
+	}
 
 	FTopLevelAssetPath BaseClassName = FTopLevelAssetPath(ParentClass);
 	TSet< FTopLevelAssetPath > DerivedAssetPaths;

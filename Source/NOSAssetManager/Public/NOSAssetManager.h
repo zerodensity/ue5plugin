@@ -87,6 +87,7 @@ public:
 	
 	//Class communicates with Nodos
 	class FNOSClient* NOSClient = nullptr;
+	bool AssetPathsScanned = false;
 
 	void ScanAssets(TAssetNameToPathMap& Map, UClass* ParentClass);
 	void SendList(const char* ListName, const TArray<FString>& Value);
