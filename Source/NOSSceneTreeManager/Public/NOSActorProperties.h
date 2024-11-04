@@ -154,6 +154,8 @@ public:
 	FString ToolTipText;
 	FString UIMaxString;
 	FString UIMinString;
+	FString ClampMinString;
+	FString ClampMaxString;
 	FString EditConditionPropertyName;
 	FProperty* EditConditionProperty = nullptr;
 	bool IsAdvanced = false;
@@ -215,6 +217,18 @@ public:
 		NOSProperty(container, uproperty, parentCategory, StructPtr, parentProperty), Property(uproperty)
 	{
 		data = std::vector<uint8_t>(sizeof(CppType), 0);
+		if (!ClampMinString.IsEmpty())
+		{
+			CppType MinVal{};
+			LexFromString(MinVal, *ClampMinString);
+			min_val = nos::Buffer::From(MinVal);
+		}
+		if (!ClampMaxString.IsEmpty())
+		{
+			CppType MaxVal{};
+			LexFromString(MaxVal, *ClampMaxString);
+			max_val = nos::Buffer::From(MaxVal);
+		}
 		TypeName = LitType.val;
 	}
 	T* Property;
@@ -487,7 +501,6 @@ public:
 protected:
 	virtual void SetProperty_InCont(void* container, void* val) override;
 };
-
 
 class NOSColorProperty : public NOSProperty
 {
