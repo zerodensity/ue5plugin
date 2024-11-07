@@ -56,7 +56,7 @@ void FNOSSceneTreeManager::OnMapChange(uint32 MapFlags)
 {
 	FString WorldName = GEditor->GetEditorWorldContext().World()->GetMapName();
 	LOGF("OnMapChange with editor world contexts world %s", *WorldName);
-	FNOSSceneTreeManager::daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
+	daWorld = GEditor ? GEditor->GetEditorWorldContext().World() : GEngine->GetCurrentPlayWorld();
 	if (!GEngine->GameViewport || !GEngine->GameViewport->IsStatEnabled("FPS"))
 	{ 
 		GEngine->Exec(daWorld, TEXT("Stat FPS"));
@@ -414,7 +414,10 @@ bool FNOSSceneTreeManager::Tick(float dt)
 
 bool FNOSSceneTreeManager::CheckNewLevels(float dt)
 {
-	auto& streamingLevels = FNOSSceneTreeManager::daWorld->GetStreamingLevels();
+	if (!IsValid(daWorld))
+		return true;
+
+	auto& streamingLevels = daWorld->GetStreamingLevels();
 	for (auto* level : streamingLevels)
 	{
 		auto loadedLevel = level->GetLoadedLevel();
@@ -812,11 +815,11 @@ void FNOSSceneTreeManager::OnPostWorldInit(UWorld* World, const UWorld::Initiali
 
 	if(GEditor && !GEditor->IsPlaySessionInProgress())
 	{
-		FNOSSceneTreeManager::daWorld = GEditor->GetEditorWorldContext().World();
+		daWorld = GEditor->GetEditorWorldContext().World();
 	}
 	else
 	{
-		FNOSSceneTreeManager::daWorld = GEngine->GetCurrentPlayWorld();
+		daWorld = GEngine->GetCurrentPlayWorld();
 	}
 }
 
@@ -1046,6 +1049,9 @@ void FNOSSceneTreeManager::OnActorAttached(AActor* Actor, const AActor* ParentAc
 
 void FNOSSceneTreeManager::OnActorDetached(AActor* Actor, const AActor* ParentActor)
 {
+	if (!IsValid(daWorld))
+		return;
+
 	LOG("Actor Detached");
 	
 	if(!FNOSClient::NodeId.IsValid() || !daWorld->ContainsActor(Actor) || !IsValid(Actor) || Actor->IsPendingKillPending())
@@ -1667,50 +1673,30 @@ void FNOSSceneTreeManager::DisconnectViewportTexture()
 void FNOSSceneTreeManager::RescanScene(bool reset)
 {
 	if (reset)
-	{
 		Reset();
-	}
 
-	UWorld* World = FNOSSceneTreeManager::daWorld;
+	if (!IsValid(daWorld))
+		return;
 
 	flatbuffers::FlatBufferBuilder fbb;
 	std::vector<flatbuffers::Offset<nos::fb::Node>> actorNodes;
 	TArray<AActor*> ActorsInScene;
-	if (IsValid(World))
+	for (TActorIterator< AActor > ActorItr(daWorld); ActorItr; ++ActorItr)
 	{
-		
-		for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
-		{
-			if (!IsActorDisplayable(*ActorItr))
-			{
-				continue;
-			}
-			AActor* parent = ActorItr->GetSceneOutlinerParent();
+		if (!IsActorDisplayable(*ActorItr))
+			continue;
 
-			if (parent)
-			{
-				// if (SceneTree.ChildMap.Contains(parent->GetActorGuid()))
-				// {
-				// 	SceneTree.ChildMap.Find(parent->GetActorGuid())->Add(*ActorItr);
-				// }
-				// else
-				// {
-				// 	SceneTree.ChildMap.FindOrAdd(parent->GetActorGuid()).Add(*ActorItr);
-				// }
-				continue;
-			}
+		if (ActorItr->GetSceneOutlinerParent())
+			continue;
 
-			ActorsInScene.Add(*ActorItr);
-			auto newNode = SceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
-			if (newNode)
-			{
-				newNode->actor = NOSActorReference(*ActorItr);
-			}
-		}
-#ifdef VIEWPORT_TEXTURE
-		ConnectViewportTexture();
-#endif
+		ActorsInScene.Add(*ActorItr);
+		auto newNode = SceneTree.AddActor(ActorItr->GetFolder().GetPath().ToString(), *ActorItr);
+		if (newNode)
+			newNode->actor = NOSActorReference(*ActorItr);
 	}
+#ifdef VIEWPORT_TEXTURE
+	ConnectViewportTexture();
+#endif
 	LOG("SceneTree is constructed.");
 }
 
@@ -2613,20 +2599,20 @@ void FNOSSceneTreeManager::PopulateAllChildsOfActor(AActor* actor)
 
 void FNOSSceneTreeManager::ReloadCurrentMap()
 {
-	if (daWorld)
-	{
+	if (!IsValid(daWorld))
+		return;
+
 #ifdef NOS_RELOAD_MAP_ON_EDIT_MODE
-		if(GEditor && !GEditor->IsPlaySessionInProgress())
-		{
-			const FString FileToOpen = FPackageName::LongPackageNameToFilename(daWorld->GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
-			const bool bLoadAsTemplate = false;
-			const bool bShowProgress = true;
-			FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
-		}
-		else
-#endif
-			UGameplayStatics::OpenLevel(daWorld, daWorld->GetFName());
+	if(GEditor && !GEditor->IsPlaySessionInProgress())
+	{
+		const FString FileToOpen = FPackageName::LongPackageNameToFilename(daWorld->GetOutermost()->GetName(), FPackageName::GetMapPackageExtension());
+		const bool bLoadAsTemplate = false;
+		const bool bShowProgress = true;
+		FEditorFileUtils::LoadMap(FileToOpen, bLoadAsTemplate, bShowProgress);
 	}
+	else
+#endif
+		UGameplayStatics::OpenLevel(daWorld, daWorld->GetFName());
 }
 
 void FNOSSceneTreeManager::PopulateAllChildsOfActor(FGuid ActorId)
@@ -2852,9 +2838,11 @@ void FNOSSceneTreeManager::HandleWorldChange()
 
 UObject* FNOSSceneTreeManager::FindContainer(FGuid ActorId, FString ComponentName)
 {
+	if (!IsValid(daWorld))
+		return nullptr;
+
 	UObject* Container = nullptr;
-	UWorld* World = FNOSSceneTreeManager::daWorld;
-	for (TActorIterator< AActor > ActorItr(World); ActorItr; ++ActorItr)
+	for (TActorIterator< AActor > ActorItr(daWorld); ActorItr; ++ActorItr)
 	{
 		if(ActorItr->GetActorGuid() == ActorId)
 		{
@@ -3075,37 +3063,36 @@ void FNOSActorManager::ClearActors()
 	}
 	for (auto& [Actor, spawnTag] : Actors)
 	{
-		AActor* actor = Actor.Get();
-		if (actor)
+		if (AActor* actor = Actor.Get())
 			actor->Destroy(false, false);
 	}
-	// When Play starts then actors are duplicated from Editor world into newly created PIE world.
-	if (FNOSSceneTreeManager::daWorld)
-	{
-		EWorldType::Type CurrentWorldType = FNOSSceneTreeManager::daWorld->WorldType.GetValue();
-		if (CurrentWorldType == EWorldType::PIE)
-		{
-			// Actor was removed from PIE world. Remove him also from Editor world.
-			UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
-			ParentTransformActor.UpdateActorPointer(EditorWorld);
-			if(ParentTransformActor)
-			{
-				ParentTransformActor->Destroy();
-			}
-			for (auto& [Actor, spawnTag] : Actors)
-			{
-				Actor.UpdateActorPointer(EditorWorld);
-				AActor* actor = Actor.Get();
-				if (actor)
-					actor->Destroy(false, false);
-			}
-		}
-	}
-	
 	// Clear local structures.
 	ActorIds.Reset();
 	Actors.Reset();
 	SceneTree.Clear();
+
+	// When Play starts then actors are duplicated from Editor world into newly created PIE world.
+	if (!IsValid(FNOSSceneTreeManager::daWorld))
+		return;
+
+	EWorldType::Type CurrentWorldType = FNOSSceneTreeManager::daWorld->WorldType.GetValue();
+	if (CurrentWorldType == EWorldType::PIE)
+	{
+		// Actor was removed from PIE world. Remove him also from Editor world.
+		UWorld* EditorWorld = GEditor->GetEditorWorldContext().World();
+		ParentTransformActor.UpdateActorPointer(EditorWorld);
+		if(ParentTransformActor)
+		{
+			ParentTransformActor->Destroy();
+		}
+		for (auto& [Actor, spawnTag] : Actors)
+		{
+			Actor.UpdateActorPointer(EditorWorld);
+			AActor* actor = Actor.Get();
+			if (actor)
+				actor->Destroy(false, false);
+		}
+	}
 }
 
 void FNOSActorManager::ReAddActorsToSceneTree()

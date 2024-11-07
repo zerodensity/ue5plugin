@@ -123,6 +123,9 @@ TSharedPtr<ActorNode> NOSSceneTree::AddActor(FString folderPath, AActor* actor, 
 
 TSharedPtr<ActorNode> NOSSceneTree::AddActor(TreeNode* parent, AActor* actor)
 {
+	if (!IsValid(FNOSSceneTreeManager::daWorld))
+		return nullptr;
+
 	if (!actor)
 	{
 		return nullptr;
