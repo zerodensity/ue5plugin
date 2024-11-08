@@ -5,6 +5,7 @@
 #pragma once
 
 #include <concrt.h>
+#include "HAL/Runnable.h"
 
 class NOSGPUFailSafeRunnable final : public FRunnable
 {

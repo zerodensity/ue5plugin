@@ -3,6 +3,9 @@
 #include "NOSLicenseManager.h"
 #include "NOSClient.h"
 #include "NOSSceneTreeManager.h"
+#include "GameFramework/Actor.h"
+#include "Components/SceneComponent.h"
+#include "UObject/UnrealType.h"
 
 FNOSLicenseManager::FNOSLicenseManager()
 {

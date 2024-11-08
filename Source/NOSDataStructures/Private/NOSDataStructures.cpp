@@ -1,6 +1,7 @@
 // Copyright MediaZ Teknoloji A.S. All Rights Reserved.
 
 #include "NOSDataStructures.h"
+#include "Modules/ModuleManager.h"
 
 FNOSDataStructures::FNOSDataStructures()
 {

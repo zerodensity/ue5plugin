@@ -4,6 +4,7 @@
 
 #pragma once
 #include "CoreMinimal.h"
+#include "Modules/ModuleInterface.h"
 
 class NOSVIEWPORTMANAGER_API FNOSViewportManager : public IModuleInterface
 {

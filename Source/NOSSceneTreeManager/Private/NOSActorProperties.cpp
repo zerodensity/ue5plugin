@@ -9,6 +9,7 @@
 #include "Blueprint/UserWidget.h"
 #include "NOSSceneTreeManager.h"
 #include "PropertyEditorModule.h"
+#include "Engine/Engine.h"
 
 #define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Property size mismatch with Nodos"));return;}}
 

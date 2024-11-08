@@ -7,8 +7,11 @@
 #include "Engine/EngineTypes.h"
 
 #include "CoreMinimal.h"
+#include "Containers/Queue.h"
 #include <numeric>
 #include "Logging/LogMacros.h"
+#include "Engine/World.h"
+#include "Modules/ModuleInterface.h"
 
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)
@@ -19,8 +22,6 @@
 #include "AppEvents_generated.h"
 #include <nosFlatBuffersCommon.h>
 #include <functional> 
-
-
 
 struct ExecuteInfo
 {

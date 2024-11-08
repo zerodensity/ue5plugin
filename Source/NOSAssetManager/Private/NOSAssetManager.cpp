@@ -10,9 +10,15 @@
 #include "UObject/SoftObjectPath.h"
 #include "Blueprint/UserWidget.h"
 #include "UObject/Object.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/StaticMeshActor.h"
+#include "Components/StaticMeshComponent.h"
+#include "StaticMeshResources.h"
 #include "Engine/TextureRenderTarget2D.h"
-
+#include "Engine/Engine.h"
+#include "AssetRegistry/AssetData.h"
+#include "Editor/EditorEngine.h"
+#include "Materials/Material.h"
 #include <vector>
 
 IMPLEMENT_MODULE(FNOSAssetManager, NOSAssetManager)

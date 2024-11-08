@@ -4,6 +4,8 @@
 
 #pragma once
 #include "CoreMinimal.h"
+#include "UObject/UnrealType.h"
+#include "UObject/TextProperty.h"
 #include <vector>
 #pragma warning (disable : 4800)
 #pragma warning (disable : 4668)

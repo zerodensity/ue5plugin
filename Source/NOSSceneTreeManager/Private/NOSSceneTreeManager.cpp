@@ -19,6 +19,10 @@
 #include "HardwareInfo.h"
 #include "LevelSequence.h"
 #include "PacketHandler.h"
+#include "Editor.h"
+#include "Misc/MessageDialog.h"
+#include "Engine/LevelStreaming.h"
+#include "Engine/Blueprint.h"
 
 DEFINE_LOG_CATEGORY(LogNOSSceneTreeManager);
 #define LOG(x) UE_LOG(LogNOSSceneTreeManager, Display, TEXT(x))

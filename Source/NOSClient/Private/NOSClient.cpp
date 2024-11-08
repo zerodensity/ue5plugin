@@ -17,8 +17,11 @@
 #include "ShaderCompiler.h"
 #include "AssetCompilingManager.h"
 #include "Interfaces/IPluginManager.h"
-#include "Json.h"
-
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonSerializer.h"
+#include "Serialization/JsonReader.h"
+#include "Engine/GameViewportClient.h"
+#include "Modules/ModuleManager.h"
 
 //Nodos
 #include "nosFlatBuffersCommon.h"

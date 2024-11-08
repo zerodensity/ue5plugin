@@ -3,8 +3,12 @@
  */
 
 #pragma once
+#include "CoreMinimal.h"
 #include "Modules/ModuleInterface.h"
 
+class AActor;
+class USceneComponent;
+class FProperty;
 class NOSLICENSEMANAGER_API FNOSLicenseManager : public IModuleInterface
 {
 public:

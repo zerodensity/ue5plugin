@@ -20,6 +20,8 @@
 #include "D3D12CommandContext.h"
 #include "RHI.h"
 #include "NOSActorProperties.h"
+#include "RHIResources.h"
+#include "TextureResource.h"
 
 #include "NOSClient.h"
 
