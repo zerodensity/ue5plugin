@@ -74,7 +74,7 @@ FString FNodos::GetNodosSDKDir()
 		return "";
 	}
 
-	FString SDKPath = SDKInfoJsonParsed->GetStringField("path");
+	FString SDKPath = SDKInfoJsonParsed->GetStringField(TEXT("path"));
 
 	return SDKPath;
 }
@@ -318,15 +318,15 @@ void NOSEventDelegates::OnConsoleAutoCompleteSuggestionRequest(
 		{
 		    auto CmdExec = MakeUnique<FConsoleCommandExecutor>();
 		    //IModularFeatures::Get().RegisterModularFeature(IConsoleCommandExecutor::ModularFeatureName(), CmdExec.Get());
-		    TArray<FString> out; 
-			CmdExec->GetAutoCompleteSuggestions(*InputString, out);
+		    TArray<FConsoleSuggestion> out; 
+			CmdExec->GetSuggestedCompletions(*InputString, out);
 
 			flatbuffers::FlatBufferBuilder mb;
 			std::vector<flatbuffers::Offset<flatbuffers::String>> suggestions;
 
 			for(auto sugg : out)
 			{
-				suggestions.push_back(mb.CreateString(TCHAR_TO_UTF8(*sugg)));
+				suggestions.push_back(mb.CreateString(TCHAR_TO_UTF8(*sugg.Name)));
 			}
 		    auto offset = nos::CreateAppEventOffset(mb, nos::app::CreateConsoleAutoCompleteSuggestionsUpdateDirect(mb, &suggestions));
 		    mb.Finish(offset);
@@ -696,7 +696,7 @@ void FNOSClient::StartupModule() {
 	auto hwinfo = FHardwareInfo::GetHardwareInfo(NAME_RHI);
 	if ("D3D12" != hwinfo)
 	{
-		FMessageDialog::Debugf(FText::FromString("Nodos plugin supports DirectX12 only!"), 0);
+		FMessageDialog::Debugf(FText::FromString("Nodos plugin supports DirectX12 only!"));
 		return;
 	}
 
@@ -935,5 +935,5 @@ nos::fb::TNodeStatusMessage FPSCounter::GetNodeStatusMessage() const
 #pragma optimize("", on)
 #undef LOCTEXT_NAMESPACE
 
-IMPLEMENT_MODULE(FNOSClient, ClientImpl)
+IMPLEMENT_MODULE(FNOSClient, NOSClient)
 

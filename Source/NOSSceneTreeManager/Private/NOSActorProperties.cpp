@@ -11,7 +11,7 @@
 #include "PropertyEditorModule.h"
 #include "Engine/Engine.h"
 
-#define CHECK_PROP_SIZE() {if (size != Property->ElementSize){UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Property size mismatch with Nodos"));return;}}
+#define CHECK_PROP_SIZE() {if (size != Property->GetElementSize()){UE_LOG(LogNOSSceneTreeManager, Error, TEXT("Property size mismatch with Nodos"));return;}}
 
 struct Bounds
 {
@@ -606,7 +606,7 @@ void NOSColorProperty::SetArrayPropValues(void* val, size_t size, FScriptArrayHe
 	for(int i = 0; i < ct; i++)
 	{
 		ArrayHelper.ExpandForIndex(i);
-		uint8_t* el = vec->data() + (i * Property->ElementSize);
+		uint8_t* el = vec->data() + (i * Property->GetElementSize());
 		uint8_t r = ((uint8_t*)el)[0];
 		uint8_t g = ((uint8_t*)el)[1];
 		uint8_t b = ((uint8_t*)el)[2];

@@ -280,7 +280,7 @@ public:
 		for(int i = 0; i < ct; i++)
 		{
 			ArrayHelper.ExpandForIndex(i);
-			uint8_t* el = vec->data() + (i * Property->ElementSize);
+			uint8_t* el = vec->data() + (i * Property->GetElementSize());
 			Property->SetPropertyValue(ArrayHelper.GetRawPtr(i), (*(CppType*)el));
 		}
 	}
@@ -473,7 +473,7 @@ public:
 		for(int i = 0; i < ct; i++)
 		{
 			ArrayHelper.ExpandForIndex(i);
-			uint8_t* el = vec->data() + (i * Property->ElementSize);
+			uint8_t* el = vec->data() + (i * Property->GetElementSize());
 			structprop->CopyCompleteValue(ArrayHelper.GetRawPtr(i), (T*)el);
 		}
 	}

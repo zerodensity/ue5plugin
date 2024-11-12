@@ -22,6 +22,7 @@
 #include "NOSActorProperties.h"
 #include "RHIResources.h"
 #include "TextureResource.h"
+#include "RenderGraphEvent.h"
 
 #include "NOSClient.h"
 
@@ -385,16 +386,8 @@ void NOSTextureShareManager::ProcessCopies(nos::fb::ShowAs CopyShowAs, TMap<NOSP
 	ENQUEUE_RENDER_COMMAND(FNOSClient_CopyOnTick)(
 		[this, CopyShowAs, CopiesFiltered, frameNumber = FrameCounter](FRHICommandListImmediate& RHICmdList)
 		{
-			if (CopyShowAs == nos::fb::ShowAs::OUTPUT_PIN)
-			{
-				FString EventLabel("Nodos Output Copies");
-				RHICmdList.PushEvent(*EventLabel, FColor::Red);
-			}
-			else
-			{
-				FString EventLabel("Nodos Input Copies");
-				RHICmdList.PushEvent(*EventLabel, FColor::Red);
-			}
+			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, NodosCopies_Output, CopyShowAs == nos::fb::ShowAs::OUTPUT_PIN, TEXT("Nodos Copies(Output)"));
+			SCOPED_CONDITIONAL_DRAW_EVENTF(RHICmdList, NodosCopies_Input, CopyShowAs == nos::fb::ShowAs::INPUT_PIN, TEXT("Nodos Copies(Input)"));
 			TMap<ID3D12Fence*, u64> SignalGroup;
 			SetupFences(RHICmdList, CopyShowAs, SignalGroup, frameNumber);
 			for (auto& [URT, pin] : CopiesFiltered)
@@ -426,7 +419,6 @@ void NOSTextureShareManager::ProcessCopies(nos::fb::ShowAs CopyShowAs, TMap<NOSP
 					GetID3D12DynamicRHI()->RHISignalManualFence(ExecutingCmdList, fence, val);
 				});
 			}
-			RHICmdList.PopEvent();
 		});
 }
 
